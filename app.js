@@ -1722,30 +1722,16 @@ document.getElementById("globalSearchInput")?.addEventListener("keydown", e => {
   }
 });
 signInBtn.addEventListener("click", signInForSync);
-passwordSignInBtn?.addEventListener("click", signInWithPasswordForSync);
 signOutBtn.addEventListener("click", signOutForSync);
 authEmail.addEventListener("keydown", e => { if(e.key === "Enter") signInForSync(); });
-authPassword?.addEventListener("keydown", e => { if(e.key === "Enter") signInWithPasswordForSync(); });
 loginSignInBtn?.addEventListener("click", () => {
   authEmail.value = loginEmail.value;
   signInForSync();
-});
-loginPasswordSignInBtn?.addEventListener("click", () => {
-  authEmail.value = loginEmail.value;
-  authPassword.value = loginPassword.value;
-  signInWithPasswordForSync();
 });
 loginEmail?.addEventListener("keydown", e => {
   if(e.key === "Enter"){
     authEmail.value = loginEmail.value;
     signInForSync();
-  }
-});
-loginPassword?.addEventListener("keydown", e => {
-  if(e.key === "Enter"){
-    authEmail.value = loginEmail.value;
-    authPassword.value = loginPassword.value;
-    signInWithPasswordForSync();
   }
 });
 loginDemoBtn?.addEventListener("click", startSessionDemo);
