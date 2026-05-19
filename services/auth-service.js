@@ -149,12 +149,19 @@
     const email = document.getElementById("authEmail").value.trim();
     const password = document.getElementById("authPassword")?.value || "";
     if(!email || !password){
-      alert("Enter your email and pilot password.");
+      alert("Enter your email and account password. If you never set a password, use the email sign-in link instead.");
       return;
     }
     const { error } = await SessionApi.signInWithPassword(ctx.supabaseClient, email, password);
     if(error){
-      alert("Password sign-in failed: " + error.message);
+      const message = String(error.message || "");
+      const lower = message.toLowerCase();
+      const friendly = lower.includes("invalid login credentials")
+        ? "That email/password combination did not work. If this account was created by email link, it may not have a password yet. Use Email sign-in link, or set a password for this user in Supabase Auth."
+        : lower.includes("email not confirmed")
+          ? "This email needs to be confirmed before password sign-in will work. Use the email sign-in link first."
+          : `Password sign-in failed: ${message}`;
+      alert(friendly);
       return;
     }
     ctx.setStatus("Signed in. Loading workspace...");
