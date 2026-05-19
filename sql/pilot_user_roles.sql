@@ -26,7 +26,7 @@ begin
 
   insert into _pilot_user_roles (email, role)
   values
-    ('owner@example.com', 'owner'),
+    ('squatchworksnw@gmail.com', 'owner'),
     ('admin@example.com', 'admin'),
     ('submitter@example.com', 'submitter');
 
@@ -100,6 +100,7 @@ join public.field_ops_workspaces w on w.id = m.workspace_id
 join auth.users u on u.id = m.user_id
 where lower(u.email) in (
   lower('owner@example.com'),
+  lower('squatchworksnw@gmail.com'),
   lower('admin@example.com'),
   lower('submitter@example.com')
 )

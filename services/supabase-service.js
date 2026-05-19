@@ -90,6 +90,18 @@
     return supabaseClient.rpc("field_ops_create_fuel_receipt_with_budget", payload);
   }
 
+  function listWorkspaceMembers(workspaceId){
+    return supabaseClient.rpc("field_ops_list_workspace_members", { p_workspace_id: workspaceId });
+  }
+
+  function setMemberRoleByEmail(workspaceId, email, role){
+    return supabaseClient.rpc("field_ops_set_member_role_by_email", {
+      p_workspace_id: workspaceId,
+      p_email: email,
+      p_role: role
+    });
+  }
+
   window.FieldOps.Services.supabase = {
     SUPABASE_URL,
     SUPABASE_KEY,
@@ -105,7 +117,9 @@
     insertDocumentMetadata,
     uploadDocument,
     createDocumentPreviewUrl,
-    createFuelReceiptWithBudget
+    createFuelReceiptWithBudget,
+    listWorkspaceMembers,
+    setMemberRoleByEmail
   };
 })();
 

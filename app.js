@@ -10,7 +10,9 @@
   restoreRow,
   insertDocumentMetadata,
   uploadDocument,
-  createDocumentPreviewUrl
+  createDocumentPreviewUrl,
+  listWorkspaceMembers,
+  setMemberRoleByEmail
 } = window.FieldOps.Services.supabase;
 const {
   esc,
@@ -712,6 +714,73 @@ function renderSettings(){
   if(settingsWorkspaceId) settingsWorkspaceId.textContent = currentWorkspace ? `${currentWorkspace.name} (${currentWorkspace.id})` : "Not loaded";
   renderPendingQueueState();
   renderDiagnostics();
+  refreshPeopleRoles(false);
+}
+
+function renderPeopleRoleList(members = []){
+  const target = document.getElementById("peopleRoleList");
+  const status = document.getElementById("peopleRoleStatus");
+  if(!target) return;
+  if(!isOwner()){
+    target.innerHTML = empty("Owner access is required to manage people.");
+    if(status) status.textContent = "Only Owners can manage people here.";
+    return;
+  }
+  if(!members.length){
+    target.innerHTML = empty("No people loaded yet.");
+    return;
+  }
+  target.innerHTML = members.map(member => card(member.email || "Unknown email", [
+    `Role: ${titleize(member.role || "member")}`,
+    member.updated_at ? `Updated: ${new Date(member.updated_at).toLocaleString()}` : ""
+  ], [member.role || "member"], member.role === "owner" ? "good" : "neutral")).join("");
+}
+
+async function refreshPeopleRoles(showErrors = true){
+  const status = document.getElementById("peopleRoleStatus");
+  if(!isAuthenticated() || !currentWorkspace || !isOwner()){
+    renderPeopleRoleList([]);
+    return;
+  }
+  try{
+    if(status) status.textContent = "Loading people...";
+    const { data, error } = await listWorkspaceMembers(workspaceId());
+    if(error) throw error;
+    renderPeopleRoleList(data || []);
+    if(status) status.textContent = `${(data || []).length} person${(data || []).length === 1 ? "" : "s"} in this workspace.`;
+  }catch(err){
+    console.error(err);
+    if(status) status.textContent = "People could not load. Run sql/owner_manage_memberships.sql in Supabase first.";
+    if(showErrors) alert("People could not load: " + err.message);
+  }
+}
+
+async function savePeopleRole(event){
+  event.preventDefault();
+  if(!requireOwnerPermission("manage people and roles")) return;
+  const email = document.getElementById("peopleRoleEmail")?.value.trim();
+  const role = document.getElementById("peopleRoleSelect")?.value;
+  const status = document.getElementById("peopleRoleStatus");
+  if(!email || !role){
+    if(status) status.textContent = "Enter an email and choose a role.";
+    return;
+  }
+  try{
+    if(status) status.textContent = "Saving person...";
+    const { error } = await setMemberRoleByEmail(workspaceId(), email, role);
+    if(error) throw error;
+    if(status) status.textContent = `${email} is now ${titleize(role)}.`;
+    document.getElementById("peopleRoleForm")?.reset();
+    await refreshPeopleRoles(false);
+  }catch(err){
+    console.error(err);
+    const message = String(err.message || "");
+    const friendly = message.includes("does not exist")
+      ? "That email is not a Supabase user yet. Add or invite them in Authentication > Users first, then try again."
+      : message;
+    if(status) status.textContent = friendly;
+    alert(friendly);
+  }
 }
 
 function renderDiagnostics(){
@@ -1762,6 +1831,7 @@ workspaceNote.addEventListener("change", e => { app.settings.workspaceNote = e.t
 backupUpload.addEventListener("change", e=>{ if(e.target.files[0]) uploadBackup(e.target.files[0]); e.target.value=""; });
 spreadsheetUpload.addEventListener("change", e=>{ if(e.target.files[0]) handleSpreadsheetFile(e.target.files[0]); e.target.value=""; });
 pdfUpload.addEventListener("change", e=>{ if(e.target.files[0]) handlePdfFile(e.target.files[0]); e.target.value=""; });
+document.getElementById("peopleRoleForm")?.addEventListener("submit", savePeopleRole);
 
 if(window.pdfjsLib){
   pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js";
