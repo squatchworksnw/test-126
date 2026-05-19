@@ -153,6 +153,7 @@
         <button type="button" onclick="showView('workOrders')">New Work Order</button>
         <button type="button" class="ghost" data-open-add-new>Add</button>
         <button type="button" class="ghost" onclick="showView('documents')">Upload Document</button>
+        <button type="button" class="ghost" data-admin-only onclick="openCalendarWaitingRoom()">Load Master Calendar</button>
         <button type="button" class="ghost" onclick="showView('vehicles')">Fleet Status</button>
         <button type="button" class="ghost" onclick="buildReport(true)">Generate Report</button>
       </div>
@@ -670,7 +671,10 @@
           <h2>Upload Something</h2>
           <p class="meta">Upload a photo, receipt, PDF estimate or invoice, spreadsheet, or supporting file. Uploads go to Needs Review first. Uploading a receipt or proof helps route and review the expense, but does not replace any required accounting receipt process. Accounting routing can be added later if needed.</p>
         </div>
-        <button class="ghost" type="button" data-admin-only onclick="showView('importCenter')">Extract From File</button>
+        <div class="actions">
+          <button class="ghost" type="button" data-admin-only onclick="openCalendarWaitingRoom()">Load Master Calendar</button>
+          <button class="ghost" type="button" data-admin-only onclick="showView('importCenter')">Review File Data</button>
+        </div>
       </div>
       <form id="fileForm" class="mobile-upload-form">
         <label>File name or link<input id="fileName" required placeholder="estimate.pdf, inspection report, photo link..." /></label>
@@ -717,8 +721,8 @@
     <section class="panel">
       <div class="panel-title">
         <div>
-          <h2>Admin Import Tools</h2>
-          <p class="meta">Pull information from Excel, CSV, and PDF files into Needs Review before it becomes active work.</p>
+          <h2>Calendar + File Waiting Room</h2>
+          <p class="meta">Look over calendar, spreadsheet, CSV, and PDF information here before it becomes real work.</p>
         </div>
       </div>
 
@@ -726,8 +730,8 @@
         <section class="panel" style="box-shadow:none;">
           <div class="panel-title">
             <div>
-              <h3>Excel / CSV Import</h3>
-              <p class="meta">Best for task lists, bid logs, project lists, and fleet records.</p>
+              <h3>Spreadsheet or Calendar</h3>
+              <p class="meta">Use this for the master calendar, task lists, bid logs, project lists, and fleet records.</p>
             </div>
           </div>
 
@@ -751,11 +755,11 @@
               Choose Excel / CSV File
               <input id="spreadsheetUpload" type="file" accept=".csv,.xlsx,.xls" hidden />
             </label>
-            <button type="button" class="ghost" onclick="loadBundledRecurringSchedulePreview()">Preview Recurring Schedule</button>
-            <button type="button" class="ghost" onclick="loadBundledMasterCalendarPreview()">Preview Full Master Calendar</button>
+            <button type="button" class="ghost" onclick="loadBundledRecurringSchedulePreview()">Look at Recurring Schedule</button>
+            <button type="button" onclick="loadBundledMasterCalendarPreview()">Load Master Calendar</button>
           </div>
 
-          <p class="meta small">For a careful first pass, use <strong>Recurring Schedule only</strong>. To bring in the full May 2026-April 2027 workbook, use <strong>Preview Full Master Calendar</strong>; rows are staged through Needs Review in small batches.</p>
+          <p class="meta small">The master calendar opens here first. Nothing becomes a real work order until you move items to Needs Review and approve them.</p>
         </section>
 
         <section class="panel" style="box-shadow:none;">
@@ -805,14 +809,14 @@
       <div class="panel-title">
         <div>
           <h3>Column Matching</h3>
-          <p class="meta">Fix or match spreadsheet columns before rows are staged in Needs Review.</p>
+          <p class="meta">Look over what was found, then move the right items to Needs Review.</p>
         </div>
       </div>
       <div id="mappingPanel" class="card-list"></div>
       <div class="actions">
-        <button type="button" onclick="stageMappedRows()">Stage Matched Rows</button>
-        <button type="button" class="ghost" onclick="stageSelectedRecurringRowsToReview()">Send Selected Recurring Rows to Needs Review</button>
-        <button type="button" onclick="approveSelectedRecurringRows()">Approve Selected Recurring Rows</button>
+        <button type="button" onclick="stageMappedRows()">Move Matched Rows to Needs Review</button>
+        <button type="button" class="ghost" onclick="stageSelectedRecurringRowsToReview()">Move Selected Recurring Rows to Needs Review</button>
+        <button type="button" onclick="approveSelectedRecurringRows()">Approve Selected Recurring Rows Into Work</button>
       </div>
     </section>
   </section>

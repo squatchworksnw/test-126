@@ -1345,16 +1345,16 @@ function renderMasterCalendarBundlePreview(target){
   const visible = rows.slice(0, 160);
   target.innerHTML = `
     <article class="card recurring-import-summary">
-      <h4>Full Master Calendar preview</h4>
-      <p>${rows.length} usable item${rows.length === 1 ? "" : "s"} found. Nothing is made active from this screen; rows are sent to <strong>Needs Review</strong> first.</p>
-      <p class="meta">To avoid crashes and duplicate records, stage the workbook in batches of up to 100 items. Blank Mileage and Repair logs are skipped until they have entries.</p>
+      <h4>Master Calendar Waiting Room</h4>
+      <p>${rows.length} calendar item${rows.length === 1 ? "" : "s"} found. They are waiting here so you can choose what becomes real work.</p>
+      <p class="meta">Move a small batch to Needs Review first. Blank Mileage and Repair logs were ignored because they do not have entries yet.</p>
       <div class="quick-actions compact">
         ${Object.entries(counts).map(([route, count]) => `<span class="pill">${esc(masterRouteLabel(route))}: ${count}</span>`).join("")}
       </div>
       <div class="actions">
-        <button type="button" onclick="stageMasterCalendarRowsToReview(100)">Send next 100 to Needs Review</button>
+        <button type="button" onclick="stageMasterCalendarRowsToReview(100)">Move next 100 to Needs Review</button>
       </div>
-      <p class="meta small">${newCount} item${newCount === 1 ? "" : "s"} not yet staged. ${rows.length - visible.length > 0 ? `Showing the first ${visible.length} as a preview.` : "Showing all preview rows."}</p>
+      <p class="meta small">${newCount} item${newCount === 1 ? "" : "s"} still waiting here. ${rows.length - visible.length > 0 ? `Showing the first ${visible.length} so the screen stays usable.` : "Showing all waiting items."}</p>
     </article>
     <div class="recurring-preview-list">
       ${visible.map(row => {
@@ -1363,12 +1363,19 @@ function renderMasterCalendarBundlePreview(target){
           <span>
             <strong>${esc(row.title)}</strong>
             <em>${esc(masterRouteLabel(row.route))} - ${esc(row.subtitle || "")}</em>
-            <small>${esc(row.confidence || "Ready for review")}${duplicate ? " - Already staged" : ""}</small>
+            <small>${esc(row.confidence || "Ready for review")}${duplicate ? " - Already moved to review" : ""}</small>
           </span>
         </article>`;
       }).join("")}
     </div>
   `;
+}
+
+async function openCalendarWaitingRoom(){
+  if(!requireOperationsPermission("load the master calendar")) return;
+  showView("importCenter");
+  await loadBundledMasterCalendarPreview();
+  document.getElementById("mappingPanel")?.scrollIntoView({ behavior:"smooth", block:"start" });
 }
 
 async function loadBundledMasterCalendarPreview(){
@@ -1395,8 +1402,8 @@ async function loadBundledMasterCalendarPreview(){
       }, null, 2);
     }
     renderMappingPanel();
-    setStatus(`${rows.length} master calendar items ready to review in batches.`);
-    InteractionService?.showToast?.(`${rows.length} master calendar items ready to review`, "saved");
+    setStatus(`${rows.length} master calendar items are waiting for review.`);
+    InteractionService?.showToast?.(`${rows.length} master calendar items loaded`, "saved");
   }catch(err){
     handleWriteError(err);
   }
@@ -1596,7 +1603,7 @@ async function stageMasterCalendarRowsToReview(limit = 100){
     const recurringKeys = existingRecurringKeys();
     const candidates = stagedImport.rows.filter(row => row?.data?.master_import_key && !isMasterRowAlreadyStaged(row, keys, recurringKeys));
     if(!candidates.length){
-      alert("Everything in this master calendar preview is already staged or active.");
+      alert("Everything from this master calendar has already been moved to Needs Review or active work.");
       return;
     }
     const batch = candidates.slice(0, Math.max(1, Number(limit) || 100));
@@ -1615,7 +1622,7 @@ async function stageMasterCalendarRowsToReview(limit = 100){
     }
     await loadWorkspaceData();
     renderMappingPanel();
-    alert(`${added} master calendar item${added === 1 ? "" : "s"} sent to Needs Review. Run the batch again for the next set.`);
+    alert(`${added} calendar item${added === 1 ? "" : "s"} moved to Needs Review. Run the batch again when you are ready for the next set.`);
   }catch(err){
     handleWriteError(err);
   }
