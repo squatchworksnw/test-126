@@ -1,4 +1,4 @@
-(function(){
+﻿(function(){
   window.FieldOps = window.FieldOps || {};
   window.FieldOps.Auth = window.FieldOps.Auth || {};
 
@@ -56,3 +56,4 @@
 
   window.FieldOps.Auth.session = { getSession, onAuthStateChange, signInWithEmail, signInWithPassword, signOut, loadFirstWorkspace, loadUserProfile, saveUserProfile };
 })();
+

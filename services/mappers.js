@@ -1,4 +1,4 @@
-(function(){
+﻿(function(){
   window.FieldOps = window.FieldOps || {};
   window.FieldOps.Services = window.FieldOps.Services || {};
 
@@ -102,3 +102,4 @@
   window.FieldOps.Services.mappers = Mappers;
   Object.assign(globalThis, Mappers);
 })();
+

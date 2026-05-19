@@ -1,4 +1,4 @@
-(function(){
+﻿(function(){
   window.FieldOps = window.FieldOps || {};
   window.FieldOps.Services = window.FieldOps.Services || {};
 
@@ -14,9 +14,10 @@
     { label:"Building / Space / Asset", view:"buildings", detail:"Facility anchors, rooms, equipment, systems, or field locations." }
   ];
   const submitterAddNewOptions = [
-    { label:"Submit Request", view:"importReview", detail:"Send location, urgency, notes, and an optional file." },
-    { label:"Upload File", view:"documents", detail:"Photo, PDF, spreadsheet, estimate, or supporting document." },
-    { label:"Upload Receipt", view:"documents", detail:"Gas, supply, invoice, or purchase receipt." }
+    { label:"Submit Request", view:"importReview", action:"openSubmitRequest", detail:"Send location, urgency, notes, and an optional file." },
+    { label:"Upload File", view:"documents", detail:"Photo, PDF, spreadsheet, estimate, or supporting document. Uploads go to Needs Review first." },
+    { label:"Upload Receipt", view:"documents", detail:"Gas, supply, invoice, or purchase receipt. This helps route review, but does not replace any required accounting receipt process." },
+    { label:"Purchase / Supply Request", view:"materials", action:"openSupplyRequest", detail:"Materials, supplies, event needs, gifts, marketing items, or other purchase/order requests." }
   ];
 
   function currentAddNewOptions(){
@@ -55,7 +56,7 @@
     const grid = document.getElementById("addNewGrid");
     if(!grid) return;
     grid.innerHTML = currentAddNewOptions().map(option => `
-      <button class="add-new-option" type="button" data-target-view="${esc(option.view)}">
+      <button class="add-new-option" type="button" data-target-view="${esc(option.view)}" data-target-action="${esc(option.action || "")}">
         <strong>${esc(option.label)}</strong>
         <span>${esc(option.detail)}</span>
       </button>
@@ -79,8 +80,10 @@
     const button = event.target?.closest?.("[data-target-view]");
     if(!button) return;
     const view = button.dataset.targetView;
+    const action = button.dataset.targetAction;
     closeAddNew();
-    if(typeof window.showView === "function") window.showView(view);
+    if(action && typeof window[action] === "function") window[action]();
+    else if(typeof window.showView === "function") window.showView(view);
   }
 
   function initAddNewModal(){
@@ -173,3 +176,4 @@
     init
   };
 })();
+

@@ -1,4 +1,4 @@
-(function(){
+﻿(function(){
   window.FieldOps = window.FieldOps || {};
   window.FieldOps.Sync = window.FieldOps.Sync || {};
 
@@ -47,3 +47,4 @@
 
   window.FieldOps.Sync.pendingQueue = { WRITE_QUEUE_KEY, loadPendingWrites, savePendingWrites, isRetryableWriteError, applyQueuedWrite };
 })();
+

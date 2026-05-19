@@ -1,4 +1,4 @@
-(function(){
+﻿(function(){
   window.FieldOps = window.FieldOps || {};
   window.FieldOps.Services = window.FieldOps.Services || {};
 
@@ -154,3 +154,4 @@
   window.FieldOps.Services.importReview = ImportReviewService;
   Object.assign(globalThis, { normalizeProposedType });
 })();
+

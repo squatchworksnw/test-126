@@ -1,4 +1,4 @@
-(function(){
+﻿(function(){
   window.FieldOps = window.FieldOps || {};
   window.FieldOps.Components = window.FieldOps.Components || {};
 
@@ -16,3 +16,4 @@
 
   window.FieldOps.Components.Forms = { fieldHtml };
 })();
+

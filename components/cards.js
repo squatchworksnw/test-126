@@ -1,4 +1,4 @@
-(function(){
+﻿(function(){
   window.FieldOps = window.FieldOps || {};
   window.FieldOps.Components = window.FieldOps.Components || {};
 
@@ -64,3 +64,4 @@
 
   Object.assign(window.FieldOps.Components, { esc, money, compact, titleize, previewText, tone, card, detailRow, documentPreviewCard, relatedSummaryCard, linkedButton, empty });
 })();
+

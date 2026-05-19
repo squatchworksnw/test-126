@@ -1,4 +1,4 @@
-(function(){
+﻿(function(){
   window.FieldOps = window.FieldOps || {};
   window.FieldOps.Views = window.FieldOps.Views || {};
   const Mappers = window.FieldOps.Services.mappers;
@@ -208,3 +208,4 @@
     renderFuelReceipts
   });
 })();
+

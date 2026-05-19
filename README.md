@@ -1,4 +1,4 @@
-# MOW Facilities Command
+﻿# MOW Facilities Command
 
 A mobile-first operations command center for facilities, fleet, work orders, documents, review intake, and contractor workflows.
 
@@ -50,3 +50,4 @@ Supabase remains the source of truth.
 5. Save.
 6. Add the GitHub Pages URL to Supabase Auth redirect URLs.
 7. Follow `LIVE_PILOT_DEPLOYMENT_STEPS.md`.
+

@@ -1,4 +1,4 @@
-# Pilot Test Checklist
+﻿# Pilot Test Checklist
 
 Use this checklist with real Supabase users before operational use.
 
@@ -141,4 +141,5 @@ Notes: ___________________________
 - Run `sql/rls_verification.sql`.
 - Success means every `field_ops_*` base table has RLS enabled, policies exist, and workspace-owned tables have `workspace_id`.
 - Failure means pilot is not ready for real operational data.
+
 

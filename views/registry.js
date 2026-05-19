@@ -1,4 +1,4 @@
-(function(){
+﻿(function(){
   window.FieldOps = window.FieldOps || {};
   window.FieldOps.Views = window.FieldOps.Views || {};
 
@@ -19,3 +19,4 @@
     "renderSettings"
   ];
 })();
+

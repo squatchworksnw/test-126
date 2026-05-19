@@ -1,4 +1,4 @@
-(function(){
+﻿(function(){
   window.FieldOps = window.FieldOps || {};
   window.FieldOps.Views = window.FieldOps.Views || {};
 
@@ -39,7 +39,7 @@
     const actions = canManageOperations() && review.status === "Needs Review"
       ? `<div class="actions no-print"><button type="button" onclick="approveMaterialReviewById('${review.id}')">Approve to Budget</button><button class="ghost" type="button" onclick="archiveSubmissionById('${review.id}')">Move out of active work</button></div>`
       : "";
-    return card(data.title || review.description || "Material takeoff", [
+    return card(data.title || review.description || "Supply / material request", [
       lines.length ? `${lines.length} line item${lines.length === 1 ? "" : "s"}` : "No line items",
       `Estimated total: ${money(data.estimated_total || MaterialsService.materialListTotal(lines))}`,
       project ? `Project: ${project.name}` : "",
@@ -53,14 +53,14 @@
     renderMaterialOptions();
     const reviews = materialReviews();
     const list = document.getElementById("materialReviewList");
-    if(list) list.innerHTML = reviews.length ? reviews.map(materialReviewCard).join("") : empty("No material lists waiting yet.");
+    if(list) list.innerHTML = reviews.length ? reviews.map(materialReviewCard).join("") : empty("No supply or material requests waiting yet.");
   }
 
   async function addMaterialList(e){
     e.preventDefault();
     try{
-      if(!requireInsertPermission("field_ops_import_reviews", "submit material lists")) return;
-      setInlineState("materialSaveState", "Sending material list...", "pending");
+      if(!requireInsertPermission("field_ops_import_reviews", "submit supply or material requests")) return;
+      setInlineState("materialSaveState", "Sending supply / material request...", "pending");
       await MaterialsService.submitMaterialList({
         title:materialTitle.value,
         projectId:materialProject.value,
@@ -69,11 +69,11 @@
         documentId:materialDocument.value,
         lines:materialLines.value,
         notes:materialNotes.value,
-        source:canSubmitOnly() ? "contractor material list" : "materials workspace"
+        source:canSubmitOnly() ? "purchase / supply request" : "supplies / materials workspace"
       }, materialsContext());
       e.target.reset();
-      setInlineState("materialSaveState", "Material list sent for review", "saved");
-      await refreshAfterWrite?.("Material list sent for review");
+      setInlineState("materialSaveState", "Supply / material request sent for review", "saved");
+      await refreshAfterWrite?.("Supply / material request sent for review");
     }catch(err){
       setInlineState("materialSaveState", `Could not send: ${err.message}`, "failed");
       handleWriteError(err);
@@ -86,8 +86,8 @@
     if(!review) return;
     try{
       await MaterialsService.approveMaterialReview(review, materialsContext());
-      setStatus("Material list approved to budget");
-      await refreshAfterWrite?.("Material list approved to budget");
+      setStatus("Supply / material request approved to budget");
+      await refreshAfterWrite?.("Supply / material request approved to budget");
     }catch(err){ handleWriteError(err); }
   }
 
@@ -105,3 +105,4 @@
     approveMaterialReviewById
   });
 })();
+

@@ -1,4 +1,4 @@
-(function(){
+﻿(function(){
   window.FieldOps = window.FieldOps || {};
   window.FieldOps.Auth = window.FieldOps.Auth || {};
 
@@ -13,3 +13,4 @@
 
   window.FieldOps.Auth.roles = { VIEW_ACCESS, SUBMITTER_INSERT_TABLES };
 })();
+

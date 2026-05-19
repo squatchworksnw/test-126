@@ -1,4 +1,4 @@
-# Security + Trust Hardening Review
+﻿# Security + Trust Hardening Review
 
 Status: pilot-readiness review for the current Supabase-backed prototype.
 
@@ -62,4 +62,5 @@ These should eventually write to an audit table:
 - upload document
 - link/unlink document
 - sign-in/session-sensitive workspace change
+
 

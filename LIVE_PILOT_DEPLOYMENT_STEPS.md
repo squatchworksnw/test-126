@@ -1,4 +1,4 @@
-# Live Pilot Deployment Steps
+﻿# Live Pilot Deployment Steps
 
 Use this checklist to prepare the GitHub Pages app and Supabase project for manual pilot testing with real Owner, Admin, and Submitter/Contractor accounts.
 
@@ -434,3 +434,4 @@ Date: _______________________________
 Overall result: Pass / Fail
 Blocking issues: ____________________
 Next action: ________________________
+

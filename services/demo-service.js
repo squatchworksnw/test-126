@@ -1,4 +1,4 @@
-(function(){
+﻿(function(){
   window.FieldOps = window.FieldOps || {};
   window.FieldOps.Services = window.FieldOps.Services || {};
 
@@ -84,3 +84,4 @@
     clearDemoData
   };
 })();
+

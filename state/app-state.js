@@ -1,4 +1,4 @@
-(function(){
+﻿(function(){
   window.FieldOps = window.FieldOps || {};
   window.FieldOps.State = window.FieldOps.State || {};
 
@@ -127,3 +127,4 @@
     popViewHistory
   };
 })();
+
