@@ -10,12 +10,131 @@ function importReviewContext(){
 
 function renderReviewQueue(){
   if(typeof ensureDocumentPreviewUrls === "function") ensureDocumentPreviewUrls(activeItems("files"));
-  const reviews = activeItems("submissions");
+  const reviews = filteredReviewItems();
+  const status = document.getElementById("bulkReviewStatus");
+  if(status && canManageOperations()){
+    const waiting = reviews.filter(item => item.status === "Needs Review").length;
+    status.textContent = `${waiting} visible item${waiting === 1 ? "" : "s"} waiting for review.`;
+  }
   document.getElementById("submissionList").innerHTML = reviews.length ? reviews.map(item => {
     const doc = item.documentId ? app.files.find(file => file.id === item.documentId) : null;
     const actions = item.status === "Needs Review" && canManageOperations() ? `<div class="actions no-print"><button type="button" onclick="openReviewDetail('${item.id}')">Open Review</button><button class="ghost" type="button" onclick="archiveSubmissionById('${item.id}')">Move out of active work</button></div>` : "";
-    return card(item.description || "Review item", [item.importedRecord?.file_name, doc ? `Attached file: ${doc.fileName}` : item.documentId ? "Attached file" : "", item.convertedRecordId ? `Approved work order: ${item.convertedRecordId}` : ""], [item.category, item.status, item.source], tone(item.status)) + actions;
+    const select = item.status === "Needs Review" && canManageOperations()
+      ? `<label class="bulk-review-select"><input type="checkbox" data-review-select="${item.id}" /> Select</label>`
+      : "";
+    return `<div class="bulk-review-row">${select}${card(item.description || "Review item", [item.importedRecord?.file_name, doc ? `Attached file: ${doc.fileName}` : item.documentId ? "Attached file" : "", item.convertedRecordId ? `Approved work order: ${item.convertedRecordId}` : ""], [item.category, item.status, item.source, reviewRouteLabel(item)], tone(item.status))}${actions}</div>`;
   }).join("") : empty(canSubmitOnly() ? "No submitted requests yet." : "Nothing needs review right now.");
+}
+
+function reviewRouteLabel(item){
+  const data = item.importedRecord || {};
+  return data.route || data.recurrence_pattern || item.importTarget || "";
+}
+
+function reviewFilterValue(){
+  return document.getElementById("reviewBulkFilter")?.value || "all";
+}
+
+function filteredReviewItems(){
+  const reviews = activeItems("submissions");
+  const filter = reviewFilterValue();
+  if(filter === "all") return reviews;
+  return reviews.filter(item => {
+    const data = item.importedRecord || {};
+    const haystack = [
+      item.source,
+      item.category,
+      item.importTarget,
+      item.description,
+      data.route,
+      data.type,
+      data.title,
+      data.location,
+      data.source_sheet,
+      data.recurrence_pattern,
+      data.notes
+    ].join(" ").toLowerCase();
+    if(filter === "calendar") return haystack.includes("master calendar") || haystack.includes("scheduled") || haystack.includes("2026") || haystack.includes("2027");
+    if(filter === "fleet") return haystack.includes("fleet") || haystack.includes("vehicle");
+    if(filter === "recurring") return haystack.includes("recurring");
+    if(filter === "walkthrough") return haystack.includes("walkthrough");
+    if(filter === "facility") return haystack.includes("facility") || haystack.includes("building");
+    if(filter === "asset") return haystack.includes("asset") || haystack.includes("system") || haystack.includes("equipment");
+    return true;
+  });
+}
+
+function selectedReviewIds(){
+  return Array.from(document.querySelectorAll("[data-review-select]:checked"))
+    .map(input => input.dataset.reviewSelect)
+    .filter(Boolean);
+}
+
+function selectVisibleReviewItems(checked){
+  document.querySelectorAll("[data-review-select]").forEach(input => { input.checked = Boolean(checked); });
+  const status = document.getElementById("bulkReviewStatus");
+  if(status) status.textContent = checked ? `${selectedReviewIds().length} selected.` : "Selection cleared.";
+}
+
+async function approveSelectedReviewItems(){
+  if(!requireOperationsPermission("approve selected review items")) return;
+  const ids = selectedReviewIds();
+  const status = document.getElementById("bulkReviewStatus");
+  if(!ids.length){
+    if(status) status.textContent = "Select at least one item first.";
+    return;
+  }
+  if(!confirm(`Approve ${ids.length} selected item${ids.length === 1 ? "" : "s"} into work orders?`)) return;
+  let approved = 0;
+  let failed = 0;
+  for(const reviewId of ids){
+    const review = app.submissions.find(item => item.id === reviewId);
+    if(!review || review.convertedRecordId || review.status !== "Needs Review") continue;
+    try{
+      await ImportReviewService.approveReview({
+        reviewId:review.id,
+        review,
+        type:"work_order",
+        data:review.importedRecord || {},
+        documentId:review.documentId,
+        reviewerId:currentSession.user.id
+      }, importReviewContext());
+      approved++;
+      if(status) status.textContent = `Approved ${approved} of ${ids.length}...`;
+    }catch(err){
+      failed++;
+      console.error("Bulk approval failed", reviewId, err);
+    }
+  }
+  await loadWorkspaceData();
+  renderReviewQueue();
+  if(status) status.textContent = failed ? `Approved ${approved}. ${failed} could not be approved.` : `Approved ${approved} item${approved === 1 ? "" : "s"} into work orders.`;
+}
+
+async function archiveSelectedReviewItems(){
+  if(!requireOperationsPermission("move selected review items out of active work")) return;
+  const ids = selectedReviewIds();
+  const status = document.getElementById("bulkReviewStatus");
+  if(!ids.length){
+    if(status) status.textContent = "Select at least one item first.";
+    return;
+  }
+  if(!confirm(`Move ${ids.length} selected item${ids.length === 1 ? "" : "s"} out of active work?`)) return;
+  let moved = 0;
+  let failed = 0;
+  for(const reviewId of ids){
+    try{
+      await ImportReviewService.archiveReview(reviewId, importReviewContext());
+      moved++;
+      if(status) status.textContent = `Moved ${moved} of ${ids.length}...`;
+    }catch(err){
+      failed++;
+      console.error("Bulk archive failed", reviewId, err);
+    }
+  }
+  await loadWorkspaceData();
+  renderReviewQueue();
+  if(status) status.textContent = failed ? `Moved ${moved}. ${failed} could not be moved.` : `Moved ${moved} item${moved === 1 ? "" : "s"} out of active work.`;
 }
 
 
@@ -209,7 +328,11 @@ async function archiveSubmissionById(reviewId){
     renderImportReviewDetail,
     reviewWorkOrderPayload,
     approveReviewDetail,
-    archiveSubmissionById
+    archiveSubmissionById,
+    filteredReviewItems,
+    selectVisibleReviewItems,
+    approveSelectedReviewItems,
+    archiveSelectedReviewItems
   });
   Object.assign(globalThis, {
     renderReviewQueue,
@@ -221,7 +344,11 @@ async function archiveSubmissionById(reviewId){
     renderImportReviewDetail,
     reviewWorkOrderPayload,
     approveReviewDetail,
-    archiveSubmissionById
+    archiveSubmissionById,
+    filteredReviewItems,
+    selectVisibleReviewItems,
+    approveSelectedReviewItems,
+    archiveSelectedReviewItems
   });
 })();
 

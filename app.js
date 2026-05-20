@@ -1790,6 +1790,9 @@ document.getElementById("globalSearchInput")?.addEventListener("keydown", e => {
     renderGlobalSearch();
   }
 });
+document.getElementById("reviewBulkFilter")?.addEventListener("change", () => {
+  if(typeof renderReviewQueue === "function") renderReviewQueue();
+});
 signInBtn.addEventListener("click", signInForSync);
 passwordSignInBtn?.addEventListener("click", signInWithPasswordForSync);
 signOutBtn.addEventListener("click", signOutForSync);
