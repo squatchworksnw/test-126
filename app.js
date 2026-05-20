@@ -1421,7 +1421,7 @@ function renderMasterCalendarBundlePreview(target){
         ${Object.entries(counts).map(([route, count]) => `<span class="pill">${esc(masterRouteLabel(route))}: ${count}</span>`).join("")}
       </div>
       <div class="actions">
-        <button type="button" onclick="stageMasterCalendarRowsToReview(100)">Move next 100 to Needs Review</button>
+        <button type="button" id="masterCalendarBatchBtn" onclick="stageMasterCalendarRowsToReview(25)">Move next 25 to Needs Review</button>
       </div>
       <p class="meta small">${newCount} item${newCount === 1 ? "" : "s"} still waiting here. ${rows.length - visible.length > 0 ? `Showing the first ${visible.length} so the screen stays usable.` : "Showing all waiting items."}</p>
     </article>
@@ -1639,7 +1639,7 @@ async function stageMappedRows(){
       return;
     }
     if(stagedImport.suggestedType === "master_calendar_bundle"){
-      await stageMasterCalendarRowsToReview(100);
+      await stageMasterCalendarRowsToReview(25);
       return;
     }
     const mapping = getCurrentColumnMapping();
@@ -1663,6 +1663,8 @@ async function stageMappedRows(){
 
 async function stageMasterCalendarRowsToReview(limit = 100){
   try{
+    const batchButton = document.getElementById("masterCalendarBatchBtn");
+    if(batchButton?.disabled) return;
     if(!stagedImport.rows.length || stagedImport.suggestedType !== "master_calendar_bundle"){
       alert("Preview the full master calendar first.");
       return;
@@ -1675,8 +1677,13 @@ async function stageMasterCalendarRowsToReview(limit = 100){
       alert("Everything from this master calendar has already been moved to Needs Review or active work.");
       return;
     }
-    const batch = candidates.slice(0, Math.max(1, Number(limit) || 100));
+    const batchSize = Math.min(25, Math.max(1, Number(limit) || 25));
+    const batch = candidates.slice(0, batchSize);
     let added = 0;
+    if(batchButton){
+      batchButton.disabled = true;
+      batchButton.textContent = "Moving...";
+    }
     for(const row of batch){
       await createImportReview(
         stagedImport.source,
@@ -1688,12 +1695,19 @@ async function stageMasterCalendarRowsToReview(limit = 100){
       keys.add(row.data.master_import_key);
       if(row.data.recurring_key) recurringKeys.add(row.data.recurring_key);
       added++;
+      if(batchButton) batchButton.textContent = `Moving ${added} of ${batch.length}...`;
     }
     await loadWorkspaceData();
     renderMappingPanel();
-    alert(`${added} calendar item${added === 1 ? "" : "s"} moved to Needs Review. Run the batch again when you are ready for the next set.`);
+    alert(`${added} calendar item${added === 1 ? "" : "s"} moved to Needs Review. Review those before loading a lot more.`);
   }catch(err){
     handleWriteError(err);
+  }finally{
+    const batchButton = document.getElementById("masterCalendarBatchBtn");
+    if(batchButton){
+      batchButton.disabled = false;
+      batchButton.textContent = "Move next 25 to Needs Review";
+    }
   }
 }
 

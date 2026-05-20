@@ -11,19 +11,20 @@ function importReviewContext(){
 function renderReviewQueue(){
   if(typeof ensureDocumentPreviewUrls === "function") ensureDocumentPreviewUrls(activeItems("files"));
   const reviews = filteredReviewItems();
+  const visibleReviews = reviews.slice(0, 80);
   const status = document.getElementById("bulkReviewStatus");
   if(status && canManageOperations()){
     const waiting = reviews.filter(item => item.status === "Needs Review").length;
-    status.textContent = `${waiting} visible item${waiting === 1 ? "" : "s"} waiting for review.`;
+    status.textContent = `${waiting} matching item${waiting === 1 ? "" : "s"} waiting for review. Showing ${visibleReviews.length}.`;
   }
-  document.getElementById("submissionList").innerHTML = reviews.length ? reviews.map(item => {
+  document.getElementById("submissionList").innerHTML = reviews.length ? visibleReviews.map(item => {
     const doc = item.documentId ? app.files.find(file => file.id === item.documentId) : null;
     const actions = item.status === "Needs Review" && canManageOperations() ? `<div class="actions no-print"><button type="button" onclick="openReviewDetail('${item.id}')">Open Review</button><button class="ghost" type="button" onclick="archiveSubmissionById('${item.id}')">Move out of active work</button></div>` : "";
     const select = item.status === "Needs Review" && canManageOperations()
       ? `<label class="bulk-review-select"><input type="checkbox" data-review-select="${item.id}" /> Select</label>`
       : "";
     return `<div class="bulk-review-row">${select}${card(item.description || "Review item", [item.importedRecord?.file_name, doc ? `Attached file: ${doc.fileName}` : item.documentId ? "Attached file" : "", item.convertedRecordId ? `Approved work order: ${item.convertedRecordId}` : ""], [item.category, item.status, item.source, reviewRouteLabel(item)], tone(item.status))}${actions}</div>`;
-  }).join("") : empty(canSubmitOnly() ? "No submitted requests yet." : "Nothing needs review right now.");
+  }).join("") + (reviews.length > visibleReviews.length ? empty(`Showing the first ${visibleReviews.length}. Use the filter or finish these before loading more.`) : "") : empty(canSubmitOnly() ? "No submitted requests yet." : "Nothing needs review right now.");
 }
 
 function reviewRouteLabel(item){
@@ -84,6 +85,11 @@ async function approveSelectedReviewItems(){
     if(status) status.textContent = "Select at least one item first.";
     return;
   }
+  if(ids.length > 40){
+    if(status) status.textContent = "Approve 40 or fewer at a time so the app stays responsive.";
+    alert("Approve 40 or fewer at a time.");
+    return;
+  }
   if(!confirm(`Approve ${ids.length} selected item${ids.length === 1 ? "" : "s"} into work orders?`)) return;
   let approved = 0;
   let failed = 0;
@@ -117,6 +123,11 @@ async function archiveSelectedReviewItems(){
   const status = document.getElementById("bulkReviewStatus");
   if(!ids.length){
     if(status) status.textContent = "Select at least one item first.";
+    return;
+  }
+  if(ids.length > 40){
+    if(status) status.textContent = "Move 40 or fewer at a time so the app stays responsive.";
+    alert("Move 40 or fewer at a time.");
     return;
   }
   if(!confirm(`Move ${ids.length} selected item${ids.length === 1 ? "" : "s"} out of active work?`)) return;
