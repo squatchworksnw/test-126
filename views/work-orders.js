@@ -1,10 +1,21 @@
 ﻿(function(){
   window.FieldOps = window.FieldOps || {};
   window.FieldOps.Views = window.FieldOps.Views || {};
+  const WORK_ORDER_VISIBLE_LIMIT = 80;
+  let workOrderFilter = "attention";
 
 function renderTasks(){
   const tasks = activeItems("tasks");
-  document.getElementById("taskList").innerHTML = tasks.length ? tasks.map(t => workOrderCardWithActions(t)).join("") : empty("No work orders yet.");
+  syncWorkOrderFilterControls();
+  const visibleTasks = filteredWorkOrders(tasks);
+  const shownTasks = visibleTasks.slice(0, WORK_ORDER_VISIBLE_LIMIT);
+  const list = document.getElementById("taskList");
+  if(list){
+    list.innerHTML = shownTasks.length
+      ? shownTasks.map(t => workOrderCardWithActions(t)).join("") + (visibleTasks.length > shownTasks.length ? empty(`Showing the first ${shownTasks.length} of ${visibleTasks.length}. Search or choose a tighter filter to narrow this down.`) : "")
+      : empty(workOrderSearchValue() ? "No work orders match that search." : "No work orders in this view.");
+  }
+  renderWorkOrderFilterStatus(tasks, visibleTasks, shownTasks);
   const archivedList = document.getElementById("archivedTaskList");
   if(archivedList){
     const archived = app.archivedTasks || [];
@@ -13,6 +24,128 @@ function renderTasks(){
   const options = `<option value="">No related work order</option>` + tasks.map(t => `<option value="${t.id}">${esc(t.workOrderNumber ? `${t.workOrderNumber} - ${t.name}` : t.name)}</option>`).join("");
   if(document.getElementById("budgetWorkOrder")) document.getElementById("budgetWorkOrder").innerHTML = options;
   if(document.getElementById("fileWorkOrder")) document.getElementById("fileWorkOrder").innerHTML = options;
+}
+
+function todayStringLocal(){
+  return typeof todayString === "function" ? todayString() : new Date().toISOString().slice(0,10);
+}
+
+function addDays(dateString, days){
+  const date = new Date(`${dateString}T12:00:00`);
+  date.setDate(date.getDate() + days);
+  return date.toISOString().slice(0,10);
+}
+
+function monthString(dateString){
+  return String(dateString || "").slice(0,7);
+}
+
+function isOpenWorkOrder(task){
+  return String(task.status || "").toLowerCase() !== "complete";
+}
+
+function workOrderSearchValue(){
+  return String(document.getElementById("workOrderSearchInput")?.value || "").trim().toLowerCase();
+}
+
+function workOrderHaystack(task){
+  const related = [
+    app.projects.find(p => p.id === task.projectId)?.name,
+    app.buildings.find(b => b.id === task.buildingId)?.name,
+    app.spaces.find(s => s.id === task.spaceId)?.name,
+    app.assets.find(a => a.id === task.assetId)?.name,
+    app.vehicles.find(v => v.id === task.vehicleId)?.name,
+    app.vendors.find(v => v.id === task.vendorBidId)?.name
+  ];
+  return [
+    task.workOrderNumber,
+    task.name,
+    task.type,
+    task.status,
+    task.priority,
+    task.date,
+    task.location,
+    task.notes,
+    ...related
+  ].filter(Boolean).join(" ").toLowerCase();
+}
+
+function workOrderMatchesFilter(task, filter){
+  const today = todayStringLocal();
+  const weekEnd = addDays(today, 7);
+  const currentMonth = monthString(today);
+  const haystack = workOrderHaystack(task);
+  if(filter === "today") return isOpenWorkOrder(task) && task.date === today;
+  if(filter === "overdue") return isOpenWorkOrder(task) && task.date && task.date < today;
+  if(filter === "week") return isOpenWorkOrder(task) && task.date && task.date >= today && task.date <= weekEnd;
+  if(filter === "month") return isOpenWorkOrder(task) && monthString(task.date) === currentMonth;
+  if(filter === "fleet") return isOpenWorkOrder(task) && (haystack.includes("fleet") || haystack.includes("vehicle") || Boolean(task.vehicleId));
+  if(filter === "facility") return isOpenWorkOrder(task) && (haystack.includes("facility") || haystack.includes("building") || haystack.includes("valley") || haystack.includes("francis") || haystack.includes("excelsior"));
+  if(filter === "kitchen") return isOpenWorkOrder(task) && haystack.includes("kitchen");
+  if(filter === "walkthrough") return isOpenWorkOrder(task) && haystack.includes("walkthrough");
+  if(filter === "completed") return String(task.status || "").toLowerCase() === "complete";
+  if(filter === "anchor") return isOpenWorkOrder(task) && haystack.includes("needs anchor review");
+  return isOpenWorkOrder(task) && task.date && task.date <= weekEnd;
+}
+
+function filteredWorkOrders(tasks){
+  const query = workOrderSearchValue();
+  const base = query
+    ? tasks.filter(task => workOrderHaystack(task).includes(query))
+    : tasks.filter(task => workOrderMatchesFilter(task, workOrderFilter));
+  return base.sort((a,b) => {
+    const aComplete = String(a.status || "").toLowerCase() === "complete";
+    const bComplete = String(b.status || "").toLowerCase() === "complete";
+    if(aComplete !== bComplete) return aComplete ? 1 : -1;
+    return String(a.date || "9999-99-99").localeCompare(String(b.date || "9999-99-99")) ||
+      String(a.name || "").localeCompare(String(b.name || ""));
+  });
+}
+
+function renderWorkOrderFilterStatus(allTasks, visibleTasks, shownTasks){
+  const target = document.getElementById("workOrderFilterStatus");
+  if(!target) return;
+  const query = workOrderSearchValue();
+  const label = query ? `search for "${query}"` : workOrderFilterLabel(workOrderFilter);
+  const openCount = allTasks.filter(isOpenWorkOrder).length;
+  target.textContent = `Showing ${shownTasks.length} of ${visibleTasks.length} for ${label}. ${openCount} open work order${openCount === 1 ? "" : "s"} total.`;
+}
+
+function workOrderFilterLabel(filter){
+  const labels = {
+    attention:"attention",
+    today:"today",
+    overdue:"overdue",
+    week:"this week",
+    month:"this month",
+    fleet:"fleet",
+    facility:"facility",
+    kitchen:"kitchen",
+    walkthrough:"walkthrough",
+    completed:"completed",
+    anchor:"needs anchor review"
+  };
+  return labels[filter] || "attention";
+}
+
+function syncWorkOrderFilterControls(){
+  document.querySelectorAll("[data-work-filter]").forEach(button => {
+    const active = button.dataset.workFilter === workOrderFilter && !workOrderSearchValue();
+    button.classList.toggle("active", active);
+    button.setAttribute("aria-pressed", active ? "true" : "false");
+  });
+}
+
+function setWorkOrderFilter(filter){
+  workOrderFilter = filter || "attention";
+  const search = document.getElementById("workOrderSearchInput");
+  if(search) search.value = "";
+  renderTasks();
+}
+
+function handleWorkOrderSearch(){
+  syncWorkOrderFilterControls();
+  renderTasks();
 }
 
 
@@ -382,6 +515,8 @@ function completionErrorMessage(err){
 
   Object.assign(window.FieldOps.Views, {
     renderTasks,
+    setWorkOrderFilter,
+    handleWorkOrderSearch,
     workOrderCardWithActions,
     workOrderCard,
     archiveWorkOrderById,
@@ -396,6 +531,8 @@ function completionErrorMessage(err){
   });
   Object.assign(globalThis, {
     renderTasks,
+    setWorkOrderFilter,
+    handleWorkOrderSearch,
     workOrderCardWithActions,
     workOrderCard,
     archiveWorkOrderById,

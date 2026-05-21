@@ -5,8 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>Field Operations Command Center</title>
 
-<link rel="stylesheet" href="styles/tokens/tokens.css?v=20260521-today1" />
-<link rel="stylesheet" href="styles.css?v=20260521-today1" />
+<link rel="stylesheet" href="styles/tokens/tokens.css?v=20260521-workfilters1" />
+<link rel="stylesheet" href="styles.css?v=20260521-workfilters1" />
 </head>
 
 <body data-auth="signed-out" data-role="signed-out">
@@ -516,7 +516,33 @@
         <div class="actions full"><button type="submit">Add Work Order</button></div>
       </form>
     </section>
-    <section class="panel"><div class="panel-title"><h3>Work Order List</h3></div><div id="taskList" class="card-list"></div></section>
+    <section class="panel">
+      <div class="panel-title">
+        <div>
+          <h3>Work Order List</h3>
+          <p id="workOrderFilterStatus" class="meta" aria-live="polite">Showing work that needs attention.</p>
+        </div>
+      </div>
+      <div class="work-order-tools no-print">
+        <label class="work-order-search">Search work orders
+          <input id="workOrderSearchInput" type="search" placeholder="Search kitchen, fleet, walkthrough, title, notes..." autocomplete="off" oninput="handleWorkOrderSearch()" />
+        </label>
+        <div class="filter-pills" role="group" aria-label="Work order filters">
+          <button type="button" class="filter-pill active" data-work-filter="attention" onclick="setWorkOrderFilter('attention')">Attention</button>
+          <button type="button" class="filter-pill" data-work-filter="today" onclick="setWorkOrderFilter('today')">Today</button>
+          <button type="button" class="filter-pill" data-work-filter="overdue" onclick="setWorkOrderFilter('overdue')">Overdue</button>
+          <button type="button" class="filter-pill" data-work-filter="week" onclick="setWorkOrderFilter('week')">This Week</button>
+          <button type="button" class="filter-pill" data-work-filter="month" onclick="setWorkOrderFilter('month')">This Month</button>
+          <button type="button" class="filter-pill" data-work-filter="fleet" onclick="setWorkOrderFilter('fleet')">Fleet</button>
+          <button type="button" class="filter-pill" data-work-filter="facility" onclick="setWorkOrderFilter('facility')">Facility</button>
+          <button type="button" class="filter-pill" data-work-filter="kitchen" onclick="setWorkOrderFilter('kitchen')">Kitchen</button>
+          <button type="button" class="filter-pill" data-work-filter="walkthrough" onclick="setWorkOrderFilter('walkthrough')">Walkthrough</button>
+          <button type="button" class="filter-pill" data-work-filter="completed" onclick="setWorkOrderFilter('completed')">Completed</button>
+          <button type="button" class="filter-pill" data-work-filter="anchor" onclick="setWorkOrderFilter('anchor')">Needs Anchor Review</button>
+        </div>
+      </div>
+      <div id="taskList" class="card-list"></div>
+    </section>
     <section class="panel" data-admin-only>
       <div class="panel-title"><div><h3>Inactive Work Orders</h3><p class="meta">Recoverable records kept out of the active field list.</p></div></div>
       <div id="archivedTaskList" class="card-list"></div>
@@ -942,29 +968,29 @@
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="state/app-state.js?v=20260521-today1"></script>
-<script src="components/cards.js?v=20260521-today1"></script>
-<script src="components/forms.js?v=20260521-today1"></script>
-<script src="auth/roles.js?v=20260521-today1"></script>
-<script src="auth/session.js?v=20260521-today1"></script>
-<script src="services/supabase-service.js?v=20260521-today1"></script>
-<script src="services/mappers.js?v=20260521-today1"></script>
-<script src="services/import-review-service.js?v=20260521-today1"></script>
-<script src="services/materials-service.js?v=20260521-today1"></script>
-<script src="services/demo-service.js?v=20260521-today1"></script>
-<script src="services/interaction-service.js?v=20260521-today1"></script>
-<script src="sync/pending-queue.js?v=20260521-today1"></script>
-<script src="services/auth-service.js?v=20260521-today1"></script>
-<script src="services/sync-service.js?v=20260521-today1"></script>
-<script src="views/registry.js?v=20260521-today1"></script>
-<script src="views/today-dashboard.js?v=20260521-today1"></script>
-<script src="views/work-orders.js?v=20260521-today1"></script>
-<script src="views/documents.js?v=20260521-today1"></script>
-<script src="views/projects-budget.js?v=20260521-today1"></script>
-<script src="views/materials.js?v=20260521-today1"></script>
-<script src="views/review-queue.js?v=20260521-today1"></script>
-<script src="views/fleet.js?v=20260521-today1"></script>
-<script src="app.js?v=20260521-today1"></script>
+<script src="state/app-state.js?v=20260521-workfilters1"></script>
+<script src="components/cards.js?v=20260521-workfilters1"></script>
+<script src="components/forms.js?v=20260521-workfilters1"></script>
+<script src="auth/roles.js?v=20260521-workfilters1"></script>
+<script src="auth/session.js?v=20260521-workfilters1"></script>
+<script src="services/supabase-service.js?v=20260521-workfilters1"></script>
+<script src="services/mappers.js?v=20260521-workfilters1"></script>
+<script src="services/import-review-service.js?v=20260521-workfilters1"></script>
+<script src="services/materials-service.js?v=20260521-workfilters1"></script>
+<script src="services/demo-service.js?v=20260521-workfilters1"></script>
+<script src="services/interaction-service.js?v=20260521-workfilters1"></script>
+<script src="sync/pending-queue.js?v=20260521-workfilters1"></script>
+<script src="services/auth-service.js?v=20260521-workfilters1"></script>
+<script src="services/sync-service.js?v=20260521-workfilters1"></script>
+<script src="views/registry.js?v=20260521-workfilters1"></script>
+<script src="views/today-dashboard.js?v=20260521-workfilters1"></script>
+<script src="views/work-orders.js?v=20260521-workfilters1"></script>
+<script src="views/documents.js?v=20260521-workfilters1"></script>
+<script src="views/projects-budget.js?v=20260521-workfilters1"></script>
+<script src="views/materials.js?v=20260521-workfilters1"></script>
+<script src="views/review-queue.js?v=20260521-workfilters1"></script>
+<script src="views/fleet.js?v=20260521-workfilters1"></script>
+<script src="app.js?v=20260521-workfilters1"></script>
 </body>
 </html>
 
