@@ -140,7 +140,7 @@ async function signOutForSync(){
     renderAuthState();
     render();
     showView("login", { skipHistory:true });
-    setStatus("Sign in to use Supabase");
+    setStatus("Sign in to load workspace");
     return;
   }
   return AuthService.signOutForSync(authContext());
@@ -149,7 +149,7 @@ async function bootstrapWorkspace(){ return AuthService.bootstrapWorkspace(authC
 
 async function loadWorkspaceData(){
   if(!requireAuth(false)) return;
-  setStatus("Loading Supabase data...");
+  setStatus("Loading workspace data...");
   const wid = workspaceId();
   const queries = await Promise.all([
     selectActive("field_ops_buildings"),
@@ -190,7 +190,7 @@ async function loadWorkspaceData(){
   });
 
   lastWorkspaceLoadAt = new Date().toLocaleString();
-  setStatus("Supabase loaded");
+  setStatus("Workspace loaded");
   render();
 }
 
@@ -206,7 +206,7 @@ async function syncNow(showAlert = true){
   try{
     await flushPendingWrites(false);
     await loadWorkspaceData();
-    if(showAlert) alert("Refreshed from Supabase.");
+    if(showAlert) alert("Workspace refreshed.");
   }catch(err){
     console.error(err);
     setStatus("Refresh failed");
@@ -216,7 +216,7 @@ async function syncNow(showAlert = true){
 
 async function loadFromCloud(){ await syncNow(true); }
 
-async function refreshAfterWrite(successStatus = "Saved to Supabase"){
+async function refreshAfterWrite(successStatus = "Saved"){
   try{
     await loadWorkspaceData();
     setStatus(successStatus);
@@ -254,13 +254,13 @@ window.addEventListener("offline", () => {
 
 async function insertRecord(table, payload){
   if(!requireInsertPermission(table, `create records in ${titleize(table.replace("field_ops_",""))}`)) throw new Error("Role cannot create this record");
-  if(isDemoMode()) throw new Error("Session demo is read-only. Sign in to save real records.");
+  if(isDemoMode()) throw new Error("Demo mode is read-only. Sign in to save real records.");
   setStatus("Saving...");
   try{
     const { data, error } = await insertRow(table, { workspace_id: workspaceId(), ...payload });
     if(error) throw error;
-    setStatus("Saved to Supabase");
-    await refreshAfterWrite("Saved to Supabase");
+    setStatus("Saved");
+    await refreshAfterWrite("Saved");
     return data;
   }catch(err){
     if(!SyncService.isRetryableWriteError(err)) throw err;
@@ -271,13 +271,13 @@ async function insertRecord(table, payload){
 
 async function updateRecord(table, idValue, payload){
   if(!requireUpdatePermission(table, `change records in ${titleize(table.replace("field_ops_",""))}`)) throw new Error("Role cannot update this record");
-  if(isDemoMode()) throw new Error("Session demo is read-only. Sign in to save real records.");
+  if(isDemoMode()) throw new Error("Demo mode is read-only. Sign in to save real records.");
   setStatus("Saving...");
   try{
     const { data, error } = await updateRow(table, idValue, payload, workspaceId());
     if(error) throw error;
-    setStatus("Saved to Supabase");
-    await refreshAfterWrite("Saved to Supabase");
+    setStatus("Saved");
+    await refreshAfterWrite("Saved");
     return data;
   }catch(err){
     if(!SyncService.isRetryableWriteError(err)) throw err;
@@ -287,16 +287,16 @@ async function updateRecord(table, idValue, payload){
 }
 
 async function archiveRecord(table, idValue){
-  if(!requireArchivePermission("move records out of active work")) throw new Error("Role cannot move this record out of active work");
-  if(isDemoMode()) throw new Error("Session demo is read-only. Sign in to save real records.");
-  setStatus("Moving out of active work...");
+  if(!requireArchivePermission("archive records")) throw new Error("Role cannot archive this record");
+  if(isDemoMode()) throw new Error("Demo mode is read-only. Sign in to save real records.");
+  setStatus("Archiving...");
   const archivedAt = new Date().toISOString();
   const archivedBy = currentSession.user.id;
   try{
     const { error } = await archiveRow(table, idValue, workspaceId(), archivedAt, archivedBy);
     if(error) throw error;
-    setStatus("Moved out of active work");
-    await refreshAfterWrite("Moved out of active work");
+    setStatus("Archived");
+    await refreshAfterWrite("Archived");
   }catch(err){
     if(!SyncService.isRetryableWriteError(err)) throw err;
     queueWrite({ action:"archive", table, recordId:idValue, archivedAt, archivedBy });
@@ -305,7 +305,7 @@ async function archiveRecord(table, idValue){
 
 async function restoreRecord(table, idValue){
   if(!requireArchivePermission("restore operational records")) throw new Error("Role cannot restore this record");
-  if(isDemoMode()) throw new Error("Session demo is read-only. Sign in to save real records.");
+  if(isDemoMode()) throw new Error("Demo mode is read-only. Sign in to save real records.");
   setStatus("Restoring...");
   try{
     const { error } = await restoreRow(table, idValue, workspaceId());
@@ -350,7 +350,8 @@ async function addTask(e){
       notes
     }));
     e.target.reset();
-    setInlineState("taskSaveState", saved?._queued ? "Queued until connection returns" : "Work order saved to Supabase", saved?._queued ? "pending" : "saved");
+    setInlineState("taskSaveState", saved?._queued ? "Queued until connection returns" : "Work order saved", saved?._queued ? "pending" : "saved");
+    if(!saved?._queued) InteractionService?.showConfirmation?.("Work order created", "It is now active and visible in Work Orders.");
     if(saved?.id && !saved?._queued) selectedWorkOrderId = saved.id;
   }catch(err){
     setInlineState("taskSaveState", `Save failed: ${err.message}`, "failed");
@@ -363,7 +364,7 @@ async function addAsset(e){ e.preventDefault(); try{ await insertRecord("field_o
 async function addVendor(e){ e.preventDefault(); try{ await insertRecord("field_ops_vendors", Mappers.vendorPayloadFromForm({ name:vendorName.value, vendorType:vendorType.value, contactName:vendorContact.value, phone:vendorPhone.value, email:vendorEmail.value, status:vendorStatus.value, insuranceExpiresOn:vendorInsurance.value, notes:vendorNotes.value })); e.target.reset(); }catch(err){ handleWriteError(err); } }
 function handleWriteError(err){
   const message = permissionAwareErrorMessage(err);
-  if(String(err?.message || '').includes('Session demo is read-only')){
+  if(String(err?.message || '').includes('Demo mode is read-only')){
     console.warn(message);
     setStatus(message);
     return;
@@ -623,9 +624,9 @@ function renderPilotIndicator(){
   const indicator = document.getElementById("pilotIndicator");
   if(!indicator) return;
   const configFlag = Boolean(window.APP_CONFIG?.PILOT_MODE);
-  const host = window.location?.hostname || "";
-  const isGithubPages = host.endsWith("github.io");
-  indicator.classList.toggle("hidden", !(configFlag || isGithubPages));
+  const visible = canManageOperations() && configFlag;
+  indicator.classList.toggle("hidden", !visible);
+  indicator.hidden = !visible;
 }
 
 function renderBuildings(){
@@ -686,7 +687,8 @@ function renderVendors(){
 
 function rowActions(section, item){
   if(!canManageOperations()) return "";
-  return `<div class="actions no-print"><button class="ghost" onclick="openEditModal('${section}',${app[section].indexOf(item)})">Edit</button><button class="ghost" onclick="deleteItem('${section}',${app[section].indexOf(item)})">Move out of active work</button></div>`;
+  const archiveLabel = section === "tasks" ? "Archive this task" : "Archive";
+  return `<div class="actions no-print"><button class="ghost" onclick="openEditModal('${section}',${app[section].indexOf(item)})">Edit</button><button class="ghost" onclick="deleteItem('${section}',${app[section].indexOf(item)})">${archiveLabel}</button></div>`;
 }
 
 const editConfig = {
@@ -804,7 +806,7 @@ async function refreshPeopleRoles(showErrors = true){
     if(status) status.textContent = `${(data || []).length} person${(data || []).length === 1 ? "" : "s"} in this workspace.`;
   }catch(err){
     console.error(err);
-    if(status) status.textContent = "People could not load. Run sql/owner_manage_memberships.sql in Supabase first.";
+    if(status) status.textContent = "People could not load. Check the owner-managed people setup first.";
     if(showErrors) alert("People could not load: " + err.message);
   }
 }
@@ -830,7 +832,7 @@ async function savePeopleRole(event){
     console.error(err);
     const message = String(err.message || "");
     const friendly = message.includes("does not exist")
-      ? "That email is not a Supabase user yet. Add or invite them in Authentication > Users first, then try again."
+      ? "That email is not an app user yet. Add or invite them in the account system first, then try again."
       : message;
     if(status) status.textContent = friendly;
     alert(friendly);
@@ -858,7 +860,7 @@ function renderDiagnostics(){
 
 function printBoardReport(){ buildReport(false); window.print(); }
 function downloadBackup(){ const blob = new Blob([JSON.stringify(app,null,2)], {type:"application/json"}); const url = URL.createObjectURL(blob); const a = document.createElement("a"); a.href = url; a.download = `field-ops-cache-${todayString()}.json`; a.click(); URL.revokeObjectURL(url); }
-function uploadBackup(){ alert("Backups are read-only now. Supabase field_ops_* tables are the source of truth."); }
+function uploadBackup(){ alert("Backups are read-only here. The shared workspace remains the source of truth."); }
 function resetLocalData(){ AppState.resetRuntimeApp(runtimeState); render(); setStatus("Temporary cache cleared"); }
 function setActiveView(id){
   activeViewId = id;
@@ -1096,7 +1098,7 @@ function inferRecurringAnchor(row){
     buildingId: building?.id || space?.buildingId || asset?.buildingId || "",
     spaceId: space?.id || asset?.spaceId || "",
     assetId: asset?.id || "",
-    label: asset ? `Asset/system: ${asset.name}` : space ? `Space: ${space.name}` : building ? `Building: ${building.name}` : "Needs anchor review",
+    label: asset ? `Asset/system: ${asset.name}` : space ? `Space: ${space.name}` : building ? `Building: ${building.name}` : "Missing details",
     needsAnchorReview: !(building || space || asset)
   };
 }
@@ -1155,7 +1157,7 @@ function recurringReviewData(row){
       `Frequency: ${frequency}`,
       assignedTo ? `Responsible: ${assignedTo}` : "",
       timing ? `Timing: ${timing}` : "",
-      anchor.needsAnchorReview ? `Needs anchor review: ${area}` : `Anchor: ${anchor.label}`,
+      anchor.needsAnchorReview ? `Missing details: ${area}` : `Anchor: ${anchor.label}`,
       `Source: ${row.__sourceSheet || "Recurring Schedule"} row ${row.__sourceRow}`,
       `Recurring key: ${key}`,
       notes
@@ -1170,7 +1172,7 @@ function renderRecurringSchedulePreview(target){
     <article class="card recurring-import-summary">
       <h4>Recurring Schedule preview</h4>
       <p>${rows.length} row${rows.length === 1 ? "" : "s"} from <strong>Recurring Schedule</strong>. No other workbook sheets were read into this preview.</p>
-      <p class="meta">Approve only the rows you want. Uncertain locations are marked for anchor review.</p>
+      <p class="meta">Approve only the rows you want. Uncertain locations are marked as missing details.</p>
     </article>
     <div class="recurring-preview-list">
       ${rows.map((row, index) => {
@@ -1181,7 +1183,7 @@ function renderRecurringSchedulePreview(target){
           <span>
             <strong>${esc(data.title)}</strong>
             <em>${esc(data.recurrence_pattern)} · ${esc(data.location || "No area")} · ${esc(data.timing || "Timing TBD")}</em>
-            <small>${esc(data.needs_anchor_review ? "Needs anchor review" : "Anchor found")} · Source row ${esc(data.source_row || "")}${duplicate ? " · Duplicate skipped" : ""}</small>
+            <small>${esc(data.needs_anchor_review ? "Missing details" : "Anchor found")} · Source row ${esc(data.source_row || "")}${duplicate ? " · Duplicate skipped" : ""}</small>
           </span>
         </label>`;
       }).join("")}
@@ -1264,7 +1266,7 @@ function masterRowFromCalendarItem(item, sourceWorkbook){
     notes:compact([
       `Scheduled from master calendar for ${item.date}.`,
       parts.area ? `Area/system: ${parts.area}` : "",
-      anchor.needsAnchorReview ? `Needs anchor review: ${parts.area || "No anchor listed"}` : `Anchor: ${anchor.label}`,
+      anchor.needsAnchorReview ? `Missing details: ${parts.area || "No anchor listed"}` : `Anchor: ${anchor.label}`,
       `Source: ${item.sourceSheet} ${item.sourceCell}`,
       `Master import key: ${sourceWorkbook}|${item.sourceSheet}|${item.sourceCell}|${item.date}|${title}`
     ]).join("\n")
@@ -1276,7 +1278,7 @@ function masterRowFromCalendarItem(item, sourceWorkbook){
     proposedType:"work_order",
     title,
     subtitle:`${item.date} - ${parts.area || "General"} - ${item.sourceSheet}`,
-    confidence:anchor.needsAnchorReview ? "Needs anchor review" : "Ready for review",
+    confidence:anchor.needsAnchorReview ? "Missing details" : "Ready for review",
     data
   };
 }
@@ -1386,7 +1388,7 @@ function masterRowFromWalkthrough(row, sourceWorkbook){
       "Walkthrough checklist item.",
       checkArea ? `Check area: ${checkArea}` : "",
       item ? `Inspect: ${item}` : "",
-      anchor.needsAnchorReview ? `Needs anchor review: ${location}` : `Anchor: ${anchor.label}`
+      anchor.needsAnchorReview ? `Missing details: ${location}` : `Anchor: ${anchor.label}`
     ]).join("\n")
   };
   data.master_import_key = masterImportKey(data);
@@ -1396,7 +1398,7 @@ function masterRowFromWalkthrough(row, sourceWorkbook){
     proposedType:"work_order",
     title,
     subtitle:item || "Checklist item",
-    confidence:anchor.needsAnchorReview ? "Needs anchor review" : "Ready for review",
+    confidence:anchor.needsAnchorReview ? "Missing details" : "Ready for review",
     data
   };
 }
@@ -1417,7 +1419,7 @@ function masterRowFromRecurring(row, sourceWorkbook){
     proposedType:"work_order",
     title:data.title,
     subtitle:`${data.recurrence_pattern || "Recurring"} - ${data.location || "No area"}`,
-    confidence:data.needs_anchor_review ? "Needs anchor review" : "Ready for review",
+    confidence:data.needs_anchor_review ? "Missing details" : "Ready for review",
     data
   };
 }
@@ -1842,7 +1844,7 @@ function startSessionDemo(){
   currentWorkspace = { id:"demo-session", role:"owner", name:"Session Demo", isDemo:true };
   AppState.resetRuntimeApp(runtimeState);
   app.settings.workspaceName = "Field Operations Command Center";
-  app.settings.workspaceNote = "Session-only demo. Nothing saves to Supabase.";
+  app.settings.workspaceNote = "Demo mode. Nothing saves to the shared workspace.";
   loadDemoPilotData();
   renderAuthState();
   showView("dashboard", { skipHistory:true });

@@ -20,7 +20,7 @@ function renderReviewQueue(){
   }
   document.getElementById("submissionList").innerHTML = reviews.length ? visibleReviews.map(item => {
     const doc = item.documentId ? app.files.find(file => file.id === item.documentId) : null;
-    const actions = item.status === "Needs Review" && canManageOperations() ? `<div class="actions no-print"><button type="button" onclick="openReviewDetail('${item.id}')">Open Review</button><button class="ghost" type="button" onclick="archiveSubmissionById('${item.id}')">Move out of active work</button></div>` : "";
+    const actions = item.status === "Needs Review" && canManageOperations() ? `<div class="actions no-print"><button type="button" onclick="openReviewDetail('${item.id}')">Open Review</button><button class="ghost" type="button" onclick="archiveSubmissionById('${item.id}')">Don't approve this</button></div>` : "";
     const select = item.status === "Needs Review" && canManageOperations()
       ? `<label class="bulk-review-select"><input type="checkbox" data-review-select="${item.id}" /> Select</label>`
       : "";
@@ -75,12 +75,12 @@ function selectedReviewIds(){
 function reviewApprovalErrorText(error){
   const call = error?.fieldOpsCall;
   const parts = [];
-  if(call?.action || call?.table) parts.push(`${call.action || "save"} on ${call.table || "Supabase"}`);
+  if(call?.action || call?.table) parts.push(`${call.action || "save"} on workspace records`);
   if(error?.message) parts.push(error.message);
   if(error?.details) parts.push(error.details);
   if(error?.hint) parts.push(error.hint);
   if(error?.code) parts.push(`code ${error.code}`);
-  return parts.filter(Boolean).join(" - ") || "Unknown Supabase save error";
+  return parts.filter(Boolean).join(" - ") || "Unknown save error";
 }
 
 function selectVisibleReviewItems(checked){
@@ -137,7 +137,7 @@ async function approveSelectedReviewItems(){
 }
 
 async function archiveSelectedReviewItems(){
-  if(!requireOperationsPermission("move selected review items out of active work")) return;
+  if(!requireOperationsPermission("close selected review items")) return;
   const ids = selectedReviewIds();
   const status = document.getElementById("bulkReviewStatus");
   if(!ids.length){
@@ -145,18 +145,18 @@ async function archiveSelectedReviewItems(){
     return;
   }
   if(ids.length > 40){
-    if(status) status.textContent = `Move ${BULK_REVIEW_LIMIT} or fewer at a time so the app stays responsive.`;
-    alert(`Move ${BULK_REVIEW_LIMIT} or fewer at a time.`);
+    if(status) status.textContent = `Close ${BULK_REVIEW_LIMIT} or fewer at a time so the app stays responsive.`;
+    alert(`Close ${BULK_REVIEW_LIMIT} or fewer at a time.`);
     return;
   }
-  if(!confirm(`Move ${ids.length} selected item${ids.length === 1 ? "" : "s"} out of active work?`)) return;
+  if(!confirm(`Don't approve ${ids.length} selected item${ids.length === 1 ? "" : "s"}? They will leave Needs Review but stay recoverable.`)) return;
   let moved = 0;
   let failed = 0;
   for(const reviewId of ids){
     try{
       await ImportReviewService.archiveReview(reviewId, importReviewContext());
       moved++;
-      if(status) status.textContent = `Moved ${moved} of ${ids.length}...`;
+      if(status) status.textContent = `Closed ${moved} of ${ids.length}...`;
     }catch(err){
       failed++;
       console.error("Bulk archive failed", reviewId, err);
@@ -164,7 +164,8 @@ async function archiveSelectedReviewItems(){
   }
   await loadWorkspaceData();
   renderReviewQueue();
-  if(status) status.textContent = failed ? `Moved ${moved}. ${failed} could not be moved.` : `Moved ${moved} item${moved === 1 ? "" : "s"} out of active work.`;
+  if(status) status.textContent = failed ? `Closed ${moved}. ${failed} could not be closed.` : `Closed ${moved} review item${moved === 1 ? "" : "s"}.`;
+  if(moved) InteractionService?.showConfirmation?.("Review items closed", "They were not approved into active work and stay recoverable.");
 }
 
 
@@ -211,6 +212,7 @@ async function addSubmission(e){
     interactions?.clearDroppedReviewFile?.();
     setInlineState("submissionSaveState", "Saved - we'll take a look at it.", "saved");
     setStatus("Saved - we'll take a look at it.");
+    InteractionService?.showConfirmation?.("Request sent", "Saved - we'll take a look at it.");
     loadWorkspaceData().catch(err => console.error("Submission saved, but refresh failed", err));
   }catch(err){
     setInlineState("submissionSaveState", `Could not send while ${currentStep}: ${permissionAwareErrorMessage(err)}`, "failed");
@@ -304,7 +306,10 @@ function renderImportReviewDetail(){
     approveBtn.textContent = converted ? "Already Approved" : "Approve Work Order";
     approveBtn.onclick = () => approveReviewDetail();
   }
-  if(rejectBtn) rejectBtn.onclick = () => archiveSubmissionById(review.id);
+  if(rejectBtn){
+    rejectBtn.textContent = "Reject and return";
+    rejectBtn.onclick = () => archiveSubmissionById(review.id);
+  }
 }
 
 
@@ -332,6 +337,7 @@ async function approveReviewDetail(){
     const created = await ImportReviewService.approveReview({ reviewId:review.id, review, type:"work_order", data:payload, documentId:review.documentId, reviewerId:currentSession.user.id }, importReviewContext());
     selectedWorkOrderId = created.id;
     setInlineState("reviewDetailSaveState", created.alreadyConverted ? "Already approved" : "Approved into work order", "saved");
+    InteractionService?.showConfirmation?.("Work order created", created.alreadyConverted ? "This review item was already approved." : "The review item is now an active work order.");
     const refreshed = await refreshAfterWrite?.("Approved into work order");
     if(refreshed !== false) showView("workOrderDetail");
     else setInlineState("reviewDetailSaveState", "Approved into a work order, but the workspace refresh failed. Refresh before opening the work order.", "saved");
@@ -344,7 +350,11 @@ async function approveReviewDetail(){
 
 
 async function archiveSubmissionById(reviewId){
-  try{ await ImportReviewService.archiveReview(reviewId, importReviewContext()); }
+  try{
+    await ImportReviewService.archiveReview(reviewId, importReviewContext());
+    InteractionService?.showConfirmation?.("Review item closed", "It was not approved into active work and can be found in history if needed.");
+    await loadWorkspaceData();
+  }
   catch(err){ handleWriteError(err); }
 }
 

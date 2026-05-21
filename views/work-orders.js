@@ -3,7 +3,7 @@
   window.FieldOps.Views = window.FieldOps.Views || {};
   const WORK_ORDER_VISIBLE_LIMIT = 80;
   const SCHEDULED_WORK_VISIBLE_LIMIT = 120;
-  let workOrderFilter = "attention";
+  let workOrderFilter = "all";
   let scheduledWorkFilter = "upcoming";
   let assignedWorkFilter = "attention";
   let selectedAssignedWorkId = "";
@@ -68,6 +68,10 @@ function workOrderSearchValue(){
   return String(document.getElementById("workOrderSearchInput")?.value || "").trim().toLowerCase();
 }
 
+function workOrderTypeFilterValue(){
+  return String(document.getElementById("workOrderTypeFilter")?.value || "all");
+}
+
 function workOrderHaystack(task){
   const related = [
     app.projects.find(p => p.id === task.projectId)?.name,
@@ -93,28 +97,32 @@ function workOrderHaystack(task){
 function workOrderMatchesFilter(task, filter){
   const today = todayStringLocal();
   const weekEnd = addDays(today, 7);
-  const currentMonth = monthString(today);
-  const haystack = workOrderHaystack(task);
   const operationalIssue = !isScheduledWorkOrder(task);
   if(filter === "today") return operationalIssue && isOpenWorkOrder(task) && task.date === today;
   if(filter === "overdue") return operationalIssue && isOpenWorkOrder(task) && task.date && task.date < today;
   if(filter === "week") return operationalIssue && isOpenWorkOrder(task) && task.date && task.date >= today && task.date <= weekEnd;
-  if(filter === "month") return operationalIssue && isOpenWorkOrder(task) && monthString(task.date) === currentMonth;
-  if(filter === "fleet") return isOpenWorkOrder(task) && (haystack.includes("fleet") || haystack.includes("vehicle") || Boolean(task.vehicleId));
-  if(filter === "facility") return isOpenWorkOrder(task) && (haystack.includes("facility") || haystack.includes("building") || haystack.includes("valley") || haystack.includes("francis") || haystack.includes("excelsior"));
-  if(filter === "kitchen") return isOpenWorkOrder(task) && haystack.includes("kitchen");
-  if(filter === "walkthrough") return isOpenWorkOrder(task) && haystack.includes("walkthrough");
-  if(filter === "completed") return String(task.status || "").toLowerCase() === "complete";
-  if(filter === "anchor") return isOpenWorkOrder(task) && haystack.includes("needs anchor review");
-  return isOpenWorkOrder(task) && !isScheduledWorkOrder(task) && task.date && task.date <= weekEnd;
+  return operationalIssue;
+}
+
+function workOrderMatchesType(task, type){
+  const haystack = workOrderHaystack(task);
+  if(type === "fleet") return isOpenWorkOrder(task) && (haystack.includes("fleet") || haystack.includes("vehicle") || Boolean(task.vehicleId));
+  if(type === "facility") return isOpenWorkOrder(task) && (haystack.includes("facility") || haystack.includes("building") || haystack.includes("valley") || haystack.includes("francis") || haystack.includes("excelsior"));
+  if(type === "kitchen") return isOpenWorkOrder(task) && haystack.includes("kitchen");
+  if(type === "walkthrough") return isOpenWorkOrder(task) && haystack.includes("walkthrough");
+  if(type === "completed") return String(task.status || "").toLowerCase() === "complete";
+  if(type === "missing_details") return isOpenWorkOrder(task) && /needs anchor review|missing details|needs details/i.test(haystack);
+  return true;
 }
 
 function filteredWorkOrders(tasks){
   const query = workOrderSearchValue();
+  const type = workOrderTypeFilterValue();
   const base = query
     ? tasks.filter(task => workOrderHaystack(task).includes(query))
     : tasks.filter(task => workOrderMatchesFilter(task, workOrderFilter));
-  return base.sort((a,b) => {
+  const typed = base.filter(task => workOrderMatchesType(task, type));
+  return typed.sort((a,b) => {
     const aComplete = String(a.status || "").toLowerCase() === "complete";
     const bComplete = String(b.status || "").toLowerCase() === "complete";
     if(aComplete !== bComplete) return aComplete ? 1 : -1;
@@ -127,28 +135,27 @@ function renderWorkOrderFilterStatus(allTasks, visibleTasks, shownTasks){
   const target = document.getElementById("workOrderFilterStatus");
   if(!target) return;
   const query = workOrderSearchValue();
-  const label = query ? `search for "${query}"` : workOrderFilterLabel(workOrderFilter);
+  const type = workOrderTypeFilterValue();
+  const typeLabel = type === "all" ? "" : `, ${workOrderFilterLabel(type)}`;
+  const label = query ? `search for "${query}"${typeLabel}` : `${workOrderFilterLabel(workOrderFilter)}${typeLabel}`;
   const openCount = allTasks.filter(isOpenWorkOrder).length;
   target.textContent = `Showing ${shownTasks.length} of ${visibleTasks.length} for ${label}. ${openCount} open work order${openCount === 1 ? "" : "s"} total.`;
 }
 
 function workOrderFilterLabel(filter){
   const labels = {
-    attention:"attention",
-    upcoming:"upcoming",
     today:"today",
     overdue:"overdue",
     week:"this week",
-    month:"this month",
     fleet:"fleet",
     facility:"facility",
     kitchen:"kitchen",
     walkthrough:"walkthrough",
     completed:"completed",
-    anchor:"needs anchor review",
-    all:"all scheduled"
+    missing_details:"missing details",
+    all:"all"
   };
-  return labels[filter] || "attention";
+  return labels[filter] || "all";
 }
 
 function syncWorkOrderFilterControls(){
@@ -157,10 +164,14 @@ function syncWorkOrderFilterControls(){
     button.classList.toggle("active", active);
     button.setAttribute("aria-pressed", active ? "true" : "false");
   });
+  document.querySelectorAll("[data-manager-cleanup]").forEach(option => {
+    option.hidden = !canManageOperations();
+    option.disabled = !canManageOperations();
+  });
 }
 
 function setWorkOrderFilter(filter){
-  workOrderFilter = filter || "attention";
+  workOrderFilter = filter || "all";
   const search = document.getElementById("workOrderSearchInput");
   if(search) search.value = "";
   renderTasks();
@@ -196,7 +207,7 @@ function areaSystemForScheduledWork(task){
     notes.match(/Applies to:\s*([^\n]+)/i)?.[1]?.trim() ||
     notes.match(/Needs anchor review:\s*([^\n]+)/i)?.[1]?.trim() ||
     task.location ||
-    "Needs anchor review";
+    "Missing details";
 }
 
 function linkedIdFromNotes(notes, label){
@@ -514,9 +525,9 @@ async function completeAssignedWorkItem(taskId){
     setStatus("Saving completion...");
     const { data, error } = await updateRow("field_ops_work_orders", task.id, payload, workspaceId());
     if(error) throw withSupabaseCallDetails(error, "field_ops_work_orders", "complete assigned work", payload);
-    if(!data) throw new Error("No row was updated. Database permission rules may not allow this account to complete assigned work yet.");
+    if(!data) throw new Error("No row was updated. This account may not be allowed to complete this assigned work yet.");
     setStatus("Assigned work marked complete");
-    InteractionService?.showToast?.("Assigned work marked complete", "saved");
+    InteractionService?.showConfirmation?.("Work completed", "This assigned item was marked complete and kept in the work history.");
     await loadWorkspaceData();
   }catch(err){
     const message = permissionAwareErrorMessage(err);
@@ -596,6 +607,7 @@ async function createWorkOrderFromScheduledTask(taskId){
         notes:appendHistory(task.notes, `Linked work order created: ${saved.id}`)
       });
       setStatus("Linked work order created");
+      InteractionService?.showConfirmation?.("Work order created", "The scheduled item now has a linked work order.");
       openWorkOrderDetail(saved.id);
     } else {
       setStatus("Linked work order queued until connection returns");
@@ -639,6 +651,7 @@ async function createSupplyRequestFromScheduledTask(taskId){
       });
     }
     setStatus("Supply request sent to Needs Review");
+    InteractionService?.showConfirmation?.("Supply request sent", "It is waiting in Needs Review before becoming official work.");
     showView("importReview");
   }catch(err){ handleWriteError(err); }
 }
@@ -693,7 +706,7 @@ function uploadDocumentForScheduledTask(taskId){
 function workOrderCardWithActions(t){
   if(!canManageOperations()) return workOrderCard(t);
   const index = app.tasks.indexOf(t);
-  return `${workOrderCard(t)}<div class="actions no-print"><button type="button" onclick="openWorkOrderDetail('${t.id}')">Open</button><button class="ghost" type="button" onclick="openEditModal('tasks',${index})">Edit</button><button class="ghost" type="button" onclick="deleteItem('tasks',${index})">Move out of active work</button></div>`;
+  return `${workOrderCard(t)}<div class="actions no-print"><button type="button" onclick="openWorkOrderDetail('${t.id}')">Open</button><button class="ghost" type="button" onclick="openEditModal('tasks',${index})">Edit</button><button class="ghost" type="button" onclick="deleteItem('tasks',${index})">Archive this task</button></div>`;
 }
 
 
@@ -733,15 +746,16 @@ function anchorMemoryForWorkOrder(task){
 
 async function archiveWorkOrderById(workOrderId){
   if(!requireOperationsPermission("move work orders out of active work")) return;
-  if(!confirm("Move this work order out of active work? It will leave the active list but stay recoverable.")) return;
+  if(!confirm("Archive this task? It will leave the active list but can be restored later.")) return;
   try{
     await archiveRecord("field_ops_work_orders", workOrderId);
     if(selectedWorkOrderId === workOrderId) selectedWorkOrderId = "";
+    InteractionService?.showConfirmation?.("Task archived", "It left the active work list and can be restored from Inactive Work Orders.");
     showView("workOrders", { skipHistory:true });
   }catch(err){
     console.error(err);
-    setWorkOrderDetailState(`Could not move out of active work: ${err.message}`, "failed");
-    setStatus("Move out of active work failed");
+    setWorkOrderDetailState(`Could not archive this task: ${err.message}`, "failed");
+    setStatus("Archive failed");
   }
 }
 
@@ -943,8 +957,9 @@ async function markWorkOrderComplete(workOrderId){
     setWorkOrderDetailState("Saving completion...", "pending");
     const { data, error } = await updateRow("field_ops_work_orders", workOrderId, payload, workspaceId());
     if(error) throw withSupabaseCallDetails(error, "field_ops_work_orders", "update completion", payload);
-    if(!data) throw withSupabaseCallDetails(new Error("No row was updated. This usually means RLS blocked the update, the record is archived, or the workspace_id did not match."), "field_ops_work_orders", "update completion", payload);
+    if(!data) throw withSupabaseCallDetails(new Error("No row was updated. This usually means permissions blocked the update, the record is archived, or the workspace did not match."), "field_ops_work_orders", "update completion", payload);
     setWorkOrderDetailState("Complete saved", "saved");
+    InteractionService?.showConfirmation?.("Work completed", "This task was marked complete and kept in the work history.");
     loadWorkspaceData().catch(err => {
       console.error("Completion saved, but workspace refresh failed", err);
       setWorkOrderDetailState(`Complete saved, but refresh failed: ${permissionAwareErrorMessage(err)}`, "saved");
@@ -999,14 +1014,14 @@ async function saveWorkOrderDetailUpdates(){
     setWorkOrderDetailState("Saving work order...", "pending");
     const workOrderResult = await updateRow("field_ops_work_orders", task.id, workOrderPayload, workspaceId());
     if(workOrderResult.error) throw withSupabaseCallDetails(workOrderResult.error, "field_ops_work_orders", "update detail", workOrderPayload);
-    if(!workOrderResult.data) throw withSupabaseCallDetails(new Error("No row was updated. This usually means RLS blocked the update, the record is archived, or the workspace_id did not match."), "field_ops_work_orders", "update detail", workOrderPayload);
+    if(!workOrderResult.data) throw withSupabaseCallDetails(new Error("No row was updated. This usually means permissions blocked the update, the record is archived, or the workspace did not match."), "field_ops_work_orders", "update detail", workOrderPayload);
     savedWorkOrder = true;
     if(existingDocumentId){
       const documentPayload = { work_order_id: task.id };
       setWorkOrderDetailState("Linking document...", "pending");
       const documentResult = await updateRow("field_ops_documents", existingDocumentId, documentPayload, workspaceId());
       if(documentResult.error) throw withSupabaseCallDetails(documentResult.error, "field_ops_documents", "link document", documentPayload);
-      if(!documentResult.data) throw withSupabaseCallDetails(new Error("No document row was updated. This usually means RLS blocked the update, the document is archived, or the workspace_id did not match."), "field_ops_documents", "link document", documentPayload);
+      if(!documentResult.data) throw withSupabaseCallDetails(new Error("No document row was updated. This usually means permissions blocked the update, the document is archived, or the workspace did not match."), "field_ops_documents", "link document", documentPayload);
     }
     if(upload){
       setWorkOrderDetailState("Uploading attachment...", "pending");
@@ -1027,6 +1042,7 @@ async function saveWorkOrderDetailUpdates(){
     }
     setStatus("Work order saved");
     setWorkOrderDetailState("Saved", "saved");
+    InteractionService?.showConfirmation?.("Work order saved", "Your update was saved to the shared workspace.");
     loadWorkspaceData().catch(err => {
       console.error("Work order saved, but workspace refresh failed", err);
       setWorkOrderDetailState(`Saved, but refresh failed: ${permissionAwareErrorMessage(err)}`, "saved");

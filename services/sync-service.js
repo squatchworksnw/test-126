@@ -83,7 +83,7 @@
       return;
     }
 
-    setStatus(`Retrying ${pendingWrites.length} pending write${pendingWrites.length === 1 ? "" : "s"}...`, ctx);
+    setStatus(`Retrying ${pendingWrites.length} item${pendingWrites.length === 1 ? "" : "s"} waiting to sync...`, ctx);
     const remaining = [];
     for(const item of pendingWrites){
       try{
@@ -99,7 +99,7 @@
     await ctx.loadWorkspaceData();
     setStatus(remaining.length ? `${remaining.length} retry failed` : "Pending writes saved", ctx);
     if(showAlert){
-      alert(remaining.length ? `${remaining.length} pending write${remaining.length === 1 ? "" : "s"} still need attention.` : "Pending writes were saved to Supabase.");
+      alert(remaining.length ? `${remaining.length} item${remaining.length === 1 ? "" : "s"} still need attention.` : "Waiting items were saved.");
     }
   }
 

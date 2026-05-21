@@ -54,7 +54,7 @@
   function requireAuth(showAlert, ctx){
     const state = ctx.getState();
     if(isAuthenticated(state) && state.currentWorkspace) return true;
-    ctx.setStatus(isAuthenticated(state) ? "Loading workspace" : "Sign in to use Supabase");
+    ctx.setStatus(isAuthenticated(state) ? "Loading workspace" : "Sign in to load workspace");
     if(showAlert) alert(isAuthenticated(state) ? "Workspace is still loading." : "Sign in first so database permission rules can allow access.");
     return false;
   }
@@ -112,7 +112,7 @@
       } else {
         ctx.setWorkspace(null);
         Object.assign(ctx.app, ctx.createEmptyAppState());
-        ctx.setStatus("Sign in to use Supabase");
+        ctx.setStatus("Sign in to load workspace");
         ctx.render();
         ctx.showView?.("login", { skipHistory:true });
       }
@@ -121,7 +121,7 @@
     if(ctx.getState().currentSession){
       await bootstrapWorkspace(ctx);
     } else {
-      ctx.setStatus("Sign in to use Supabase");
+      ctx.setStatus("Sign in to load workspace");
       ctx.render();
       ctx.showView?.("login", { skipHistory:true });
     }
@@ -138,7 +138,7 @@
 
     if(error){
       const isRateLimited = String(error.message || "").toLowerCase().includes("rate");
-      alert(isRateLimited ? "Supabase is pausing sign-in emails for a few minutes. Wait a bit, then try once." : "Sign-in failed: " + error.message);
+      alert(isRateLimited ? "Sign-in emails are paused for a few minutes. Wait a bit, then try once." : "Sign-in failed: " + error.message);
       return;
     }
     ctx.setStatus("Check your email for sign-in link");
@@ -157,7 +157,7 @@
       const message = String(error.message || "");
       const lower = message.toLowerCase();
       const friendly = lower.includes("invalid login credentials")
-        ? "That email/password combination did not work. If this account was created by email link, it may not have a password yet. Use Email sign-in link, or set a password for this user in Supabase Auth."
+        ? "That email/password combination did not work. If this account was created by email link, it may not have a password yet. Use Email sign-in link, or ask an admin to set a password."
         : lower.includes("email not confirmed")
           ? "This email needs to be confirmed before password sign-in will work. Use the email sign-in link first."
           : `Password sign-in failed: ${message}`;

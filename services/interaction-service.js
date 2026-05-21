@@ -52,6 +52,32 @@
     }
   }
 
+  function showConfirmation(title, detail = ""){
+    const body = document.body;
+    if(!body || typeof body.appendChild !== "function" || typeof document.createElement !== "function") return;
+    const existing = typeof document.querySelector === "function" ? document.querySelector(".confirmation-banner") : null;
+    if(existing && typeof existing.remove === "function") existing.remove();
+    const banner = document.createElement("section");
+    banner.className = "confirmation-banner";
+    banner.setAttribute("role", "status");
+    banner.setAttribute("aria-live", "polite");
+    banner.innerHTML = `
+      <div>
+        <strong>${esc(title)}</strong>
+        ${detail ? `<p>${esc(detail)}</p>` : ""}
+      </div>
+      <button type="button" class="ghost" aria-label="Dismiss confirmation">OK</button>
+    `;
+    banner.querySelector("button")?.addEventListener("click", () => banner.remove());
+    body.appendChild(banner);
+    showToast(title, "saved");
+    if(typeof window.setTimeout === "function"){
+      window.setTimeout(() => {
+        if(typeof banner.remove === "function") banner.remove();
+      }, 7000);
+    }
+  }
+
   function renderAddNewOptions(){
     const grid = document.getElementById("addNewGrid");
     if(!grid) return;
@@ -167,6 +193,7 @@
     currentAddNewOptions,
     droppedReviewFile: null,
     showToast,
+    showConfirmation,
     openAddNew,
     closeAddNew,
     initAddNewModal,

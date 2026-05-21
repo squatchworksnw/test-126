@@ -128,6 +128,26 @@ header{
 .filter-pills{display:flex;flex-wrap:wrap;gap:8px}
 .filter-pill{padding:9px 12px;border-radius:999px;border:1px solid var(--border);background:#fffaf0;color:var(--text);font-size:.88rem}
 .filter-pill.active{background:var(--navy);border-color:var(--navy);color:#fff}
+.confirmation-banner{
+  position:fixed;
+  left:50%;
+  bottom:calc(var(--bottom-nav-height) + 18px);
+  transform:translateX(-50%);
+  z-index:80;
+  width:min(560px,calc(100vw - 28px));
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:14px;
+  padding:14px 16px;
+  border:1px solid rgba(40,81,82,.25);
+  border-left:5px solid var(--teal-deep);
+  border-radius:16px;
+  background:var(--paper);
+  box-shadow:var(--shadow-strong);
+}
+.confirmation-banner strong{color:var(--navy);font-size:1rem}
+.confirmation-banner p{margin:3px 0 0;color:var(--muted);font-size:.9rem}
 .scheduled-work-list{display:grid;gap:10px}
 .scheduled-work-row{display:grid;grid-template-columns:120px minmax(0,1fr) 120px 110px auto;align-items:center;gap:12px;background:var(--paper-soft);border:1px solid var(--border);border-radius:14px;padding:12px}
 .scheduled-date,.scheduled-source{font-weight:800;color:var(--navy);font-size:.9rem}

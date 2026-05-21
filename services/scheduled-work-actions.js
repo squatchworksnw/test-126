@@ -19,7 +19,7 @@
       return notes.match(/Area\/system:\s*([^\n]+)/i)?.[1]?.trim() ||
         notes.match(/Applies to:\s*([^\n]+)/i)?.[1]?.trim() ||
         notes.match(/Needs anchor review:\s*([^\n]+)/i)?.[1]?.trim() ||
-        item?.location || 'Needs anchor review';
+        item?.location || 'Missing details';
     };
     const haystack = item => [
       item.workOrderNumber, item.name, item.type, item.status, item.priority, item.date, item.location, item.notes,

@@ -162,6 +162,7 @@ async function addFileRecord(e){
     e.target.reset();
     setInlineState("fileSaveState", "Saved", "saved");
     setStatus("Document saved");
+    InteractionService?.showConfirmation?.("Upload submitted", uncertainUpload ? "It is waiting in Needs Review so the team can place it correctly." : "The file was saved and linked to the selected record.");
     await refreshAfterWrite?.("Document saved");
   }catch(err){
     setInlineState("fileSaveState", `Upload failed: ${permissionAwareErrorMessage(err)}`, "failed");

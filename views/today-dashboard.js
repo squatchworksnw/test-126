@@ -209,6 +209,8 @@
       const el = document.getElementById(id);
       if(el) el.textContent = value;
     });
+    const scheduledSummary = document.getElementById("todayScheduledSummary");
+    if(scheduledSummary) scheduledSummary.textContent = `Recurring work this week: ${todayState.scheduledUpcoming.length}`;
     const clearLabel = document.getElementById("todayClearLabel");
     if(clearLabel) clearLabel.textContent = quietBuckets === attentionBuckets.length ? "No active pressure points" : `${quietBuckets} quiet area${quietBuckets === 1 ? "" : "s"}`;
 

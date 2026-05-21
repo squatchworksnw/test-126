@@ -37,7 +37,7 @@
     const workOrder = app.tasks.find(item => item.id === data.work_order_id);
     const vendor = app.vendors.find(item => item.id === data.vendor_id);
     const actions = canManageOperations() && review.status === "Needs Review"
-      ? `<div class="actions no-print"><button type="button" onclick="approveMaterialReviewById('${review.id}')">Approve to Budget</button><button class="ghost" type="button" onclick="archiveSubmissionById('${review.id}')">Move out of active work</button></div>`
+      ? `<div class="actions no-print"><button type="button" onclick="approveMaterialReviewById('${review.id}')">Approve to Budget</button><button class="ghost" type="button" onclick="archiveSubmissionById('${review.id}')">Don't approve this</button></div>`
       : "";
     return card(data.title || review.description || "Supply / material request", [
       lines.length ? `${lines.length} line item${lines.length === 1 ? "" : "s"}` : "No line items",
@@ -87,6 +87,7 @@
     try{
       await MaterialsService.approveMaterialReview(review, materialsContext());
       setStatus("Supply / material request approved to budget");
+      InteractionService?.showConfirmation?.("Supply request approved", "The reviewed request was saved to budget tracking.");
       await refreshAfterWrite?.("Supply / material request approved to budget");
     }catch(err){ handleWriteError(err); }
   }

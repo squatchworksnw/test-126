@@ -5,13 +5,13 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>Field Operations Command Center</title>
 
-<link rel="stylesheet" href="styles/tokens/tokens.css?v=20260521-assignedcontinuity1" />
-<link rel="stylesheet" href="styles.css?v=20260521-assignedcontinuity1" />
+<link rel="stylesheet" href="styles/tokens/tokens.css?v=20260521-trustcleanup1" />
+<link rel="stylesheet" href="styles.css?v=20260521-trustcleanup1" />
 </head>
 
 <body data-auth="signed-out" data-role="signed-out">
 <a class="skip-link" href="#mainContent">Skip to workspace</a>
-<div id="pilotIndicator" class="pilot-indicator hidden">Pilot environment - verify before operational use</div>
+<div id="pilotIndicator" class="pilot-indicator hidden">Technical testing mode</div>
 <section id="login" class="view login-screen active" aria-label="Sign in">
   <div class="login-card editorial-card">
     <div>
@@ -26,9 +26,9 @@
       <div class="actions">
         <button id="loginSignInBtn" type="button">Email sign-in link</button>
         <button id="loginPasswordSignInBtn" class="ghost" type="button">Sign in with password</button>
-        <button id="loginDemoBtn" class="ghost" type="button">Session demo</button>
+        <button id="loginDemoBtn" class="ghost technical-only hidden" type="button">Demo mode</button>
       </div>
-      <p class="meta small">For pilot testing, use one of the approved emails. Role access is set in Supabase by workspace membership.</p>
+      <p class="meta small">Use one of the approved workspace emails. Access is set by your workspace role.</p>
     </div>
   </div>
 </section>
@@ -275,7 +275,7 @@
       </section>
 
       <details class="panel today-panel quiet-details" data-hide-when-empty="scheduled">
-        <summary><span>Scheduled rhythm</span><strong id="todayScheduledCount">0</strong></summary>
+        <summary><span id="todayScheduledSummary">Recurring work this week: 0</span></summary>
         <div class="panel-title"><div><h3>Recurring Work This Week</h3><p class="meta">Calendar imports stay here unless they need active attention.</p></div><button class="ghost" type="button" onclick="showView('scheduledWork')">View all</button></div>
         <div id="scheduledTodayList" class="card-list"></div>
       </details>
@@ -421,7 +421,7 @@
           <button type="button" class="ghost" onclick="selectVisibleReviewItems(true)">Select visible</button>
           <button type="button" class="ghost" onclick="selectVisibleReviewItems(false)">Clear</button>
           <button type="button" onclick="approveSelectedReviewItems()">Approve selected</button>
-          <button type="button" class="danger" onclick="archiveSelectedReviewItems()">Move selected out of active work</button>
+          <button type="button" class="danger" onclick="archiveSelectedReviewItems()">Don't approve selected</button>
         </div>
         <p id="bulkReviewStatus" class="meta" aria-live="polite">Choose a filter, select items, then approve them into work.</p>
       </div>
@@ -439,7 +439,7 @@
         <div class="actions no-print">
           <button class="ghost" type="button" onclick="showView('importReview')">Back to Needs Review</button>
           <button type="button" id="reviewApproveBtn">Approve Work Order</button>
-          <button class="danger" type="button" id="reviewRejectBtn">Move out of active work</button>
+          <button class="danger" type="button" id="reviewRejectBtn">Reject and return</button>
         </div>
       </div>
       <p id="reviewDetailSaveState" class="meta" data-state="">Ready</p>
@@ -575,18 +575,22 @@
           <input id="workOrderSearchInput" type="search" placeholder="Search kitchen, fleet, walkthrough, title, notes..." autocomplete="off" oninput="handleWorkOrderSearch()" />
         </label>
         <div class="filter-pills" role="group" aria-label="Work order filters">
-          <button type="button" class="filter-pill active" data-work-filter="attention" onclick="setWorkOrderFilter('attention')">Attention</button>
           <button type="button" class="filter-pill" data-work-filter="today" onclick="setWorkOrderFilter('today')">Today</button>
           <button type="button" class="filter-pill" data-work-filter="overdue" onclick="setWorkOrderFilter('overdue')">Overdue</button>
           <button type="button" class="filter-pill" data-work-filter="week" onclick="setWorkOrderFilter('week')">This Week</button>
-          <button type="button" class="filter-pill" data-work-filter="month" onclick="setWorkOrderFilter('month')">This Month</button>
-          <button type="button" class="filter-pill" data-work-filter="fleet" onclick="setWorkOrderFilter('fleet')">Fleet</button>
-          <button type="button" class="filter-pill" data-work-filter="facility" onclick="setWorkOrderFilter('facility')">Facility</button>
-          <button type="button" class="filter-pill" data-work-filter="kitchen" onclick="setWorkOrderFilter('kitchen')">Kitchen</button>
-          <button type="button" class="filter-pill" data-work-filter="walkthrough" onclick="setWorkOrderFilter('walkthrough')">Walkthrough</button>
-          <button type="button" class="filter-pill" data-work-filter="completed" onclick="setWorkOrderFilter('completed')">Completed</button>
-          <button type="button" class="filter-pill" data-work-filter="anchor" onclick="setWorkOrderFilter('anchor')">Needs Anchor Review</button>
+          <button type="button" class="filter-pill active" data-work-filter="all" onclick="setWorkOrderFilter('all')">All</button>
         </div>
+        <label class="work-order-search">Type
+          <select id="workOrderTypeFilter" onchange="handleWorkOrderSearch()">
+            <option value="all">Any type</option>
+            <option value="fleet">Fleet</option>
+            <option value="facility">Facility</option>
+            <option value="kitchen">Kitchen</option>
+            <option value="walkthrough">Walkthrough</option>
+            <option value="completed">Completed</option>
+            <option value="missing_details" data-manager-cleanup>Missing details</option>
+          </select>
+        </label>
         <div class="actions">
           <button type="button" class="ghost" onclick="showView('scheduledWork')">Open Scheduled Work</button>
         </div>
@@ -641,7 +645,7 @@
           <button class="ghost" type="button" onclick="showView('workOrders')">Back to Work Orders</button>
           <button type="button" id="workOrderDetailEditBtn">Edit</button>
           <button class="ghost" type="button" id="workOrderDetailCompleteBtn">Mark Complete</button>
-          <button class="danger" type="button" id="workOrderDetailArchiveBtn">Move out of active work</button>
+          <button class="danger" type="button" id="workOrderDetailArchiveBtn">Archive this task</button>
         </div>
       </div>
       <div id="workOrderDetailBody"></div>
@@ -776,8 +780,8 @@
         <button onclick="buildReport(true)">Preview Report</button>
         <button onclick="printBoardReport()">Print / Save as PDF</button>
         <button class="ghost" onclick="downloadBackup()">Download Backup</button>
-        <button class="ghost" onclick="loadDemoPilotData()">Load Demo Data</button>
-        <button class="ghost" onclick="clearDemoPilotData()">Clear Demo</button>
+        <button class="ghost technical-only hidden" onclick="loadDemoPilotData()">Load Demo Data</button>
+        <button class="ghost technical-only hidden" onclick="clearDemoPilotData()">Clear Demo</button>
       </div>
     </section>
     <section class="panel"><div class="panel-title"><h3>Report Preview</h3></div><div id="reportPreview"></div></section>
@@ -969,13 +973,13 @@
 
   <section id="settings" class="view">
     <section class="panel">
-      <div class="panel-title"><div><h2>Settings</h2><p class="meta">Supabase is the source of truth. Browser storage is not used as the primary database.</p></div></div>
+      <div class="panel-title"><div><h2>Settings</h2><p class="meta">Workspace records are saved securely online. This device only keeps temporary retry information.</p></div></div>
       <div class="form-grid">
         <label>Workspace name<input id="workspaceName" /></label>
         <label>Planning note<input id="workspaceNote" /></label>
       </div>
       <div class="actions">
-        <button onclick="syncNow()">Refresh From Supabase</button>
+        <button onclick="syncNow()">Refresh Workspace</button>
         <button class="ghost" onclick="flushPendingWrites(true)">Retry items waiting to sync</button>
         <button class="ghost" onclick="loadFromCloud()">Reload Workspace</button>
         <button class="ghost" onclick="downloadBackup()">Download Backup</button>
@@ -987,7 +991,7 @@
       <p class="meta small">Status: <strong id="settingsSyncStatus">Sign in to load workspace</strong></p>
       <p class="meta small">Waiting to sync: <strong id="pendingQueueCount">0</strong></p>
       <div id="pendingQueueDetails" class="card-list"></div>
-      <p class="meta small">Secure workspace records are on: creates, edits, files, and items needing review write to Supabase workspace tables.</p>
+      <p class="meta small">Secure workspace records are on: creates, edits, files, and items needing review save to the shared workspace.</p>
       <p class="meta small">Workspace: <strong id="settingsWorkspaceId">Not loaded</strong></p>
     </section>
 
@@ -995,7 +999,7 @@
       <div class="panel-title">
         <div>
           <h3>People + Roles</h3>
-          <p class="meta">Add an existing Supabase user to this workspace and choose what they can see.</p>
+          <p class="meta">Add an approved user to this workspace and choose what they can see.</p>
         </div>
         <button class="ghost" type="button" onclick="refreshPeopleRoles()">Refresh</button>
       </div>
@@ -1014,13 +1018,13 @@
         <p id="peopleRoleStatus" class="meta full" aria-live="polite">Only Owners can manage people here.</p>
       </form>
       <div id="peopleRoleList" class="card-list"></div>
-      <p class="meta small">If an email is not found, add or invite that user in Supabase Authentication first. This screen assigns workspace access; it does not expose secret admin keys.</p>
+      <p class="meta small">If an email is not found, add or invite that person in the account system first. This screen assigns workspace access; it does not expose secret admin keys.</p>
     </section>
 
     <section class="panel" id="diagnosticPanel" data-admin-only>
       <div class="panel-title">
         <div>
-          <h3>Pilot Diagnostics</h3>
+          <h3>Technical Diagnostics</h3>
           <p class="meta">For Owner/Admin verification only. No secrets are shown.</p>
         </div>
       </div>
@@ -1030,7 +1034,7 @@
         <div class="stat"><span>Session Email</span><strong id="diagSessionEmail">-</strong></div>
         <div class="stat"><span>Sync Status</span><strong id="diagSyncStatus">-</strong></div>
         <div class="stat"><span>Waiting to Sync</span><strong id="diagPendingWrites">0</strong></div>
-        <div class="stat"><span>Supabase</span><strong id="diagSupabaseConnected">Not checked</strong></div>
+        <div class="stat"><span>Database Connection</span><strong id="diagSupabaseConnected">Not checked</strong></div>
         <div class="stat"><span>Last Load</span><strong id="diagLastLoadAt">Never</strong></div>
       </div>
       <p class="meta small">Run <strong>sql/rls_verification.sql</strong> in the Supabase SQL Editor before pilot use.</p>
@@ -1076,28 +1080,29 @@
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="state/app-state.js?v=20260521-assignedcontinuity1"></script>
-<script src="components/cards.js?v=20260521-assignedcontinuity1"></script>
-<script src="components/forms.js?v=20260521-assignedcontinuity1"></script>
-<script src="auth/roles.js?v=20260521-assignedcontinuity1"></script>
-<script src="auth/session.js?v=20260521-assignedcontinuity1"></script>
-<script src="services/supabase-service.js?v=20260521-assignedcontinuity1"></script>
-<script src="services/mappers.js?v=20260521-assignedcontinuity1"></script>
-<script src="services/import-review-service.js?v=20260521-assignedcontinuity1"></script>
-<script src="services/materials-service.js?v=20260521-assignedcontinuity1"></script>
-<script src="services/demo-service.js?v=20260521-assignedcontinuity1"></script>
-<script src="services/interaction-service.js?v=20260521-assignedcontinuity1"></script>
-<script src="sync/pending-queue.js?v=20260521-assignedcontinuity1"></script>
-<script src="services/auth-service.js?v=20260521-assignedcontinuity1"></script>
-<script src="services/sync-service.js?v=20260521-assignedcontinuity1"></script>
-<script src="views/registry.js?v=20260521-assignedcontinuity1"></script>
-<script src="views/today-dashboard.js?v=20260521-assignedcontinuity1"></script>
-<script src="views/work-orders.js?v=20260521-assignedcontinuity1"></script>
-<script src="views/documents.js?v=20260521-assignedcontinuity1"></script>
-<script src="views/projects-budget.js?v=20260521-assignedcontinuity1"></script>
-<script src="views/materials.js?v=20260521-assignedcontinuity1"></script>
-<script src="views/review-queue.js?v=20260521-assignedcontinuity1"></script>
-<script src="views/fleet.js?v=20260521-assignedcontinuity1"></script>
-<script src="app.js?v=20260521-assignedcontinuity1"></script>
+<script src="state/app-state.js?v=20260521-trustcleanup1"></script>
+<script src="components/cards.js?v=20260521-trustcleanup1"></script>
+<script src="components/forms.js?v=20260521-trustcleanup1"></script>
+<script src="auth/roles.js?v=20260521-trustcleanup1"></script>
+<script src="auth/session.js?v=20260521-trustcleanup1"></script>
+<script src="services/supabase-service.js?v=20260521-trustcleanup1"></script>
+<script src="services/mappers.js?v=20260521-trustcleanup1"></script>
+<script src="services/import-review-service.js?v=20260521-trustcleanup1"></script>
+<script src="services/materials-service.js?v=20260521-trustcleanup1"></script>
+<script src="services/demo-service.js?v=20260521-trustcleanup1"></script>
+<script src="services/interaction-service.js?v=20260521-trustcleanup1"></script>
+<script src="sync/pending-queue.js?v=20260521-trustcleanup1"></script>
+<script src="services/auth-service.js?v=20260521-trustcleanup1"></script>
+<script src="services/sync-service.js?v=20260521-trustcleanup1"></script>
+<script src="views/registry.js?v=20260521-trustcleanup1"></script>
+<script src="views/today-dashboard.js?v=20260521-trustcleanup1"></script>
+<script src="views/work-orders.js?v=20260521-trustcleanup1"></script>
+<script src="views/documents.js?v=20260521-trustcleanup1"></script>
+<script src="views/projects-budget.js?v=20260521-trustcleanup1"></script>
+<script src="views/materials.js?v=20260521-trustcleanup1"></script>
+<script src="views/review-queue.js?v=20260521-trustcleanup1"></script>
+<script src="views/fleet.js?v=20260521-trustcleanup1"></script>
+<script src="app.js?v=20260521-trustcleanup1"></script>
 </body>
 </html>
+
