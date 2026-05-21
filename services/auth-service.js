@@ -100,7 +100,7 @@
 
   async function initializeAuth(ctx){
     const { data, error } = await SessionApi.getSession(ctx.supabaseClient);
-    if(error) console.error(error);
+    if(error) console.warn("Session check warning", error.message || error);
     ctx.setSession(data?.session || null);
     renderAuthState(ctx);
 
