@@ -5,8 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>Field Operations Command Center</title>
 
-<link rel="stylesheet" href="styles/tokens/tokens.css?v=20260521-approvefix1" />
-<link rel="stylesheet" href="styles.css?v=20260521-approvefix1" />
+<link rel="stylesheet" href="styles/tokens/tokens.css?v=20260521-today1" />
+<link rel="stylesheet" href="styles.css?v=20260521-today1" />
 </head>
 
 <body data-auth="signed-out" data-role="signed-out">
@@ -150,86 +150,78 @@
       </div>
       <div class="illustration-anchor" aria-hidden="true"></div>
       <div class="quick-actions no-print" aria-label="Daily actions">
-        <button type="button" onclick="showView('workOrders')">New Work Order</button>
-        <button type="button" class="ghost" data-open-add-new>Add</button>
-        <button type="button" class="ghost" onclick="showView('documents')">Upload Document</button>
-        <button type="button" class="ghost" data-admin-only onclick="openCalendarWaitingRoom()">Load Master Calendar</button>
-        <button type="button" class="ghost" onclick="showView('vehicles')">Fleet Status</button>
-        <button type="button" class="ghost" onclick="buildReport(true)">Generate Report</button>
+        <button type="button" onclick="showView('workOrders')">Create Work Order</button>
+        <button type="button" class="ghost" onclick="showView('importReview')">Needs Review</button>
+        <button type="button" class="ghost" onclick="openUploadFile()">Upload</button>
       </div>
     </section>
 
     <section class="today-priority-grid" aria-label="Today priority board">
-      <button class="priority-tile urgent" type="button" onclick="showView('workOrders')">
-        <span>Urgent / blocked work</span>
-        <strong id="todayUrgentCount">0</strong>
-        <em>Asset, system, and field work that needs action</em>
-      </button>
-      <button class="priority-tile blocked" type="button" onclick="showView('workOrders')">
-        <span>Blocked / waiting</span>
-        <strong id="todayBlockedCount">0</strong>
-        <em>Needs decision or vendor</em>
-      </button>
       <button class="priority-tile review" type="button" onclick="showView('importReview')">
-        <span>Waiting review</span>
+        <span>Needs Review</span>
         <strong id="todayReviewCount">0</strong>
-        <em>Needs Review intake desk</em>
+        <em>Incoming items waiting</em>
       </button>
       <button class="priority-tile due" type="button" onclick="showView('workOrders')">
         <span>Due today</span>
         <strong id="todayDueCount">0</strong>
-        <em>Scheduled work for today</em>
+        <em>Today only</em>
+      </button>
+      <button class="priority-tile urgent" type="button" onclick="showView('workOrders')">
+        <span>Overdue</span>
+        <strong id="todayOverdueCount">0</strong>
+        <em>Past due and still open</em>
+      </button>
+      <button class="priority-tile week" type="button" onclick="showView('workOrders')">
+        <span>This week</span>
+        <strong id="todayWeekCount">0</strong>
+        <em>Upcoming scheduled work</em>
       </button>
       <button class="priority-tile fleet" type="button" onclick="showView('vehicles')">
-        <span>Mobile asset alerts</span>
+        <span>Fleet alerts</span>
         <strong id="todayFleetCount">0</strong>
         <em>Vehicles to check</em>
       </button>
-      <button class="priority-tile vendors" type="button" onclick="showView('vendors')">
-        <span>Project / vendor follow-up</span>
-        <strong id="todayVendorCount">0</strong>
-        <em>Projects, bids, and contractor items</em>
-      </button>
       <button class="priority-tile clear" type="button" onclick="showView('dashboard')">
-        <span>All clear</span>
-        <strong id="todayClearCount">0</strong>
-        <em id="todayClearLabel">Calm indicators</em>
+        <span>Recently completed</span>
+        <strong id="todayCompletedCount">0</strong>
+        <em>Closed work</em>
       </button>
     </section>
 
     <section class="today-flow" aria-label="Today workflow">
       <section class="panel today-panel priority-review" data-hide-when-empty="review">
-        <div class="panel-title"><div><h3>Needs Review</h3><p class="meta">Approve, fix, or move out of active work.</p></div><button class="ghost" type="button" onclick="showView('importReview')">Open</button></div>
+        <div class="panel-title"><div><h3>Needs Review</h3><p class="meta">Incoming requests and uploads.</p></div><button class="ghost" type="button" onclick="showView('importReview')">View all</button></div>
         <div id="todayReviewList" class="card-list"></div>
       </section>
 
-      <section class="panel today-panel" data-hide-when-empty="urgent">
-        <div class="panel-title"><div><h3>Urgent / Due Today</h3><p class="meta">The short list.</p></div><button class="ghost" type="button" onclick="showView('workOrders')">Open Work</button></div>
-        <div id="urgentList" class="card-list"></div>
+      <section class="panel today-panel" data-hide-when-empty="dueToday">
+        <div class="panel-title"><div><h3>Due Today</h3><p class="meta">Work scheduled for today.</p></div><button class="ghost" type="button" onclick="showView('workOrders')">View all</button></div>
+        <div id="dueTodayList" class="card-list"></div>
       </section>
 
-      <section class="panel today-panel">
-        <div class="panel-title"><div><h3>My Work</h3><p class="meta">Open work you can move forward.</p></div></div>
+      <section class="panel today-panel" data-hide-when-empty="overdue">
+        <div class="panel-title"><div><h3>Overdue</h3><p class="meta">Past due and still open.</p></div><button class="ghost" type="button" onclick="showView('workOrders')">View all</button></div>
+        <div id="overdueList" class="card-list"></div>
+      </section>
+
+      <section class="panel today-panel" data-hide-when-empty="thisWeek">
+        <div class="panel-title"><div><h3>This Week</h3><p class="meta">Upcoming scheduled work.</p></div><button class="ghost" type="button" onclick="showView('workOrders')">View all</button></div>
         <div id="weekList" class="card-list"></div>
       </section>
 
-      <section class="panel today-panel" data-hide-when-empty="recent">
-        <div class="panel-title"><div><h3>Recent Activity</h3><p class="meta">Fresh changes and uploads.</p></div></div>
-        <div id="recentActivityList" class="card-list"></div>
+      <section class="panel today-panel" data-hide-when-empty="fleet">
+        <div class="panel-title"><div><h3>Fleet / Service Alerts</h3><p class="meta">Vehicles that need attention.</p></div><button class="ghost" type="button" onclick="showView('vehicles')">View all</button></div>
+        <div id="fleetAlertList" class="card-list"></div>
       </section>
 
-      <section class="panel today-panel quick-next">
-        <div class="panel-title"><div><h3>Quick Actions</h3><p class="meta">Start without hunting.</p></div></div>
-        <div class="action-grid">
-          <button type="button" onclick="showView('workOrders')">Create Work Order</button>
-          <button type="button" class="ghost" onclick="showView('importReview')">Check Review</button>
-          <button type="button" class="ghost" onclick="openUploadFile()">Upload Something</button>
-          <button type="button" class="ghost" onclick="syncNow()">Refresh</button>
-        </div>
+      <section class="panel today-panel" data-hide-when-empty="recent">
+        <div class="panel-title"><div><h3>Recently Completed</h3><p class="meta">Closed work from the latest activity.</p></div><button class="ghost" type="button" onclick="showView('workOrders')">View all</button></div>
+        <div id="recentCompletedList" class="card-list"></div>
       </section>
     </section>
 
-    <details class="workspace-drawer">
+    <details class="workspace-drawer hidden" aria-hidden="true">
       <summary>More workspaces</summary>
       <section class="workspace-grid" aria-label="Primary workspaces">
         <button class="workspace-card review" type="button" onclick="showView('importReview')">
@@ -285,13 +277,13 @@
       </section>
     </details>
 
-    <section class="quiet-metrics" aria-label="Today counts">
+    <section class="quiet-metrics hidden" aria-label="Today counts" aria-hidden="true">
       <div class="stat"><span>Urgent / high</span><strong id="urgentCount">0</strong></div>
       <div class="stat"><span>Active projects</span><strong id="projectCount">0</strong></div>
       <div class="stat"><span>Open bids</span><strong id="bidCount">0</strong></div>
     </section>
 
-    <section class="secondary-today">
+    <section class="secondary-today hidden" aria-hidden="true">
       <details>
         <summary>Fleet, projects, and vendor follow-up</summary>
         <div class="grid two">
@@ -950,29 +942,29 @@
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="state/app-state.js?v=20260521-approvefix1"></script>
-<script src="components/cards.js?v=20260521-approvefix1"></script>
-<script src="components/forms.js?v=20260521-approvefix1"></script>
-<script src="auth/roles.js?v=20260521-approvefix1"></script>
-<script src="auth/session.js?v=20260521-approvefix1"></script>
-<script src="services/supabase-service.js?v=20260521-approvefix1"></script>
-<script src="services/mappers.js?v=20260521-approvefix1"></script>
-<script src="services/import-review-service.js?v=20260521-approvefix1"></script>
-<script src="services/materials-service.js?v=20260521-approvefix1"></script>
-<script src="services/demo-service.js?v=20260521-approvefix1"></script>
-<script src="services/interaction-service.js?v=20260521-approvefix1"></script>
-<script src="sync/pending-queue.js?v=20260521-approvefix1"></script>
-<script src="services/auth-service.js?v=20260521-approvefix1"></script>
-<script src="services/sync-service.js?v=20260521-approvefix1"></script>
-<script src="views/registry.js?v=20260521-approvefix1"></script>
-<script src="views/today-dashboard.js?v=20260521-approvefix1"></script>
-<script src="views/work-orders.js?v=20260521-approvefix1"></script>
-<script src="views/documents.js?v=20260521-approvefix1"></script>
-<script src="views/projects-budget.js?v=20260521-approvefix1"></script>
-<script src="views/materials.js?v=20260521-approvefix1"></script>
-<script src="views/review-queue.js?v=20260521-approvefix1"></script>
-<script src="views/fleet.js?v=20260521-approvefix1"></script>
-<script src="app.js?v=20260521-approvefix1"></script>
+<script src="state/app-state.js?v=20260521-today1"></script>
+<script src="components/cards.js?v=20260521-today1"></script>
+<script src="components/forms.js?v=20260521-today1"></script>
+<script src="auth/roles.js?v=20260521-today1"></script>
+<script src="auth/session.js?v=20260521-today1"></script>
+<script src="services/supabase-service.js?v=20260521-today1"></script>
+<script src="services/mappers.js?v=20260521-today1"></script>
+<script src="services/import-review-service.js?v=20260521-today1"></script>
+<script src="services/materials-service.js?v=20260521-today1"></script>
+<script src="services/demo-service.js?v=20260521-today1"></script>
+<script src="services/interaction-service.js?v=20260521-today1"></script>
+<script src="sync/pending-queue.js?v=20260521-today1"></script>
+<script src="services/auth-service.js?v=20260521-today1"></script>
+<script src="services/sync-service.js?v=20260521-today1"></script>
+<script src="views/registry.js?v=20260521-today1"></script>
+<script src="views/today-dashboard.js?v=20260521-today1"></script>
+<script src="views/work-orders.js?v=20260521-today1"></script>
+<script src="views/documents.js?v=20260521-today1"></script>
+<script src="views/projects-budget.js?v=20260521-today1"></script>
+<script src="views/materials.js?v=20260521-today1"></script>
+<script src="views/review-queue.js?v=20260521-today1"></script>
+<script src="views/fleet.js?v=20260521-today1"></script>
+<script src="app.js?v=20260521-today1"></script>
 </body>
 </html>
 
