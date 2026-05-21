@@ -309,6 +309,35 @@ body[data-auth="signed-in"] #login{display:none!important}
 .today-panel.is-soft-empty .empty{
   margin:0;
 }
+.today-panel.quiet-details{
+  padding:0;
+}
+.today-panel.quiet-details summary{
+  min-height:54px;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  padding:14px 16px;
+  cursor:pointer;
+  color:var(--navy);
+  font-weight:850;
+}
+.today-panel.quiet-details summary strong{
+  min-width:34px;
+  text-align:center;
+  border-radius:999px;
+  padding:4px 9px;
+  background:var(--paper-soft);
+  border:1px solid var(--border);
+}
+.today-panel.quiet-details[open]{
+  padding-bottom:16px;
+}
+.today-panel.quiet-details[open] .panel-title,
+.today-panel.quiet-details[open] .card-list{
+  margin-inline:16px;
+}
 .quick-next{
   grid-column:2;
   grid-row:2 / span 2;

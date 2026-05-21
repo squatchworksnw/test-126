@@ -9,12 +9,13 @@
     const weekEndString = weekEnd.toISOString().slice(0,10);
     const activeTasks = helpers.activeItems("tasks");
     const openTasks = activeTasks.filter(t => t.status !== "complete");
+    const operationalOpenTasks = openTasks.filter(t => !isScheduledWork(t));
     const reviewItems = helpers.activeItems("submissions").filter(s => s.status === "Needs Review");
-    const urgentTasks = openTasks.filter(t => ["urgent","high"].includes(t.priority));
-    const dueToday = openTasks.filter(t => t.date === today);
-    const overdue = openTasks.filter(t => t.date && t.date < today).sort((a,b) => String(a.date).localeCompare(String(b.date)));
-    const thisWeek = openTasks.filter(t => t.date && t.date > today && t.date <= weekEndString).sort((a,b) => String(a.date).localeCompare(String(b.date)));
-    const blockedTasks = openTasks.filter(t => ["waiting","blocked"].includes(String(t.status || "").toLowerCase()));
+    const urgentTasks = operationalOpenTasks.filter(t => ["urgent","high"].includes(t.priority));
+    const dueToday = operationalOpenTasks.filter(t => t.date === today);
+    const overdue = operationalOpenTasks.filter(t => t.date && t.date < today).sort((a,b) => String(a.date).localeCompare(String(b.date)));
+    const thisWeek = operationalOpenTasks.filter(t => t.date && t.date > today && t.date <= weekEndString).sort((a,b) => String(a.date).localeCompare(String(b.date)));
+    const blockedTasks = operationalOpenTasks.filter(t => ["waiting","blocked"].includes(String(t.status || "").toLowerCase()));
     const urgentDue = uniqueById([...blockedTasks, ...urgentTasks, ...overdue, ...dueToday]);
     const assignedWork = openTasks
       .filter(t => t.assignedTo || assignedFromNotes(t.notes))
@@ -117,9 +118,9 @@
     document.getElementById("dailyGreeting").textContent = `${greeting}${state.settings.userDisplayName ? `, ${state.settings.userDisplayName}` : ""}.`;
     document.getElementById("dailyRhythmLines").innerHTML = [
       todayState.reviewCount ? `${todayState.reviewCount} waiting in Needs Review.` : "No pending review items.",
-      todayState.urgentDue.length ? `${todayState.urgentDue.length} urgent, blocked, overdue, or due today.` : "Nothing urgent right now.",
-      todayState.assignedWork.length ? `${todayState.assignedWork.length} assigned work item${todayState.assignedWork.length === 1 ? "" : "s"}.` : "No named assignments waiting.",
-      todayState.scheduledUpcoming.length ? `${todayState.scheduledUpcoming.length} scheduled item${todayState.scheduledUpcoming.length === 1 ? "" : "s"} coming up.` : "Scheduled rhythm is quiet."
+      todayState.overdue.length ? `${todayState.overdue.length} overdue.` : "Nothing overdue.",
+      todayState.dueToday.length ? `${todayState.dueToday.length} due today.` : "Nothing due today.",
+      todayState.fleetAlerts.length ? `${todayState.fleetAlerts.length} fleet alert${todayState.fleetAlerts.length === 1 ? "" : "s"}.` : "Fleet is quiet."
     ].filter(Boolean).map(line => `<p>${helpers.esc(line)}</p>`).join("");
 
     document.getElementById("reviewQueueCount").textContent = `${todayState.reviewCount} waiting`;
@@ -135,9 +136,11 @@
     document.getElementById("bidCount").textContent = todayState.openBids.length;
     const attentionBuckets = [
       todayState.reviewCount,
-      todayState.urgentDue.length,
-      todayState.assignedWork.length,
-      todayState.scheduledUpcoming.length,
+      todayState.overdue.length,
+      todayState.dueToday.length,
+      todayState.thisWeek.length,
+      todayState.fleetAlerts.length,
+      todayState.recentlyCompleted.length,
       todayState.recentActivity.length
     ];
     const quietBuckets = attentionBuckets.filter(count => !count).length;
@@ -199,6 +202,7 @@
         key === "scheduled" ? todayState.scheduledUpcoming.length :
         key === "thisWeek" ? todayState.thisWeek.length :
         key === "fleet" ? todayState.fleetAlerts.length :
+        key === "completed" ? todayState.recentlyCompleted.length :
         key === "recent" ? todayState.recentActivity.length : 1;
       panel.classList.toggle("hidden", !count);
     });

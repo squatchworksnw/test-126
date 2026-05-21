@@ -5,8 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>Field Operations Command Center</title>
 
-<link rel="stylesheet" href="styles/tokens/tokens.css?v=20260521-workfilters1" />
-<link rel="stylesheet" href="styles.css?v=20260521-workfilters1" />
+<link rel="stylesheet" href="styles/tokens/tokens.css?v=20260521-todaybeat1" />
+<link rel="stylesheet" href="styles.css?v=20260521-todaybeat1" />
 </head>
 
 <body data-auth="signed-out" data-role="signed-out">
@@ -163,27 +163,32 @@
         <em>Incoming items waiting</em>
       </button>
       <button class="priority-tile due" type="button" onclick="showView('workOrders')">
-        <span>Urgent / due</span>
-        <strong id="todayUrgentDueCount">0</strong>
-        <em>Needs action now</em>
+        <span>Due Today</span>
+        <strong id="todayDueCount">0</strong>
+        <em>Today only</em>
       </button>
       <button class="priority-tile urgent" type="button" onclick="showView('workOrders')">
         <span>Overdue</span>
         <strong id="todayOverdueCount">0</strong>
         <em>Past due and still open</em>
       </button>
-      <button class="priority-tile week" type="button" onclick="showView('scheduledWork')">
-        <span>Scheduled</span>
-        <strong id="todayScheduledCount">0</strong>
-        <em>Recurring rhythm</em>
+      <button class="priority-tile week" type="button" onclick="showView('workOrders')">
+        <span>This Week</span>
+        <strong id="todayWeekCount">0</strong>
+        <em>Next few days</em>
       </button>
-      <button class="priority-tile fleet" type="button" onclick="showView('workOrders')">
-        <span>Assigned</span>
-        <strong id="todayAssignedCount">0</strong>
-        <em>Named work</em>
+      <button class="priority-tile fleet" type="button" onclick="showView('vehicles')">
+        <span>Fleet Alerts</span>
+        <strong id="todayFleetCount">0</strong>
+        <em>Vehicles to check</em>
+      </button>
+      <button class="priority-tile clear" type="button" onclick="showView('workOrders')">
+        <span>Recently Completed</span>
+        <strong id="todayCompletedCount">0</strong>
+        <em>Recently closed</em>
       </button>
       <button class="priority-tile clear" type="button" onclick="showView('dashboard')">
-        <span>Changed recently</span>
+        <span>Recently Changed</span>
         <strong id="todayRecentCount">0</strong>
         <em>Latest activity</em>
       </button>
@@ -195,25 +200,41 @@
         <div id="todayReviewList" class="card-list"></div>
       </section>
 
-      <section class="panel today-panel" data-hide-when-empty="urgentDue">
-        <div class="panel-title"><div><h3>Urgent / Due Today</h3><p class="meta">The smallest useful action list.</p></div><button class="ghost" type="button" onclick="showView('workOrders')">View all</button></div>
-        <div id="urgentDueList" class="card-list"></div>
+      <section class="panel today-panel" data-hide-when-empty="overdue">
+        <div class="panel-title"><div><h3>Overdue</h3><p class="meta">Past due and still open.</p></div><button class="ghost" type="button" onclick="setWorkOrderFilter('overdue');showView('workOrders')">View all</button></div>
+        <div id="overdueList" class="card-list"></div>
       </section>
 
-      <section class="panel today-panel" data-hide-when-empty="assigned">
-        <div class="panel-title"><div><h3>Assigned Work</h3><p class="meta">Work with a named person, team, or vendor.</p></div><button class="ghost" type="button" onclick="showView('workOrders')">View all</button></div>
-        <div id="assignedWorkList" class="card-list"></div>
+      <section class="panel today-panel" data-hide-when-empty="dueToday">
+        <div class="panel-title"><div><h3>Due Today</h3><p class="meta">Only work scheduled for today.</p></div><button class="ghost" type="button" onclick="setWorkOrderFilter('today');showView('workOrders')">View all</button></div>
+        <div id="dueTodayList" class="card-list"></div>
       </section>
 
-      <section class="panel today-panel" data-hide-when-empty="scheduled">
-        <div class="panel-title"><div><h3>Scheduled Work</h3><p class="meta">Recurring calendar rhythm coming up.</p></div><button class="ghost" type="button" onclick="showView('scheduledWork')">View all</button></div>
-        <div id="scheduledTodayList" class="card-list"></div>
+      <section class="panel today-panel" data-hide-when-empty="thisWeek">
+        <div class="panel-title"><div><h3>This Week</h3><p class="meta">Upcoming work without the full calendar.</p></div><button class="ghost" type="button" onclick="setWorkOrderFilter('week');showView('workOrders')">View all</button></div>
+        <div id="weekList" class="card-list"></div>
+      </section>
+
+      <section class="panel today-panel" data-hide-when-empty="fleet">
+        <div class="panel-title"><div><h3>Fleet / Service Alerts</h3><p class="meta">Vehicles that need attention.</p></div><button class="ghost" type="button" onclick="showView('vehicles')">View all</button></div>
+        <div id="fleetAlertList" class="card-list"></div>
+      </section>
+
+      <section class="panel today-panel" data-hide-when-empty="completed">
+        <div class="panel-title"><div><h3>Recently Completed</h3><p class="meta">Latest closed work.</p></div><button class="ghost" type="button" onclick="setWorkOrderFilter('completed');showView('workOrders')">View all</button></div>
+        <div id="recentCompletedList" class="card-list"></div>
       </section>
 
       <section class="panel today-panel" data-hide-when-empty="recent">
-        <div class="panel-title"><div><h3>Changed Recently</h3><p class="meta">Latest records touched across the workspace.</p></div><button class="ghost" type="button" onclick="showView('documents')">Find more</button></div>
+        <div class="panel-title"><div><h3>Recently Changed</h3><p class="meta">Latest records touched.</p></div><button class="ghost" type="button" onclick="document.getElementById('globalSearchInput')?.focus()">Find</button></div>
         <div id="recentActivityList" class="card-list"></div>
       </section>
+
+      <details class="panel today-panel quiet-details" data-hide-when-empty="scheduled">
+        <summary><span>Scheduled rhythm</span><strong id="todayScheduledCount">0</strong></summary>
+        <div class="panel-title"><div><h3>Recurring Work This Week</h3><p class="meta">Calendar imports stay here unless they need active attention.</p></div><button class="ghost" type="button" onclick="showView('scheduledWork')">View all</button></div>
+        <div id="scheduledTodayList" class="card-list"></div>
+      </details>
     </section>
 
     <details class="workspace-drawer hidden" aria-hidden="true">
@@ -278,19 +299,6 @@
       <div class="stat"><span>Open bids</span><strong id="bidCount">0</strong></div>
     </section>
 
-    <section class="secondary-today hidden" aria-hidden="true">
-      <details>
-        <summary>Fleet, projects, and vendor follow-up</summary>
-        <div class="grid two">
-          <section class="panel"><div class="panel-title"><div><h3>Vehicle Alerts</h3></div></div><div id="fleetAlertList" class="card-list"></div></section>
-          <section class="panel"><div class="panel-title"><div><h3>Active Projects</h3></div></div><div id="activeProjectList" class="card-list"></div></section>
-        </div>
-        <section class="panel">
-          <div class="panel-title"><div><h3>Contractor Bids</h3></div></div>
-          <div id="dashboardBidList" class="card-list"></div>
-        </section>
-      </details>
-    </section>
   </section>
 
   <section id="importReview" class="view">
@@ -997,29 +1005,29 @@
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="state/app-state.js?v=20260521-workfilters1"></script>
-<script src="components/cards.js?v=20260521-workfilters1"></script>
-<script src="components/forms.js?v=20260521-workfilters1"></script>
-<script src="auth/roles.js?v=20260521-workfilters1"></script>
-<script src="auth/session.js?v=20260521-workfilters1"></script>
-<script src="services/supabase-service.js?v=20260521-workfilters1"></script>
-<script src="services/mappers.js?v=20260521-workfilters1"></script>
-<script src="services/import-review-service.js?v=20260521-workfilters1"></script>
-<script src="services/materials-service.js?v=20260521-workfilters1"></script>
-<script src="services/demo-service.js?v=20260521-workfilters1"></script>
-<script src="services/interaction-service.js?v=20260521-workfilters1"></script>
-<script src="sync/pending-queue.js?v=20260521-workfilters1"></script>
-<script src="services/auth-service.js?v=20260521-workfilters1"></script>
-<script src="services/sync-service.js?v=20260521-workfilters1"></script>
-<script src="views/registry.js?v=20260521-workfilters1"></script>
-<script src="views/today-dashboard.js?v=20260521-workfilters1"></script>
-<script src="views/work-orders.js?v=20260521-workfilters1"></script>
-<script src="views/documents.js?v=20260521-workfilters1"></script>
-<script src="views/projects-budget.js?v=20260521-workfilters1"></script>
-<script src="views/materials.js?v=20260521-workfilters1"></script>
-<script src="views/review-queue.js?v=20260521-workfilters1"></script>
-<script src="views/fleet.js?v=20260521-workfilters1"></script>
-<script src="app.js?v=20260521-workfilters1"></script>
+<script src="state/app-state.js?v=20260521-todaybeat1"></script>
+<script src="components/cards.js?v=20260521-todaybeat1"></script>
+<script src="components/forms.js?v=20260521-todaybeat1"></script>
+<script src="auth/roles.js?v=20260521-todaybeat1"></script>
+<script src="auth/session.js?v=20260521-todaybeat1"></script>
+<script src="services/supabase-service.js?v=20260521-todaybeat1"></script>
+<script src="services/mappers.js?v=20260521-todaybeat1"></script>
+<script src="services/import-review-service.js?v=20260521-todaybeat1"></script>
+<script src="services/materials-service.js?v=20260521-todaybeat1"></script>
+<script src="services/demo-service.js?v=20260521-todaybeat1"></script>
+<script src="services/interaction-service.js?v=20260521-todaybeat1"></script>
+<script src="sync/pending-queue.js?v=20260521-todaybeat1"></script>
+<script src="services/auth-service.js?v=20260521-todaybeat1"></script>
+<script src="services/sync-service.js?v=20260521-todaybeat1"></script>
+<script src="views/registry.js?v=20260521-todaybeat1"></script>
+<script src="views/today-dashboard.js?v=20260521-todaybeat1"></script>
+<script src="views/work-orders.js?v=20260521-todaybeat1"></script>
+<script src="views/documents.js?v=20260521-todaybeat1"></script>
+<script src="views/projects-budget.js?v=20260521-todaybeat1"></script>
+<script src="views/materials.js?v=20260521-todaybeat1"></script>
+<script src="views/review-queue.js?v=20260521-todaybeat1"></script>
+<script src="views/fleet.js?v=20260521-todaybeat1"></script>
+<script src="app.js?v=20260521-todaybeat1"></script>
 </body>
 </html>
 
