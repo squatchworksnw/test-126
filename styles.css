@@ -132,6 +132,10 @@ header{
 .scheduled-work-row{display:grid;grid-template-columns:120px minmax(0,1fr) 120px 110px auto;align-items:center;gap:12px;background:var(--paper-soft);border:1px solid var(--border);border-radius:14px;padding:12px}
 .scheduled-date,.scheduled-source{font-weight:800;color:var(--navy);font-size:.9rem}
 .scheduled-work-row strong{color:var(--text)}
+.scheduled-linked{display:inline-flex;margin-top:6px;border:1px solid rgba(77,121,92,.3);border-radius:999px;background:#e8f1e8;color:var(--ok);font-size:.78rem;font-weight:800;padding:3px 8px}
+.scheduled-actions{max-width:360px;justify-content:flex-end}
+.scheduled-actions button{min-height:38px;font-size:.82rem;padding:8px 10px}
+.scheduled-actions button:disabled{opacity:.62;cursor:not-allowed}
 .sync-pill{border:1px solid var(--border);background:var(--paper-soft);border-radius:999px;padding:8px 10px;display:flex;align-items:center;gap:7px;font-size:.82rem;white-space:nowrap;box-shadow:var(--soft-shadow)}
 .sync-dot{width:10px;height:10px;border-radius:50%;background:var(--ok)}
 .sync-pill[data-companion="bee"]::after{

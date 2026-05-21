@@ -181,6 +181,45 @@ function areaSystemForScheduledWork(task){
     "Needs anchor review";
 }
 
+function linkedIdFromNotes(notes, label){
+  const match = String(notes || "").match(new RegExp(`${label}:\\s*([^\\n]+)`, "i"));
+  return match ? match[1].trim() : "";
+}
+
+function linkedWorkOrderForScheduledTask(task){
+  const linkedId = linkedIdFromNotes(task.notes, "Linked work order");
+  if(linkedId){
+    const linked = app.tasks.find(item => item.id === linkedId);
+    if(linked) return linked;
+  }
+  return app.tasks.find(item => item.id !== task.id && String(item.notes || "").includes(`Scheduled source task: ${task.id}`));
+}
+
+function linkedSupplyRequestForScheduledTask(task){
+  const linkedId = linkedIdFromNotes(task.notes, "Linked supply request");
+  if(linkedId){
+    const linked = app.submissions.find(item => item.id === linkedId);
+    if(linked) return linked;
+  }
+  return app.submissions.find(item => item.importedRecord?.scheduled_task_id === task.id);
+}
+
+function scheduledSourceLines(task){
+  const notes = String(task.notes || "");
+  return notes
+    .split(/\r?\n/)
+    .filter(line => /^(Source|Master import key|Area\/system|Frequency|Timing|Responsible):/i.test(line.trim()));
+}
+
+function scheduledLinkedStatus(task){
+  const linkedWorkOrder = linkedWorkOrderForScheduledTask(task);
+  const linkedSupply = linkedSupplyRequestForScheduledTask(task);
+  return [
+    linkedWorkOrder ? `<span class="scheduled-linked">Linked work order created</span>` : "",
+    linkedSupply ? `<span class="scheduled-linked">Supply request in Needs Review</span>` : ""
+  ].filter(Boolean).join("");
+}
+
 function scheduledWorkSearchValue(){
   return String(document.getElementById("scheduledWorkSearchInput")?.value || "").trim().toLowerCase();
 }
@@ -208,17 +247,26 @@ function filteredScheduledWork(){
 }
 
 function scheduledWorkRow(task){
+  const linkedWorkOrder = linkedWorkOrderForScheduledTask(task);
+  const linkedSupply = linkedSupplyRequestForScheduledTask(task);
+  const completeButton = String(task.status || "").toLowerCase() === "complete" ? "" : `<button class="ghost" type="button" onclick="markWorkOrderComplete('${task.id}')">Complete</button>`;
   return `<article class="scheduled-work-row">
     <div class="scheduled-date">${esc(task.date || "No date")}</div>
     <div>
       <strong>${esc(task.name || "Scheduled work")}</strong>
       <p class="meta">${esc(areaSystemForScheduledWork(task))}</p>
+      ${scheduledLinkedStatus(task)}
     </div>
     <div class="scheduled-source">${esc(sourceMonthForScheduledWork(task))}</div>
     <div><span class="status-chip ${tone(task.status)}">${esc(titleize(task.status || "open"))}</span></div>
-    <div class="actions no-print">
+    <div class="actions scheduled-actions no-print">
       <button type="button" onclick="openWorkOrderDetail('${task.id}')">Open</button>
-      ${String(task.status || "").toLowerCase() === "complete" ? "" : `<button class="ghost" type="button" onclick="markWorkOrderComplete('${task.id}')">Complete</button>`}
+      ${completeButton}
+      <button class="ghost" type="button" onclick="addNoteToScheduledTask('${task.id}')">Add Note</button>
+      <button class="ghost" type="button" onclick="createWorkOrderFromScheduledTask('${task.id}')">${linkedWorkOrder ? "Open Linked Work" : "Create Work Order"}</button>
+      <button class="ghost" type="button" onclick="createSupplyRequestFromScheduledTask('${task.id}')">${linkedSupply ? "Open Supply Request" : "Create Supply / Purchase Request"}</button>
+      <button class="ghost" type="button" onclick="uploadDocumentForScheduledTask('${task.id}')">Upload Document / Receipt</button>
+      <button class="ghost" type="button" disabled title="Reschedule is not available yet">Reschedule not available yet</button>
     </div>
   </article>`;
 }
@@ -253,6 +301,135 @@ function setScheduledWorkFilter(filter){
   const search = document.getElementById("scheduledWorkSearchInput");
   if(search) search.value = "";
   renderScheduledWork();
+}
+
+function scheduledTaskById(taskId){
+  const task = app.tasks.find(item => item.id === taskId);
+  if(!task) setStatus("Scheduled task not found");
+  return task;
+}
+
+function scheduledTaskContextNotes(task){
+  return [
+    `Scheduled source task: ${task.id}`,
+    `Scheduled source title: ${task.name || "Scheduled work"}`,
+    task.date ? `Scheduled due date: ${task.date}` : "",
+    `Area/system: ${areaSystemForScheduledWork(task)}`,
+    ...scheduledSourceLines(task),
+    task.notes
+  ].filter(Boolean).join("\n");
+}
+
+async function createWorkOrderFromScheduledTask(taskId){
+  if(!requireOperationsPermission("create a work order from scheduled work")) return;
+  const task = scheduledTaskById(taskId);
+  if(!task) return;
+  const existing = linkedWorkOrderForScheduledTask(task);
+  if(existing){
+    openWorkOrderDetail(existing.id);
+    return;
+  }
+  try{
+    const saved = await insertRecord("field_ops_work_orders", {
+      title:task.name || "Scheduled work follow-up",
+      type:task.type || "maintenance",
+      status:"open",
+      priority:task.priority || "normal",
+      due_date:task.date || null,
+      project_id:task.projectId || null,
+      building_id:task.buildingId || null,
+      space_id:task.spaceId || null,
+      asset_id:task.assetId || null,
+      vehicle_id:task.vehicleId || null,
+      vendor_id:task.vendorBidId || null,
+      description:task.location || areaSystemForScheduledWork(task),
+      notes:scheduledTaskContextNotes(task)
+    });
+    if(saved?.id && !saved?._queued){
+      await updateRecord("field_ops_work_orders", task.id, {
+        notes:appendHistory(task.notes, `Linked work order created: ${saved.id}`)
+      });
+      setStatus("Linked work order created");
+      openWorkOrderDetail(saved.id);
+    } else {
+      setStatus("Linked work order queued until connection returns");
+    }
+  }catch(err){ handleWriteError(err); }
+}
+
+async function createSupplyRequestFromScheduledTask(taskId){
+  if(!requireInsertPermission("field_ops_import_reviews", "create a supply or purchase request")) return;
+  const task = scheduledTaskById(taskId);
+  if(!task) return;
+  const existing = linkedSupplyRequestForScheduledTask(task);
+  if(existing){
+    showView("importReview");
+    setStatus("Supply request already exists in Needs Review");
+    return;
+  }
+  try{
+    const title = `Supplies for ${task.name || "scheduled work"}`;
+    const proposedData = {
+      title,
+      work_order_id:task.id,
+      scheduled_task_id:task.id,
+      approval_status:"needs_review",
+      line_items:[{
+        description:`Supplies/materials for ${task.name || "scheduled work"}`,
+        quantity:1,
+        unit:"request",
+        estimated_unit_cost:0,
+        estimated_total:0,
+        actual_cost:null,
+        approval_status:"needs_review"
+      }],
+      estimated_total:0,
+      notes:scheduledTaskContextNotes(task)
+    };
+    const review = await createImportReview("scheduled work", "materials", proposedData, `Review supply request from scheduled task: ${task.name || "Scheduled work"}`);
+    if(review?.id && !review?._queued){
+      await updateRecord("field_ops_work_orders", task.id, {
+        notes:appendHistory(task.notes, `Linked supply request: ${review.id}`)
+      });
+    }
+    setStatus("Supply request sent to Needs Review");
+    showView("importReview");
+  }catch(err){ handleWriteError(err); }
+}
+
+async function addNoteToScheduledTask(taskId){
+  if(!requireUpdatePermission("field_ops_work_orders", "add a note to scheduled work")) return;
+  const task = scheduledTaskById(taskId);
+  if(!task) return;
+  const note = prompt("Add a note for this scheduled task");
+  if(!note?.trim()) return;
+  try{
+    await updateRecord("field_ops_work_orders", task.id, {
+      notes:appendHistory(task.notes, note.trim())
+    });
+    setStatus("Scheduled task note saved");
+  }catch(err){ handleWriteError(err); }
+}
+
+function uploadDocumentForScheduledTask(taskId){
+  const task = scheduledTaskById(taskId);
+  if(!task) return;
+  openUploadFile();
+  setTimeout(() => {
+    const workOrderField = document.getElementById("fileWorkOrder");
+    const buildingField = document.getElementById("fileBuilding");
+    const spaceField = document.getElementById("fileSpace");
+    const assetField = document.getElementById("fileAsset");
+    const vehicleField = document.getElementById("fileVehicle");
+    const notesField = document.getElementById("fileNotes");
+    if(workOrderField) workOrderField.value = task.id;
+    if(buildingField && task.buildingId) buildingField.value = task.buildingId;
+    if(spaceField && task.spaceId) spaceField.value = task.spaceId;
+    if(assetField && task.assetId) assetField.value = task.assetId;
+    if(vehicleField && task.vehicleId) vehicleField.value = task.vehicleId;
+    if(notesField && !notesField.value) notesField.value = `Related scheduled work: ${task.name || "Scheduled work"}\nScheduled task id: ${task.id}`;
+  }, 0);
+  setStatus("Upload will link to the scheduled task context");
 }
 
 
@@ -626,6 +803,10 @@ function completionErrorMessage(err){
     handleWorkOrderSearch,
     renderScheduledWork,
     setScheduledWorkFilter,
+    createWorkOrderFromScheduledTask,
+    createSupplyRequestFromScheduledTask,
+    addNoteToScheduledTask,
+    uploadDocumentForScheduledTask,
     workOrderCardWithActions,
     workOrderCard,
     archiveWorkOrderById,
@@ -644,6 +825,10 @@ function completionErrorMessage(err){
     handleWorkOrderSearch,
     renderScheduledWork,
     setScheduledWorkFilter,
+    createWorkOrderFromScheduledTask,
+    createSupplyRequestFromScheduledTask,
+    addNoteToScheduledTask,
+    uploadDocumentForScheduledTask,
     workOrderCardWithActions,
     workOrderCard,
     archiveWorkOrderById,
