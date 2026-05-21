@@ -579,6 +579,9 @@ function applyRoleVisibility(){
     if(viewId === "fieldPortal"){
       tab.textContent = "My Home";
     }
+    if(viewId === "assignedWork"){
+      tab.textContent = "My Work";
+    }
     if(false && viewId === "materials"){
       tab.textContent = canSubmitOnly() ? "Submit Materials" : "Materials / Inventory";
     }
@@ -923,8 +926,7 @@ function openSupplyRequest(){
 }
 
 function showAssignedWorkUnavailable(){
-  setStatus("Assigned work is not available yet.");
-  InteractionService?.showToast?.("Assigned work is not available yet.", "pending");
+  showView("assignedWork");
 }
 
 function goBackView(){

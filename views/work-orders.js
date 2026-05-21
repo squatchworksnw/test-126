@@ -5,6 +5,8 @@
   const SCHEDULED_WORK_VISIBLE_LIMIT = 120;
   let workOrderFilter = "attention";
   let scheduledWorkFilter = "upcoming";
+  let assignedWorkFilter = "attention";
+  let selectedAssignedWorkId = "";
 
 function renderTasks(){
   const tasks = activeItems("tasks");
@@ -44,6 +46,22 @@ function monthString(dateString){
 
 function isOpenWorkOrder(task){
   return String(task.status || "").toLowerCase() !== "complete";
+}
+
+function currentAssigneeTokens(){
+  const email = String(currentSession?.user?.email || "").toLowerCase();
+  const display = String(currentWorkspace?.displayName || app.settings?.userDisplayName || "").toLowerCase();
+  return [email, email.split("@")[0], display].map(value => value.trim()).filter(Boolean);
+}
+
+function taskAssignee(task){
+  return task.assignedTo || assignedFromNotes(task.notes);
+}
+
+function isAssignedToCurrentUser(task){
+  const assignee = String(taskAssignee(task) || "").toLowerCase().trim();
+  if(!assignee) return false;
+  return currentAssigneeTokens().some(token => assignee.includes(token) || token.includes(assignee));
 }
 
 function workOrderSearchValue(){
@@ -301,6 +319,234 @@ function setScheduledWorkFilter(filter){
   const search = document.getElementById("scheduledWorkSearchInput");
   if(search) search.value = "";
   renderScheduledWork();
+}
+
+function assignedWorkSearchValue(){
+  return String(document.getElementById("assignedWorkSearchInput")?.value || "").trim().toLowerCase();
+}
+
+function assignedSummary(){
+  const today = todayStringLocal();
+  const weekEnd = addDays(today, 7);
+  const items = activeItems("tasks").filter(isAssignedToCurrentUser);
+  return {
+    all:items,
+    overdue:items.filter(task => isOpenWorkOrder(task) && task.date && task.date < today),
+    today:items.filter(task => isOpenWorkOrder(task) && task.date === today),
+    week:items.filter(task => isOpenWorkOrder(task) && task.date && task.date >= today && task.date <= weekEnd),
+    recent:items.filter(task => task.updatedAt || task.createdAt).slice().sort((a,b) => String(b.updatedAt || b.createdAt || "").localeCompare(String(a.updatedAt || a.createdAt || ""))).slice(0,5)
+  };
+}
+
+function assignedWorkItems(){
+  const today = todayStringLocal();
+  const weekEnd = addDays(today, 7);
+  const query = assignedWorkSearchValue();
+  return activeItems("tasks")
+    .filter(isAssignedToCurrentUser)
+    .filter(task => {
+      if(query) return workOrderHaystack(task).includes(query);
+      if(assignedWorkFilter === "today") return isOpenWorkOrder(task) && task.date === today;
+      if(assignedWorkFilter === "overdue") return isOpenWorkOrder(task) && task.date && task.date < today;
+      if(assignedWorkFilter === "week") return isOpenWorkOrder(task) && task.date && task.date >= today && task.date <= weekEnd;
+      if(assignedWorkFilter === "scheduled") return isOpenWorkOrder(task) && isScheduledWorkOrder(task);
+      if(assignedWorkFilter === "recent") return true;
+      return isOpenWorkOrder(task) && (!task.date || task.date <= weekEnd || isScheduledWorkOrder(task));
+    })
+    .sort((a,b) => {
+      if(assignedWorkFilter === "recent") return String(b.updatedAt || b.createdAt || "").localeCompare(String(a.updatedAt || a.createdAt || ""));
+      return String(a.date || "9999-99-99").localeCompare(String(b.date || "9999-99-99")) || String(a.name || "").localeCompare(String(b.name || ""));
+    });
+}
+
+function linkedDocsForTask(task){
+  return activeItems("files").filter(file => file.relatedWorkItemId === task.id);
+}
+
+function linkedSupplyRequestsForTask(task){
+  return activeItems("submissions").filter(review => {
+    const data = review.importedRecord || {};
+    return data.work_order_id === task.id || data.scheduled_task_id === task.id;
+  });
+}
+
+function linkedScheduledTaskForWork(task){
+  const linkedId = String(task.notes || "").match(/Scheduled source task:\s*([^\n]+)/i)?.[1]?.trim();
+  return linkedId ? app.tasks.find(item => item.id === linkedId) : null;
+}
+
+function assignedContext(task){
+  const asset = app.assets.find(item => item.id === task.assetId);
+  const vehicle = app.vehicles.find(item => item.id === task.vehicleId);
+  const space = app.spaces.find(item => item.id === task.spaceId);
+  const building = app.buildings.find(item => item.id === task.buildingId);
+  return asset ? `Asset: ${asset.name}` : vehicle ? `Vehicle: ${vehicle.name}` : space ? `Space: ${space.name}` : building ? `Building: ${building.name}` : task.location || "";
+}
+
+function assignedWorkCard(task){
+  const docs = linkedDocsForTask(task);
+  const supplyRequests = linkedSupplyRequestsForTask(task);
+  const scheduledTask = isScheduledWorkOrder(task) ? task : linkedScheduledTaskForWork(task);
+  const complete = String(task.status || "").toLowerCase() === "complete";
+  return `<article class="assigned-work-card ${tone(task.priority || task.status)}">
+    <div class="assigned-work-main">
+      <h4>${esc(task.name || "Assigned work")}</h4>
+      <div class="today-work-meta">
+        <span>${esc(titleize(task.status || "open"))}</span>
+        <span>${esc(titleize(task.priority || "normal"))}</span>
+        <span>${esc(task.date ? `Due ${task.date}` : "No due date")}</span>
+        ${assignedContext(task) ? `<span>${esc(assignedContext(task))}</span>` : ""}
+        ${isScheduledWorkOrder(task) ? `<span>Scheduled</span>` : ""}
+      </div>
+      <p class="meta">${esc(compact([docs.length ? `${docs.length} linked document${docs.length === 1 ? "" : "s"}` : "", supplyRequests.length ? `${supplyRequests.length} supply request${supplyRequests.length === 1 ? "" : "s"}` : ""]).join(" | ") || "Ready for field update.")}</p>
+    </div>
+    <div class="actions assigned-actions no-print">
+      <button type="button" onclick="openAssignedWorkItem('${task.id}')">Open</button>
+      ${complete ? "" : `<button class="ghost" type="button" onclick="completeAssignedWorkItem('${task.id}')">Complete</button>`}
+      <button class="ghost" type="button" onclick="addAssignedWorkNote('${task.id}')">Add Note</button>
+      <button class="ghost" type="button" onclick="uploadDocumentForScheduledTask('${task.id}')">Upload Photo/Receipt</button>
+      ${docs.length ? `<button class="ghost" type="button" onclick="viewAssignedWorkDocuments('${task.id}')">View Documents</button>` : ""}
+      ${scheduledTask ? `<button class="ghost" type="button" onclick="viewLinkedScheduledTask('${scheduledTask.id}')">View Scheduled Task</button>` : ""}
+    </div>
+  </article>`;
+}
+
+function renderAssignedWork(){
+  const list = document.getElementById("assignedWorkList");
+  if(!list) return;
+  const summary = assignedSummary();
+  const items = assignedWorkItems();
+  const shown = items.slice(0, 40);
+  Object.entries({
+    portalAssignedCount:`${summary.all.length} assigned`,
+    assignedOverdueCount:summary.overdue.length,
+    assignedTodayCount:summary.today.length,
+    assignedWeekCount:summary.week.length,
+    assignedRecentCount:summary.recent.length
+  }).forEach(([idValue, value]) => {
+    const el = document.getElementById(idValue);
+    if(el) el.textContent = value;
+  });
+  document.querySelectorAll("[data-assigned-filter]").forEach(button => {
+    const active = button.dataset.assignedFilter === assignedWorkFilter && !assignedWorkSearchValue();
+    button.classList.toggle("active", active);
+    button.setAttribute("aria-pressed", active ? "true" : "false");
+  });
+  list.innerHTML = shown.length ? shown.map(assignedWorkCard).join("") + (items.length > shown.length ? empty(`Showing the first ${shown.length} of ${items.length}. Search to narrow this down.`) : "") : empty(assignedWorkSearchValue() ? "No assigned work matches that search." : "No assigned work for this login yet.");
+  const status = document.getElementById("assignedWorkStatus");
+  if(status){
+    const label = assignedWorkSearchValue() ? `search for "${assignedWorkSearchValue()}"` : assignedWorkFilter.replace(/_/g, " ");
+    status.textContent = `Showing ${shown.length} of ${items.length} for ${label}.`;
+  }
+}
+
+function setAssignedWorkFilter(filter){
+  assignedWorkFilter = filter || "attention";
+  const search = document.getElementById("assignedWorkSearchInput");
+  if(search) search.value = "";
+  renderAssignedWork();
+}
+
+function handleAssignedWorkSearch(){
+  renderAssignedWork();
+}
+
+function assignedTaskById(taskId){
+  const task = app.tasks.find(item => item.id === taskId);
+  if(!task) setStatus("Assigned work was not found");
+  return task;
+}
+
+function openAssignedWorkItem(taskId){
+  const task = assignedTaskById(taskId);
+  if(!task) return;
+  selectedAssignedWorkId = taskId;
+  if(canManageOperations()){
+    openWorkOrderDetail(taskId);
+    return;
+  }
+  renderAssignedWorkDetail(task);
+}
+
+function renderAssignedWorkDetail(task){
+  const target = document.getElementById("assignedWorkDetail");
+  if(!target) return;
+  const docs = linkedDocsForTask(task);
+  const scheduledTask = isScheduledWorkOrder(task) ? task : linkedScheduledTaskForWork(task);
+  const historyLines = String(task.notes || "").split("\n").filter(Boolean).slice(-8);
+  target.innerHTML = `<section class="detail-block assigned-inline-detail" tabindex="-1">
+    <div class="panel-title"><div><h3>${esc(task.name || "Assigned work")}</h3><p class="meta">${esc(compact([titleize(task.status), titleize(task.priority), task.date ? `Due ${task.date}` : "No due date", assignedContext(task)]).join(" | "))}</p></div></div>
+    <div class="actions no-print">
+      <button type="button" onclick="completeAssignedWorkItem('${task.id}')">Complete</button>
+      <button class="ghost" type="button" onclick="addAssignedWorkNote('${task.id}')">Add Note</button>
+      <button class="ghost" type="button" onclick="uploadDocumentForScheduledTask('${task.id}')">Upload Photo/Receipt</button>
+      ${scheduledTask ? `<button class="ghost" type="button" onclick="viewLinkedScheduledTask('${scheduledTask.id}')">View Scheduled Task</button>` : ""}
+    </div>
+    <div class="card-list">${docs.length ? docs.map(documentPreviewCard).join("") : empty("No linked documents yet.")}</div>
+    <div class="timeline">${historyLines.length ? historyLines.map(line => `<article class="timeline-item"><p>${esc(line)}</p></article>`).join("") : empty("No visible history yet.")}</div>
+  </section>`;
+  target.querySelector(".assigned-inline-detail")?.focus();
+}
+
+async function updateAssignedWorkNotes(task, message, successMessage){
+  const payload = { notes:appendHistory(task.notes, message) };
+  try{
+    setStatus("Saving assigned work...");
+    const { data, error } = await updateRow("field_ops_work_orders", task.id, payload, workspaceId());
+    if(error) throw withSupabaseCallDetails(error, "field_ops_work_orders", "update assigned work", payload);
+    if(!data) throw new Error("No row was updated. Database permission rules may not allow this account to update assigned work yet.");
+    setStatus(successMessage);
+    await loadWorkspaceData();
+    const refreshed = app.tasks.find(item => item.id === task.id);
+    if(refreshed && selectedAssignedWorkId === task.id) renderAssignedWorkDetail(refreshed);
+  }catch(err){
+    const message = permissionAwareErrorMessage(err);
+    setStatus(message);
+    InteractionService?.showToast?.(message, "failed");
+  }
+}
+
+async function completeAssignedWorkItem(taskId){
+  const task = assignedTaskById(taskId);
+  if(!task) return;
+  const payload = { status:"complete", notes:appendHistory(task.notes, "Marked complete from Assigned Work") };
+  try{
+    setStatus("Saving completion...");
+    const { data, error } = await updateRow("field_ops_work_orders", task.id, payload, workspaceId());
+    if(error) throw withSupabaseCallDetails(error, "field_ops_work_orders", "complete assigned work", payload);
+    if(!data) throw new Error("No row was updated. Database permission rules may not allow this account to complete assigned work yet.");
+    setStatus("Assigned work marked complete");
+    InteractionService?.showToast?.("Assigned work marked complete", "saved");
+    await loadWorkspaceData();
+  }catch(err){
+    const message = permissionAwareErrorMessage(err);
+    setStatus(message);
+    InteractionService?.showToast?.(message, "failed");
+  }
+}
+
+async function addAssignedWorkNote(taskId){
+  const task = assignedTaskById(taskId);
+  if(!task) return;
+  const note = prompt("Add a note for this assigned work");
+  if(!note?.trim()) return;
+  await updateAssignedWorkNotes(task, note.trim(), "Assigned work note saved");
+}
+
+function viewAssignedWorkDocuments(taskId){
+  const task = assignedTaskById(taskId);
+  if(!task) return;
+  if(canManageOperations()) showView("documents");
+  else renderAssignedWorkDetail(task);
+}
+
+function viewLinkedScheduledTask(taskId){
+  showView("scheduledWork");
+  setTimeout(() => {
+    const input = document.getElementById("scheduledWorkSearchInput");
+    if(input) input.value = taskId;
+    renderScheduledWork();
+  }, 0);
 }
 
 function scheduledTaskById(taskId){
@@ -803,6 +1049,14 @@ function completionErrorMessage(err){
     handleWorkOrderSearch,
     renderScheduledWork,
     setScheduledWorkFilter,
+    renderAssignedWork,
+    setAssignedWorkFilter,
+    handleAssignedWorkSearch,
+    openAssignedWorkItem,
+    completeAssignedWorkItem,
+    addAssignedWorkNote,
+    viewAssignedWorkDocuments,
+    viewLinkedScheduledTask,
     createWorkOrderFromScheduledTask,
     createSupplyRequestFromScheduledTask,
     addNoteToScheduledTask,
@@ -825,6 +1079,14 @@ function completionErrorMessage(err){
     handleWorkOrderSearch,
     renderScheduledWork,
     setScheduledWorkFilter,
+    renderAssignedWork,
+    setAssignedWorkFilter,
+    handleAssignedWorkSearch,
+    openAssignedWorkItem,
+    completeAssignedWorkItem,
+    addAssignedWorkNote,
+    viewAssignedWorkDocuments,
+    viewLinkedScheduledTask,
     createWorkOrderFromScheduledTask,
     createSupplyRequestFromScheduledTask,
     addNoteToScheduledTask,

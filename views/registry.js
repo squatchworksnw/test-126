@@ -11,6 +11,7 @@
     "renderMaterials",
     "renderTasks",
     "renderScheduledWork",
+    "renderAssignedWork",
     "renderFleet",
     "renderFuelReceipts",
     "renderFiles",

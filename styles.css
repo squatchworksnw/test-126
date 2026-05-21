@@ -604,6 +604,36 @@ body[data-auth="signed-in"] #login{display:none!important}
   min-height:38px;
   padding:8px 10px;
 }
+.assigned-work-list{gap:10px}
+.assigned-work-card{
+  display:grid;
+  grid-template-columns:minmax(0,1fr) auto;
+  gap:12px;
+  align-items:center;
+  background:var(--paper-soft);
+  border:1px solid var(--border);
+  border-left:5px solid var(--teal-deep);
+  border-radius:var(--radius-card);
+  padding:12px;
+  box-shadow:var(--soft-shadow);
+}
+.assigned-work-card.danger{border-left-color:var(--danger)}
+.assigned-work-card.warning{border-left-color:var(--warning)}
+.assigned-work-card.ok{border-left-color:var(--ok)}
+.assigned-work-card h4{
+  margin:0;
+  color:var(--ink);
+  font-family:Fraunces, Georgia, serif;
+  font-size:1.04rem;
+  line-height:1.2;
+}
+.assigned-actions{justify-content:flex-end;max-width:460px}
+.assigned-actions button{min-height:40px;font-size:.84rem;padding:8px 10px}
+.assigned-inline-detail{
+  margin-top:14px;
+  background:rgba(255,253,247,.72);
+  border-radius:var(--radius-card);
+}
 .detail-block{border-top:1px solid var(--border);margin-top:14px;padding-top:14px}
 .field-status-strip{display:flex;flex-wrap:wrap;gap:8px;margin:8px 0 12px}
 .status-chip{display:inline-flex;align-items:center;min-height:34px;border:1px solid var(--border);border-radius:999px;background:var(--paper-soft);padding:6px 10px;font-weight:780;color:var(--navy)}
@@ -869,7 +899,7 @@ a.file-link{color:var(--teal-deep);font-weight:700;text-decoration:underline}
     width:auto;
     height:72px;
     display:grid;
-    grid-template-columns:repeat(5,minmax(0,1fr));
+    grid-template-columns:repeat(6,minmax(0,1fr));
     align-items:center;
     gap:6px;
     overflow-x:hidden;
@@ -908,6 +938,9 @@ a.file-link{color:var(--teal-deep);font-weight:700;text-decoration:underline}
   .today-work-card{grid-template-columns:1fr}
   .today-work-actions{justify-content:stretch}
   .today-work-actions button{flex:1 1 130px;min-height:44px}
+  .assigned-work-card{grid-template-columns:1fr}
+  .assigned-actions{justify-content:stretch;max-width:none}
+  .assigned-actions button{flex:1 1 145px;min-height:44px}
   .add-new-grid{grid-template-columns:1fr}
   .quick-add-card{padding:14px}
   .add-new-option{min-height:82px}

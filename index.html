@@ -5,8 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>Field Operations Command Center</title>
 
-<link rel="stylesheet" href="styles/tokens/tokens.css?v=20260521-scheduledactions1" />
-<link rel="stylesheet" href="styles.css?v=20260521-scheduledactions1" />
+<link rel="stylesheet" href="styles/tokens/tokens.css?v=20260521-assignedwork1" />
+<link rel="stylesheet" href="styles.css?v=20260521-assignedwork1" />
 </head>
 
 <body data-auth="signed-out" data-role="signed-out">
@@ -76,6 +76,7 @@
 
   <nav class="top-nav" aria-label="Primary tasks">
     <button class="tab" data-view="fieldPortal" data-nav-group="portal">My Home</button>
+    <button class="tab" data-view="assignedWork" data-nav-group="portal">My Work</button>
     <button class="tab active" data-view="dashboard" data-nav-group="command">Today</button>
     <button class="tab" data-view="workOrders" data-nav-group="operations">Work</button>
     <button class="tab" data-view="documents" data-nav-group="support">Upload</button>
@@ -121,11 +122,54 @@
         <strong id="portalSubmissionCount">0 sent</strong>
         <em>Track requests and uploaded items visible to your account.</em>
       </button>
-      <button class="workspace-card calendar" type="button" onclick="showAssignedWorkUnavailable()">
+      <button class="workspace-card calendar" type="button" onclick="showView('assignedWork')">
         <span>Assigned Work</span>
-        <strong>Not available yet</strong>
+        <strong id="portalAssignedCount">My work</strong>
         <em>Assigned work will appear here when a manager assigns something to you.</em>
       </button>
+    </section>
+  </section>
+
+  <section id="assignedWork" class="view">
+    <section class="home-hero panel editorial-card">
+      <div>
+        <p class="eyebrow">Assigned work</p>
+        <h2>My focused work list.</h2>
+        <p class="meta">Open work connected to your login, due dates, notes, documents, and scheduled context.</p>
+      </div>
+      <div class="quick-actions no-print" aria-label="Assigned work actions">
+        <button type="button" onclick="showView('documents')">Upload Photo / Receipt</button>
+        <button type="button" class="ghost" onclick="showView('importReview')">Send Request</button>
+      </div>
+    </section>
+    <section class="today-priority-grid assigned-summary" aria-label="Assigned work summary">
+      <button class="priority-tile urgent" type="button" onclick="setAssignedWorkFilter('overdue')"><span>Overdue</span><strong id="assignedOverdueCount">0</strong><em>Past due</em></button>
+      <button class="priority-tile due" type="button" onclick="setAssignedWorkFilter('today')"><span>Due Today</span><strong id="assignedTodayCount">0</strong><em>Today only</em></button>
+      <button class="priority-tile week" type="button" onclick="setAssignedWorkFilter('week')"><span>This Week</span><strong id="assignedWeekCount">0</strong><em>Upcoming</em></button>
+      <button class="priority-tile clear" type="button" onclick="setAssignedWorkFilter('recent')"><span>Updated</span><strong id="assignedRecentCount">0</strong><em>Recently changed</em></button>
+    </section>
+    <section class="panel">
+      <div class="panel-title">
+        <div>
+          <h3>Assigned Work</h3>
+          <p id="assignedWorkStatus" class="meta" aria-live="polite">Showing assigned work.</p>
+        </div>
+      </div>
+      <div class="work-order-tools no-print">
+        <label class="work-order-search">Search my work
+          <input id="assignedWorkSearchInput" type="search" placeholder="Search title, date, location, notes..." autocomplete="off" oninput="handleAssignedWorkSearch()" />
+        </label>
+        <div class="filter-pills" role="group" aria-label="Assigned work filters">
+          <button type="button" class="filter-pill active" data-assigned-filter="attention" onclick="setAssignedWorkFilter('attention')">Attention</button>
+          <button type="button" class="filter-pill" data-assigned-filter="today" onclick="setAssignedWorkFilter('today')">Today</button>
+          <button type="button" class="filter-pill" data-assigned-filter="overdue" onclick="setAssignedWorkFilter('overdue')">Overdue</button>
+          <button type="button" class="filter-pill" data-assigned-filter="week" onclick="setAssignedWorkFilter('week')">This Week</button>
+          <button type="button" class="filter-pill" data-assigned-filter="scheduled" onclick="setAssignedWorkFilter('scheduled')">Scheduled</button>
+          <button type="button" class="filter-pill" data-assigned-filter="recent" onclick="setAssignedWorkFilter('recent')">Recently Updated</button>
+        </div>
+      </div>
+      <div id="assignedWorkList" class="assigned-work-list card-list"></div>
+      <div id="assignedWorkDetail" class="assigned-work-detail"></div>
     </section>
   </section>
 
@@ -1005,28 +1049,28 @@
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="state/app-state.js?v=20260521-scheduledactions1"></script>
-<script src="components/cards.js?v=20260521-scheduledactions1"></script>
-<script src="components/forms.js?v=20260521-scheduledactions1"></script>
-<script src="auth/roles.js?v=20260521-scheduledactions1"></script>
-<script src="auth/session.js?v=20260521-scheduledactions1"></script>
-<script src="services/supabase-service.js?v=20260521-scheduledactions1"></script>
-<script src="services/mappers.js?v=20260521-scheduledactions1"></script>
-<script src="services/import-review-service.js?v=20260521-scheduledactions1"></script>
-<script src="services/materials-service.js?v=20260521-scheduledactions1"></script>
-<script src="services/demo-service.js?v=20260521-scheduledactions1"></script>
-<script src="services/interaction-service.js?v=20260521-scheduledactions1"></script>
-<script src="sync/pending-queue.js?v=20260521-scheduledactions1"></script>
-<script src="services/auth-service.js?v=20260521-scheduledactions1"></script>
-<script src="services/sync-service.js?v=20260521-scheduledactions1"></script>
-<script src="views/registry.js?v=20260521-scheduledactions1"></script>
-<script src="views/today-dashboard.js?v=20260521-scheduledactions1"></script>
-<script src="views/work-orders.js?v=20260521-scheduledactions1"></script>
-<script src="views/documents.js?v=20260521-scheduledactions1"></script>
-<script src="views/projects-budget.js?v=20260521-scheduledactions1"></script>
-<script src="views/materials.js?v=20260521-scheduledactions1"></script>
-<script src="views/review-queue.js?v=20260521-scheduledactions1"></script>
-<script src="views/fleet.js?v=20260521-scheduledactions1"></script>
-<script src="app.js?v=20260521-scheduledactions1"></script>
+<script src="state/app-state.js?v=20260521-assignedwork1"></script>
+<script src="components/cards.js?v=20260521-assignedwork1"></script>
+<script src="components/forms.js?v=20260521-assignedwork1"></script>
+<script src="auth/roles.js?v=20260521-assignedwork1"></script>
+<script src="auth/session.js?v=20260521-assignedwork1"></script>
+<script src="services/supabase-service.js?v=20260521-assignedwork1"></script>
+<script src="services/mappers.js?v=20260521-assignedwork1"></script>
+<script src="services/import-review-service.js?v=20260521-assignedwork1"></script>
+<script src="services/materials-service.js?v=20260521-assignedwork1"></script>
+<script src="services/demo-service.js?v=20260521-assignedwork1"></script>
+<script src="services/interaction-service.js?v=20260521-assignedwork1"></script>
+<script src="sync/pending-queue.js?v=20260521-assignedwork1"></script>
+<script src="services/auth-service.js?v=20260521-assignedwork1"></script>
+<script src="services/sync-service.js?v=20260521-assignedwork1"></script>
+<script src="views/registry.js?v=20260521-assignedwork1"></script>
+<script src="views/today-dashboard.js?v=20260521-assignedwork1"></script>
+<script src="views/work-orders.js?v=20260521-assignedwork1"></script>
+<script src="views/documents.js?v=20260521-assignedwork1"></script>
+<script src="views/projects-budget.js?v=20260521-assignedwork1"></script>
+<script src="views/materials.js?v=20260521-assignedwork1"></script>
+<script src="views/review-queue.js?v=20260521-assignedwork1"></script>
+<script src="views/fleet.js?v=20260521-assignedwork1"></script>
+<script src="app.js?v=20260521-assignedwork1"></script>
 </body>
 </html>
