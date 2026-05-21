@@ -10,16 +10,32 @@
     const activeTasks = helpers.activeItems("tasks");
     const openTasks = activeTasks.filter(t => t.status !== "complete");
     const reviewItems = helpers.activeItems("submissions").filter(s => s.status === "Needs Review");
+    const urgentTasks = openTasks.filter(t => ["urgent","high"].includes(t.priority));
+    const dueToday = openTasks.filter(t => t.date === today);
+    const overdue = openTasks.filter(t => t.date && t.date < today).sort((a,b) => String(a.date).localeCompare(String(b.date)));
+    const thisWeek = openTasks.filter(t => t.date && t.date > today && t.date <= weekEndString).sort((a,b) => String(a.date).localeCompare(String(b.date)));
+    const blockedTasks = openTasks.filter(t => ["waiting","blocked"].includes(String(t.status || "").toLowerCase()));
+    const urgentDue = uniqueById([...blockedTasks, ...urgentTasks, ...overdue, ...dueToday]);
+    const assignedWork = openTasks
+      .filter(t => t.assignedTo || assignedFromNotes(t.notes))
+      .sort((a,b) => String(a.date || "9999-99-99").localeCompare(String(b.date || "9999-99-99")));
+    const scheduledUpcoming = openTasks
+      .filter(t => isScheduledWork(t) && t.date && t.date >= today && t.date <= weekEndString)
+      .sort((a,b) => String(a.date).localeCompare(String(b.date)));
     return {
-      urgentTasks: openTasks.filter(t => ["urgent","high"].includes(t.priority)),
-      dueToday: openTasks.filter(t => t.date === today),
-      overdue: openTasks.filter(t => t.date && t.date < today).sort((a,b) => String(a.date).localeCompare(String(b.date))),
-      thisWeek: openTasks.filter(t => t.date && t.date > today && t.date <= weekEndString).sort((a,b) => String(a.date).localeCompare(String(b.date))),
+      urgentTasks,
+      dueToday,
+      overdue,
+      thisWeek,
+      blockedTasks,
+      urgentDue,
+      assignedWork,
+      scheduledUpcoming,
       recentlyCompleted: activeTasks.filter(t => t.status === "complete").sort((a,b) => String(dateValue(b)).localeCompare(String(dateValue(a)))).slice(0,5),
       activeProjects: helpers.activeItems("projects").filter(p => p.status !== "complete"),
       openBids: helpers.activeItems("bids").filter(b => !["approved","rejected","paid"].includes(b.status)),
-      blockedTasks: openTasks.filter(t => ["waiting","blocked"].includes(String(t.status || "").toLowerCase())),
       fleetAlerts: state.vehicleAlerts || [],
+      recentActivity:getRecentActivity(state, helpers),
       reviewItems,
       reviewCount: reviewItems.length
     };
@@ -31,6 +47,41 @@
 
   function dateValue(item){
     return item.updatedAt || item.createdAt || item.date || item.submittedAt || "";
+  }
+
+  function activityDateValue(item){
+    return item.updatedAt || item.createdAt || item.submittedAt || "";
+  }
+
+  function assignedFromNotes(notes){
+    const match = String(notes || "").match(/(?:^|\n)Assigned:\s*([^\n]+)/i);
+    return match ? match[1].trim() : "";
+  }
+
+  function isScheduledWork(item){
+    const haystack = [
+      item.type,
+      item.status,
+      item.location,
+      item.notes,
+      item.name,
+      item.title
+    ].join(" ").toLowerCase();
+    return haystack.includes("master import key:") ||
+      haystack.includes("scheduled from master calendar") ||
+      haystack.includes("recurring template") ||
+      haystack.includes("fleet recurring schedule item") ||
+      haystack.includes("source: recurring schedule");
+  }
+
+  function uniqueById(items){
+    const seen = new Set();
+    return items.filter(item => {
+      const key = item.id || `${item.name || item.title}-${item.date || ""}`;
+      if(seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
   }
 
   function renderMiniItem(item, helpers, type){
@@ -46,7 +97,7 @@
       ...helpers.activeItems("submissions").map(item => ({...item, _type:"Review"})),
       ...helpers.activeItems("vehicles").map(item => ({...item, _type:"Vehicle"})),
       ...helpers.activeItems("assets").map(item => ({...item, _type:"Asset"}))
-    ].sort((a,b) => String(dateValue(b)).localeCompare(String(dateValue(a)))).slice(0, 5);
+    ].filter(activityDateValue).sort((a,b) => String(activityDateValue(b)).localeCompare(String(activityDateValue(a)))).slice(0, 5);
   }
 
   function getCalendarItems(state, helpers){
@@ -66,9 +117,9 @@
     document.getElementById("dailyGreeting").textContent = `${greeting}${state.settings.userDisplayName ? `, ${state.settings.userDisplayName}` : ""}.`;
     document.getElementById("dailyRhythmLines").innerHTML = [
       todayState.reviewCount ? `${todayState.reviewCount} waiting in Needs Review.` : "No pending review items.",
-      todayState.overdue.length ? `${todayState.overdue.length} overdue item${todayState.overdue.length === 1 ? "" : "s"}.` : "Nothing overdue.",
-      todayState.dueToday.length ? `${todayState.dueToday.length} due today.` : "Nothing due today.",
-      todayState.fleetAlerts.length ? `${todayState.fleetAlerts.length} vehicle alert${todayState.fleetAlerts.length === 1 ? "" : "s"}.` : "Fleet is quiet."
+      todayState.urgentDue.length ? `${todayState.urgentDue.length} urgent, blocked, overdue, or due today.` : "Nothing urgent right now.",
+      todayState.assignedWork.length ? `${todayState.assignedWork.length} assigned work item${todayState.assignedWork.length === 1 ? "" : "s"}.` : "No named assignments waiting.",
+      todayState.scheduledUpcoming.length ? `${todayState.scheduledUpcoming.length} scheduled item${todayState.scheduledUpcoming.length === 1 ? "" : "s"} coming up.` : "Scheduled rhythm is quiet."
     ].filter(Boolean).map(line => `<p>${helpers.esc(line)}</p>`).join("");
 
     document.getElementById("reviewQueueCount").textContent = `${todayState.reviewCount} waiting`;
@@ -84,19 +135,23 @@
     document.getElementById("bidCount").textContent = todayState.openBids.length;
     const attentionBuckets = [
       todayState.reviewCount,
-      todayState.dueToday.length,
-      todayState.overdue.length,
-      todayState.thisWeek.length,
-      todayState.fleetAlerts.length
+      todayState.urgentDue.length,
+      todayState.assignedWork.length,
+      todayState.scheduledUpcoming.length,
+      todayState.recentActivity.length
     ];
     const quietBuckets = attentionBuckets.filter(count => !count).length;
     const priorityCounts = {
       todayReviewCount: todayState.reviewCount,
       todayOverdueCount: todayState.overdue.length,
       todayDueCount: todayState.dueToday.length,
+      todayUrgentDueCount: todayState.urgentDue.length,
       todayFleetCount: todayState.fleetAlerts.length,
       todayWeekCount: todayState.thisWeek.length,
       todayCompletedCount: todayState.recentlyCompleted.length,
+      todayScheduledCount: todayState.scheduledUpcoming.length,
+      todayAssignedCount: todayState.assignedWork.length,
+      todayRecentCount: todayState.recentActivity.length,
       todayUrgentCount: todayState.urgentTasks.length,
       todayBlockedCount: todayState.blockedTasks.length,
       todayClearCount: quietBuckets,
@@ -111,25 +166,40 @@
 
     const todayReviewList = document.getElementById("todayReviewList");
     if(todayReviewList) todayReviewList.innerHTML = todayState.reviewItems.length ? todayState.reviewItems.slice(0,5).map(item => renderMiniItem(item, helpers, "Needs Review")).join("") : helpers.empty("No pending review items.");
+    const urgentDueList = document.getElementById("urgentDueList");
+    if(urgentDueList) urgentDueList.innerHTML = todayState.urgentDue.length ? todayState.urgentDue.slice(0,5).map(t => helpers.workOrderCardWithActions(t)).join("") : helpers.empty("Nothing urgent right now.");
     const dueTodayList = document.getElementById("dueTodayList");
     if(dueTodayList) dueTodayList.innerHTML = todayState.dueToday.length ? todayState.dueToday.slice(0,5).map(t => helpers.workOrderCardWithActions(t)).join("") : helpers.empty("Nothing due today.");
     const overdueList = document.getElementById("overdueList");
     if(overdueList) overdueList.innerHTML = todayState.overdue.length ? todayState.overdue.slice(0,5).map(t => helpers.workOrderCardWithActions(t)).join("") : helpers.empty("Nothing overdue.");
-    document.getElementById("weekList").innerHTML = todayState.thisWeek.length ? todayState.thisWeek.slice(0,5).map(t => helpers.workOrderCardWithActions(t)).join("") : helpers.empty("No upcoming work this week.");
-    document.getElementById("fleetAlertList").innerHTML = todayState.fleetAlerts.length ? todayState.fleetAlerts.slice(0,5).map(helpers.renderVehicleAlertCard).join("") : helpers.empty("No active fleet alerts.");
+    const weekList = document.getElementById("weekList");
+    if(weekList) weekList.innerHTML = todayState.thisWeek.length ? todayState.thisWeek.slice(0,5).map(t => helpers.workOrderCardWithActions(t)).join("") : helpers.empty("No upcoming work this week.");
+    const fleetAlertList = document.getElementById("fleetAlertList");
+    if(fleetAlertList) fleetAlertList.innerHTML = todayState.fleetAlerts.length ? todayState.fleetAlerts.slice(0,5).map(helpers.renderVehicleAlertCard).join("") : helpers.empty("No active fleet alerts.");
+    const assignedWorkList = document.getElementById("assignedWorkList");
+    if(assignedWorkList) assignedWorkList.innerHTML = todayState.assignedWork.length ? todayState.assignedWork.slice(0,5).map(t => helpers.workOrderCardWithActions(t)).join("") : helpers.empty("No assigned work waiting.");
+    const scheduledTodayList = document.getElementById("scheduledTodayList");
+    if(scheduledTodayList) scheduledTodayList.innerHTML = todayState.scheduledUpcoming.length ? todayState.scheduledUpcoming.slice(0,5).map(t => helpers.workOrderCardWithActions(t)).join("") : helpers.empty("No scheduled work this week.");
+    const recentActivityList = document.getElementById("recentActivityList");
+    if(recentActivityList) recentActivityList.innerHTML = todayState.recentActivity.length ? todayState.recentActivity.slice(0,5).map(item => renderMiniItem(item, helpers, item._type || "Updated")).join("") : helpers.empty("No recent changes yet.");
     const recentCompletedList = document.getElementById("recentCompletedList");
     if(recentCompletedList) recentCompletedList.innerHTML = todayState.recentlyCompleted.length ? todayState.recentlyCompleted.slice(0,5).map(t => helpers.workOrderCardWithActions(t)).join("") : helpers.empty("No completed work yet.");
-    document.getElementById("activeProjectList").innerHTML = todayState.activeProjects.length ? todayState.activeProjects.slice(0,5).map(helpers.projectCard).join("") : helpers.empty("No active projects.");
-    document.getElementById("dashboardBidList").innerHTML = todayState.openBids.length ? todayState.openBids.slice(0,5).map(helpers.bidCard).join("") : helpers.empty("No open bids.");
+    const activeProjectList = document.getElementById("activeProjectList");
+    if(activeProjectList) activeProjectList.innerHTML = todayState.activeProjects.length ? todayState.activeProjects.slice(0,5).map(helpers.projectCard).join("") : helpers.empty("No active projects.");
+    const dashboardBidList = document.getElementById("dashboardBidList");
+    if(dashboardBidList) dashboardBidList.innerHTML = todayState.openBids.length ? todayState.openBids.slice(0,5).map(helpers.bidCard).join("") : helpers.empty("No open bids.");
 
     document.querySelectorAll("[data-hide-when-empty]").forEach(panel => {
       const key = panel.dataset.hideWhenEmpty;
       const count = key === "review" ? todayState.reviewCount :
         key === "dueToday" ? todayState.dueToday.length :
         key === "overdue" ? todayState.overdue.length :
+        key === "urgentDue" ? todayState.urgentDue.length :
+        key === "assigned" ? todayState.assignedWork.length :
+        key === "scheduled" ? todayState.scheduledUpcoming.length :
         key === "thisWeek" ? todayState.thisWeek.length :
         key === "fleet" ? todayState.fleetAlerts.length :
-        key === "recent" ? todayState.recentlyCompleted.length : 1;
+        key === "recent" ? todayState.recentActivity.length : 1;
       panel.classList.toggle("hidden", !count);
     });
   }

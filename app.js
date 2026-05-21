@@ -437,11 +437,28 @@ function recordSearchEntry(type, view, item, detailParts = []){
   return {
     id:item.id,
     type,
+    group:searchGroupForType(type),
     view,
     title,
     detail:compact(detailParts).join(" · "),
     haystack:[type, title, detailParts.join(" "), searchTextFor(item)].join(" ").toLowerCase()
   };
+}
+
+function searchGroupForType(type){
+  if(["Work order","Needs Review","Project"].includes(type)) return "Work";
+  if(["Vehicle","Fuel receipt"].includes(type)) return "Fleet";
+  if(["Document"].includes(type)) return "Files";
+  if(["Asset / system","Building","Space / room"].includes(type)) return "Places + assets";
+  if(["Vendor"].includes(type)) return "People + vendors";
+  return "Other";
+}
+
+function groupedSearchResults(matches){
+  const order = ["Work","Fleet","Files","Places + assets","People + vendors","Other"];
+  return order
+    .map(group => ({ group, items:matches.filter(item => item.group === group).slice(0, 4) }))
+    .filter(section => section.items.length);
 }
 
 function buildOperationalSearchIndex(){
@@ -471,15 +488,21 @@ function renderGlobalSearch(){
   }
   const matches = buildOperationalSearchIndex()
     .filter(item => item.haystack.includes(query))
-    .slice(0, 8);
+    .slice(0, 24);
+  const groups = groupedSearchResults(matches);
   results.classList.remove("hidden");
   results.innerHTML = matches.length
-    ? matches.map(item => `
-      <button type="button" class="search-result" onclick="openSearchResult('${esc(item.view)}','${esc(item.id || "")}')">
-        <span>${esc(item.type)}</span>
-        <strong>${esc(item.title)}</strong>
-        ${item.detail ? `<em>${esc(item.detail)}</em>` : ""}
-      </button>
+    ? groups.map(section => `
+      <section class="search-result-group" aria-label="${esc(section.group)} results">
+        <h4>${esc(section.group)}</h4>
+        ${section.items.map(item => `
+          <button type="button" class="search-result" onclick="openSearchResult('${esc(item.view)}','${esc(item.id || "")}')">
+            <span>${esc(item.type)}</span>
+            <strong>${esc(item.title)}</strong>
+            ${item.detail ? `<em>${esc(item.detail)}</em>` : ""}
+          </button>
+        `).join("")}
+      </section>
     `).join("")
     : `<div class="search-empty">No matching records yet.</div>`;
 }
