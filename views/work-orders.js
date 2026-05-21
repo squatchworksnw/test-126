@@ -77,10 +77,11 @@ function workOrderMatchesFilter(task, filter){
   const weekEnd = addDays(today, 7);
   const currentMonth = monthString(today);
   const haystack = workOrderHaystack(task);
-  if(filter === "today") return isOpenWorkOrder(task) && task.date === today;
-  if(filter === "overdue") return isOpenWorkOrder(task) && task.date && task.date < today;
-  if(filter === "week") return isOpenWorkOrder(task) && task.date && task.date >= today && task.date <= weekEnd;
-  if(filter === "month") return isOpenWorkOrder(task) && monthString(task.date) === currentMonth;
+  const operationalIssue = !isScheduledWorkOrder(task);
+  if(filter === "today") return operationalIssue && isOpenWorkOrder(task) && task.date === today;
+  if(filter === "overdue") return operationalIssue && isOpenWorkOrder(task) && task.date && task.date < today;
+  if(filter === "week") return operationalIssue && isOpenWorkOrder(task) && task.date && task.date >= today && task.date <= weekEnd;
+  if(filter === "month") return operationalIssue && isOpenWorkOrder(task) && monthString(task.date) === currentMonth;
   if(filter === "fleet") return isOpenWorkOrder(task) && (haystack.includes("fleet") || haystack.includes("vehicle") || Boolean(task.vehicleId));
   if(filter === "facility") return isOpenWorkOrder(task) && (haystack.includes("facility") || haystack.includes("building") || haystack.includes("valley") || haystack.includes("francis") || haystack.includes("excelsior"));
   if(filter === "kitchen") return isOpenWorkOrder(task) && haystack.includes("kitchen");
