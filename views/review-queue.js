@@ -3,6 +3,7 @@
   window.FieldOps.Views = window.FieldOps.Views || {};
   const Mappers = window.FieldOps.Services.mappers;
   const ImportReviewService = window.FieldOps.Services.importReview;
+  const BULK_REVIEW_LIMIT = 40;
 
 function importReviewContext(){
   return { app, insertRecord, updateRecord, archiveRecord, id, currentUserId:() => currentSession?.user?.id || "" };
@@ -11,7 +12,7 @@ function importReviewContext(){
 function renderReviewQueue(){
   if(typeof ensureDocumentPreviewUrls === "function") ensureDocumentPreviewUrls(activeItems("files"));
   const reviews = filteredReviewItems();
-  const visibleReviews = reviews.slice(0, 80);
+  const visibleReviews = reviews.slice(0, BULK_REVIEW_LIMIT);
   const status = document.getElementById("bulkReviewStatus");
   if(status && canManageOperations()){
     const waiting = reviews.filter(item => item.status === "Needs Review").length;
@@ -86,8 +87,8 @@ async function approveSelectedReviewItems(){
     return;
   }
   if(ids.length > 40){
-    if(status) status.textContent = "Approve 40 or fewer at a time so the app stays responsive.";
-    alert("Approve 40 or fewer at a time.");
+    if(status) status.textContent = `Approve ${BULK_REVIEW_LIMIT} or fewer at a time so the app stays responsive.`;
+    alert(`Approve ${BULK_REVIEW_LIMIT} or fewer at a time.`);
     return;
   }
   if(!confirm(`Approve ${ids.length} selected item${ids.length === 1 ? "" : "s"} into work orders?`)) return;
@@ -126,8 +127,8 @@ async function archiveSelectedReviewItems(){
     return;
   }
   if(ids.length > 40){
-    if(status) status.textContent = "Move 40 or fewer at a time so the app stays responsive.";
-    alert("Move 40 or fewer at a time.");
+    if(status) status.textContent = `Move ${BULK_REVIEW_LIMIT} or fewer at a time so the app stays responsive.`;
+    alert(`Move ${BULK_REVIEW_LIMIT} or fewer at a time.`);
     return;
   }
   if(!confirm(`Move ${ids.length} selected item${ids.length === 1 ? "" : "s"} out of active work?`)) return;
