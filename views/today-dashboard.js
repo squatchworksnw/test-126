@@ -91,6 +91,51 @@
     return helpers.card(title, detail, [type], helpers.tone(item.priority || item.status));
   }
 
+  function workAnchor(task, state){
+    const asset = state.assets.find(a => a.id === task.assetId);
+    const vehicle = state.vehicles.find(v => v.id === task.vehicleId);
+    const space = state.spaces.find(s => s.id === task.spaceId);
+    const building = state.buildings.find(b => b.id === task.buildingId);
+    const project = state.projects.find(p => p.id === task.projectId);
+    return asset ? `Asset: ${asset.name}` :
+      vehicle ? `Vehicle: ${vehicle.name}` :
+      space ? `Space: ${space.name}` :
+      building ? `Building: ${building.name}` :
+      project ? `Project: ${project.name}` :
+      task.location || "";
+  }
+
+  function renderTodayWorkCard(task, state, helpers){
+    const status = task.status || "open";
+    const priority = task.priority || "normal";
+    const due = task.date ? `Due ${task.date}` : "No due date";
+    const anchor = workAnchor(task, state);
+    const completeAction = String(status).toLowerCase() === "complete"
+      ? ""
+      : `<button class="ghost" type="button" onclick="markWorkOrderComplete('${helpers.esc(task.id)}')" aria-label="Complete ${helpers.esc(task.name || "work order")}">Complete</button>`;
+    return `<article class="today-work-card ${helpers.tone(priority || status)}">
+      <div class="today-work-main">
+        <h4>${helpers.esc(task.name || "Untitled work")}</h4>
+        <div class="today-work-meta">
+          <span>${helpers.esc(titleize(status))}</span>
+          <span>${helpers.esc(titleize(priority))}</span>
+          <span>${helpers.esc(due)}</span>
+          ${anchor ? `<span>${helpers.esc(anchor)}</span>` : ""}
+        </div>
+      </div>
+      <div class="today-work-actions no-print">
+        ${completeAction}
+        <button type="button" onclick="openWorkOrderDetail('${helpers.esc(task.id)}')" aria-label="Open ${helpers.esc(task.name || "work order")}">Open</button>
+      </div>
+    </article>`;
+  }
+
+  function renderTodayWorkList(items, state, helpers, emptyMessage){
+    return items.length
+      ? items.slice(0, 5).map(item => renderTodayWorkCard(item, state, helpers)).join("")
+      : helpers.empty(emptyMessage);
+  }
+
   function getRecentActivity(state, helpers){
     return [
       ...helpers.activeItems("tasks").map(item => ({...item, _type:"Work order"})),
@@ -170,23 +215,23 @@
     const todayReviewList = document.getElementById("todayReviewList");
     if(todayReviewList) todayReviewList.innerHTML = todayState.reviewItems.length ? todayState.reviewItems.slice(0,5).map(item => renderMiniItem(item, helpers, "Needs Review")).join("") : helpers.empty("No pending review items.");
     const urgentDueList = document.getElementById("urgentDueList");
-    if(urgentDueList) urgentDueList.innerHTML = todayState.urgentDue.length ? todayState.urgentDue.slice(0,5).map(t => helpers.workOrderCardWithActions(t)).join("") : helpers.empty("Nothing urgent right now.");
+    if(urgentDueList) urgentDueList.innerHTML = renderTodayWorkList(todayState.urgentDue, state, helpers, "Nothing urgent right now.");
     const dueTodayList = document.getElementById("dueTodayList");
-    if(dueTodayList) dueTodayList.innerHTML = todayState.dueToday.length ? todayState.dueToday.slice(0,5).map(t => helpers.workOrderCardWithActions(t)).join("") : helpers.empty("Nothing due today.");
+    if(dueTodayList) dueTodayList.innerHTML = renderTodayWorkList(todayState.dueToday, state, helpers, "Nothing due today.");
     const overdueList = document.getElementById("overdueList");
-    if(overdueList) overdueList.innerHTML = todayState.overdue.length ? todayState.overdue.slice(0,5).map(t => helpers.workOrderCardWithActions(t)).join("") : helpers.empty("Nothing overdue.");
+    if(overdueList) overdueList.innerHTML = renderTodayWorkList(todayState.overdue, state, helpers, "Nothing overdue.");
     const weekList = document.getElementById("weekList");
-    if(weekList) weekList.innerHTML = todayState.thisWeek.length ? todayState.thisWeek.slice(0,5).map(t => helpers.workOrderCardWithActions(t)).join("") : helpers.empty("No upcoming work this week.");
+    if(weekList) weekList.innerHTML = renderTodayWorkList(todayState.thisWeek, state, helpers, "No upcoming work this week.");
     const fleetAlertList = document.getElementById("fleetAlertList");
     if(fleetAlertList) fleetAlertList.innerHTML = todayState.fleetAlerts.length ? todayState.fleetAlerts.slice(0,5).map(helpers.renderVehicleAlertCard).join("") : helpers.empty("No active fleet alerts.");
     const assignedWorkList = document.getElementById("assignedWorkList");
-    if(assignedWorkList) assignedWorkList.innerHTML = todayState.assignedWork.length ? todayState.assignedWork.slice(0,5).map(t => helpers.workOrderCardWithActions(t)).join("") : helpers.empty("No assigned work waiting.");
+    if(assignedWorkList) assignedWorkList.innerHTML = renderTodayWorkList(todayState.assignedWork, state, helpers, "No assigned work waiting.");
     const scheduledTodayList = document.getElementById("scheduledTodayList");
-    if(scheduledTodayList) scheduledTodayList.innerHTML = todayState.scheduledUpcoming.length ? todayState.scheduledUpcoming.slice(0,5).map(t => helpers.workOrderCardWithActions(t)).join("") : helpers.empty("No scheduled work this week.");
+    if(scheduledTodayList) scheduledTodayList.innerHTML = renderTodayWorkList(todayState.scheduledUpcoming, state, helpers, "No scheduled work this week.");
     const recentActivityList = document.getElementById("recentActivityList");
     if(recentActivityList) recentActivityList.innerHTML = todayState.recentActivity.length ? todayState.recentActivity.slice(0,5).map(item => renderMiniItem(item, helpers, item._type || "Updated")).join("") : helpers.empty("No recent changes yet.");
     const recentCompletedList = document.getElementById("recentCompletedList");
-    if(recentCompletedList) recentCompletedList.innerHTML = todayState.recentlyCompleted.length ? todayState.recentlyCompleted.slice(0,5).map(t => helpers.workOrderCardWithActions(t)).join("") : helpers.empty("No completed work yet.");
+    if(recentCompletedList) recentCompletedList.innerHTML = renderTodayWorkList(todayState.recentlyCompleted, state, helpers, "No completed work yet.");
     const activeProjectList = document.getElementById("activeProjectList");
     if(activeProjectList) activeProjectList.innerHTML = todayState.activeProjects.length ? todayState.activeProjects.slice(0,5).map(helpers.projectCard).join("") : helpers.empty("No active projects.");
     const dashboardBidList = document.getElementById("dashboardBidList");
