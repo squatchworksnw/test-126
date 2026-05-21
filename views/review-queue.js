@@ -72,6 +72,17 @@ function selectedReviewIds(){
     .filter(Boolean);
 }
 
+function reviewApprovalErrorText(error){
+  const call = error?.fieldOpsCall;
+  const parts = [];
+  if(call?.action || call?.table) parts.push(`${call.action || "save"} on ${call.table || "Supabase"}`);
+  if(error?.message) parts.push(error.message);
+  if(error?.details) parts.push(error.details);
+  if(error?.hint) parts.push(error.hint);
+  if(error?.code) parts.push(`code ${error.code}`);
+  return parts.filter(Boolean).join(" - ") || "Unknown Supabase save error";
+}
+
 function selectVisibleReviewItems(checked){
   document.querySelectorAll("[data-review-select]").forEach(input => { input.checked = Boolean(checked); });
   const status = document.getElementById("bulkReviewStatus");
@@ -94,6 +105,7 @@ async function approveSelectedReviewItems(){
   if(!confirm(`Approve ${ids.length} selected item${ids.length === 1 ? "" : "s"} into work orders?`)) return;
   let approved = 0;
   let failed = 0;
+  const failureMessages = [];
   for(const reviewId of ids){
     const review = app.submissions.find(item => item.id === reviewId);
     if(!review || review.convertedRecordId || review.status !== "Needs Review") continue;
@@ -110,12 +122,18 @@ async function approveSelectedReviewItems(){
       if(status) status.textContent = `Approved ${approved} of ${ids.length}...`;
     }catch(err){
       failed++;
+      failureMessages.push(reviewApprovalErrorText(err));
       console.error("Bulk approval failed", reviewId, err);
     }
   }
   await loadWorkspaceData();
   renderReviewQueue();
-  if(status) status.textContent = failed ? `Approved ${approved}. ${failed} could not be approved.` : `Approved ${approved} item${approved === 1 ? "" : "s"} into work orders.`;
+  if(status){
+    const firstFailure = Array.from(new Set(failureMessages))[0];
+    status.textContent = failed
+      ? `Approved ${approved}. ${failed} could not be approved. ${firstFailure ? `First issue: ${firstFailure}` : ""}`
+      : `Approved ${approved} item${approved === 1 ? "" : "s"} into work orders.`;
+  }
 }
 
 async function archiveSelectedReviewItems(){

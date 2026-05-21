@@ -36,6 +36,25 @@
   function dbPriority(value){
     return { Normal:"normal", High:"high", Urgent:"urgent", Low:"low" }[value] || snake(value) || "normal";
   }
+  function dbWorkOrderType(value){
+    const normalized = snake(value);
+    const map = {
+      facility_work:"maintenance",
+      fleet_work:"maintenance",
+      asset_work:"maintenance",
+      scheduled_work:"maintenance",
+      recurring_schedule:"maintenance",
+      fleet:"maintenance",
+      facility:"maintenance",
+      asset:"maintenance",
+      system:"maintenance",
+      maintenance:"maintenance",
+      repair:"maintenance",
+      inspection:"maintenance",
+      general:"general"
+    };
+    return map[normalized] || "general";
+  }
 
   function fromBuilding(row){ return { id:row.id, name:row.name, code:row.code, address:row.address, status:row.status, notes:row.notes, archivedAt:row.archived_at, updatedAt:row.updated_at }; }
   function fromSpace(row){ return { id:row.id, buildingId:row.building_id, name:row.name, spaceType:row.space_type, floor:row.floor, status:row.status, notes:row.notes, archivedAt:row.archived_at, updatedAt:row.updated_at }; }
@@ -76,7 +95,7 @@
   function vendorPayloadFromImport(data){ return { name:data.name || data.vendor || data.company || "Imported vendor", vendor_type:data.vendor_type || data.category || null, contact_name:data.contact || null, phone:data.phone || null, email:data.email || null, status:"active", notes:data.notes || null }; }
   function vendorCreationPayload(name, vendorType = "subcontractor"){ return { name, vendor_type:vendorType, status:"active" }; }
   function assetPayloadFromImport(data){ return { name:data.name || data.asset || data.title || "Imported asset", asset_tag:data.asset_tag || data.tag || null, category:data.category || null, status:"active", notes:data.notes || null }; }
-  function workOrderPayloadFromImport(data){ return { title:data.title || data.name || "Imported work order", type:data.type || "general", status:data.status || "open", priority:dbPriority(data.priority), due_date:data.due_date || data.date || null, project_id:data.project_id || null, building_id:data.building_id || null, space_id:data.space_id || null, asset_id:data.asset_id || null, vehicle_id:data.vehicle_id || null, vendor_id:data.vendor_id || null, description:data.description || data.location || null, notes:data.notes || data.extracted_text || null }; }
+  function workOrderPayloadFromImport(data){ return { title:data.title || data.name || "Imported work order", type:dbWorkOrderType(data.type || data.route), status:dbStatus(data.status, "open"), priority:dbPriority(data.priority), due_date:data.due_date || data.date || null, project_id:data.project_id || null, building_id:data.building_id || null, space_id:data.space_id || null, asset_id:data.asset_id || null, vehicle_id:data.vehicle_id || null, vendor_id:data.vendor_id || null, description:data.description || data.location || null, notes:data.notes || data.extracted_text || null }; }
 
   function buildingEditPayload(item){ return { name:item.name, code:item.code || null, address:item.address || null, status:item.status, notes:item.notes || null }; }
   function spaceEditPayload(item){ return { building_id:item.buildingId || null, name:item.name, space_type:item.spaceType || null, floor:item.floor || null, status:item.status, notes:item.notes || null }; }
@@ -92,7 +111,7 @@
   function restorePayload(){ return { archived_at:null, archived_by:null }; }
 
   const Mappers = {
-    todayString, snake, normalizeDate, normalizeNumber, dbStatus, dbPriority,
+    todayString, snake, normalizeDate, normalizeNumber, dbStatus, dbPriority, dbWorkOrderType,
     fromBuilding, fromSpace, fromAsset, fromProject, fromVendor, fromBudgetItem, fromBudgetBid, fromWorkOrder, fromVehicle, fromFuelReceipt, fromDocument, fromImportReview,
     workOrderPayloadFromForm, buildingPayloadFromForm, spacePayloadFromForm, assetPayloadFromForm, vendorPayloadFromForm, projectPayloadFromForm, budgetItemPayloadFromForm, bidPayloadFromForm, vehiclePayloadFromForm, fuelReceiptPayloadFromForm, fuelReceiptBudgetPayload, documentMetadataPayload, importReviewPayload, reviewWorkOrderPayloadFromForm, submitterWorkOrderReviewData,
     projectPayloadFromImport, vehiclePayloadFromImport, fuelReceiptPayloadFromImport, budgetItemPayloadFromImport, vendorPayloadFromImport, vendorCreationPayload, assetPayloadFromImport, workOrderPayloadFromImport,

@@ -47,43 +47,60 @@
     return field ? { [field]: created.id } : {};
   }
 
+  async function runStep(action, table, payload, operation){
+    try{
+      return await operation();
+    }catch(error){
+      error.fieldOpsCall = { action, table, payload };
+      throw error;
+    }
+  }
+
   async function ensureVendor(name, context){
     const vendorName = (name || "").trim() || "Imported vendor";
     const existing = context.app.vendors.find(v => v.name.toLowerCase() === vendorName.toLowerCase());
     if(existing) return existing;
-    const data = await context.insertRecord("field_ops_vendors", { id:context.id(), ...Mappers.vendorCreationPayload(vendorName) });
-    return Mappers.fromVendor(data);
+      const payload = { id:context.id(), ...Mappers.vendorCreationPayload(vendorName) };
+      const data = await runStep("create imported vendor", "field_ops_vendors", payload, () => context.insertRecord("field_ops_vendors", payload));
+      return Mappers.fromVendor(data);
   }
 
   async function createRecordFromImport(type, data, context){
     const recordType = validateImportData(type, data, context);
     if(recordType === "project"){
-      const row = await context.insertRecord("field_ops_projects", Mappers.projectPayloadFromImport(data));
+      const payload = Mappers.projectPayloadFromImport(data);
+      const row = await runStep("create imported project", "field_ops_projects", payload, () => context.insertRecord("field_ops_projects", payload));
       return { table:"field_ops_projects", id:row.id };
     }
     if(recordType === "vehicle"){
-      const row = await context.insertRecord("field_ops_vehicles", Mappers.vehiclePayloadFromImport(data));
+      const payload = Mappers.vehiclePayloadFromImport(data);
+      const row = await runStep("create imported vehicle", "field_ops_vehicles", payload, () => context.insertRecord("field_ops_vehicles", payload));
       return { table:"field_ops_vehicles", id:row.id };
     }
     if(recordType === "fuel_receipt"){
       const vehicle = data.vehicle_id ? { id:data.vehicle_id } : context.app.vehicles[0];
-      const row = await context.insertRecord("field_ops_fuel_receipts", Mappers.fuelReceiptPayloadFromImport(data, vehicle.id));
+      const payload = Mappers.fuelReceiptPayloadFromImport(data, vehicle.id);
+      const row = await runStep("create imported fuel receipt", "field_ops_fuel_receipts", payload, () => context.insertRecord("field_ops_fuel_receipts", payload));
       return { table:"field_ops_fuel_receipts", id:row.id };
     }
     if(recordType === "budget_item"){
       const vendor = await ensureVendor(data.vendor || data.company || "Imported vendor", context);
-      const row = await context.insertRecord("field_ops_budget_items", Mappers.budgetItemPayloadFromImport(data, vendor.id));
+      const payload = Mappers.budgetItemPayloadFromImport(data, vendor.id);
+      const row = await runStep("create imported budget item", "field_ops_budget_items", payload, () => context.insertRecord("field_ops_budget_items", payload));
       return { table:"field_ops_budget_items", id:row.id };
     }
     if(recordType === "vendor"){
-      const row = await context.insertRecord("field_ops_vendors", Mappers.vendorPayloadFromImport(data));
+      const payload = Mappers.vendorPayloadFromImport(data);
+      const row = await runStep("create imported vendor", "field_ops_vendors", payload, () => context.insertRecord("field_ops_vendors", payload));
       return { table:"field_ops_vendors", id:row.id };
     }
     if(recordType === "asset"){
-      const row = await context.insertRecord("field_ops_assets", Mappers.assetPayloadFromImport(data));
+      const payload = Mappers.assetPayloadFromImport(data);
+      const row = await runStep("create imported asset", "field_ops_assets", payload, () => context.insertRecord("field_ops_assets", payload));
       return { table:"field_ops_assets", id:row.id };
     }
-    const row = await context.insertRecord("field_ops_work_orders", { ...(data.id ? { id:data.id } : {}), ...Mappers.workOrderPayloadFromImport(data) });
+    const payload = { ...(data.id ? { id:data.id } : {}), ...Mappers.workOrderPayloadFromImport(data) };
+    const row = await runStep("create imported work order", "field_ops_work_orders", payload, () => context.insertRecord("field_ops_work_orders", payload));
     return { table:"field_ops_work_orders", id:row.id };
   }
 
@@ -103,7 +120,7 @@
     if(!documentId) return;
     const payload = documentLinkPayloadForRecord(created);
     if(Object.keys(payload).length){
-      await context.updateRecord("field_ops_documents", documentId, payload);
+      await runStep("link document to approved record", "field_ops_documents", payload, () => context.updateRecord("field_ops_documents", documentId, payload));
     }
   }
 
@@ -119,18 +136,20 @@
       normalizedData.id = context.id();
     }
     if(reviewId){
-      await context.updateRecord("field_ops_import_reviews", reviewId, { proposed_data:normalizedData });
+      const updatePayload = { proposed_data:normalizedData };
+      await runStep("save corrected review fields", "field_ops_import_reviews", updatePayload, () => context.updateRecord("field_ops_import_reviews", reviewId, updatePayload));
     }
     const created = await createRecordFromImport(type || review?.importTarget || "work_order", normalizedData, context);
     await attachDocumentToRecord(documentId || review?.documentId, created, context);
     if(reviewId){
-      await context.updateRecord("field_ops_import_reviews", reviewId, {
+      const approvalPayload = {
         status:"approved",
         reviewed_by:reviewerId,
         reviewed_at:new Date().toISOString(),
         created_record_table:created.table,
         created_record_id:created.id
-      });
+      };
+      await runStep("mark review approved", "field_ops_import_reviews", approvalPayload, () => context.updateRecord("field_ops_import_reviews", reviewId, approvalPayload));
     }
     return created;
   }
