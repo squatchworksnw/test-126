@@ -405,7 +405,7 @@ function assignedWorkCard(task){
       ${complete ? "" : `<button class="ghost" type="button" onclick="completeAssignedWorkItem('${task.id}')">Complete</button>`}
       <button class="ghost" type="button" onclick="addAssignedWorkNote('${task.id}')">Add Note</button>
       <button class="ghost" type="button" onclick="uploadDocumentForScheduledTask('${task.id}')">Upload Photo/Receipt</button>
-      ${docs.length ? `<button class="ghost" type="button" onclick="viewAssignedWorkDocuments('${task.id}')">View Documents</button>` : ""}
+      <button class="ghost" type="button" onclick="viewAssignedWorkDocuments('${task.id}')">View Documents</button>
       ${scheduledTask ? `<button class="ghost" type="button" onclick="viewLinkedScheduledTask('${scheduledTask.id}')">View Scheduled Task</button>` : ""}
     </div>
   </article>`;
@@ -662,12 +662,22 @@ function uploadDocumentForScheduledTask(taskId){
   if(!task) return;
   openUploadFile();
   setTimeout(() => {
+    const connectionField = document.getElementById("uploadConnection");
+    const recordField = document.getElementById("uploadConnectionRecord");
     const workOrderField = document.getElementById("fileWorkOrder");
     const buildingField = document.getElementById("fileBuilding");
     const spaceField = document.getElementById("fileSpace");
     const assetField = document.getElementById("fileAsset");
     const vehicleField = document.getElementById("fileVehicle");
     const notesField = document.getElementById("fileNotes");
+    if(connectionField){
+      connectionField.value = "work_order";
+      connectionField.dispatchEvent(new Event("change"));
+    }
+    if(recordField){
+      recordField.value = task.id;
+      recordField.dispatchEvent(new Event("change"));
+    }
     if(workOrderField) workOrderField.value = task.id;
     if(buildingField && task.buildingId) buildingField.value = task.buildingId;
     if(spaceField && task.spaceId) spaceField.value = task.spaceId;

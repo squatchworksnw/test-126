@@ -23,7 +23,7 @@
       { id:"demo-vendor-plumbing", name:"Excelsior Plumbing", vendor_type:"Plumbing", contact_name:"Demo Contact", phone:"", email:"", status:"active", insurance_expires_on:null, notes:"Demo vendor for sink repair.", updated_at:"2026-05-14" }
     ],
     workOrders: [
-      { id:"demo-wo-sink", work_order_number:"DEMO-1001", title:"Fix sink leak in Restroom 2", type:"general", status:"open", priority:"urgent", due_date:"2026-05-15", project_id:"demo-project-refresh", building_id:"demo-building-francis", space_id:"demo-space-restroom-2", asset_id:"demo-asset-sink", vehicle_id:null, vendor_id:"demo-vendor-plumbing", description:"Water visible under sink after use.", notes:"Demo work order connected across building, space, asset, vendor, project, and document.", updated_at:"2026-05-14" }
+      { id:"demo-wo-sink", work_order_number:"DEMO-1001", title:"Fix sink leak in Restroom 2", type:"general", status:"open", priority:"urgent", due_date:"2026-05-15", project_id:"demo-project-refresh", building_id:"demo-building-francis", space_id:"demo-space-restroom-2", asset_id:"demo-asset-sink", vehicle_id:null, vendor_id:"demo-vendor-plumbing", description:"Water visible under sink after use.", notes:"Assigned: demo\nDemo work order connected across building, space, asset, vendor, project, and document.", updated_at:"2026-05-14" }
     ],
     vehicles: [
       { id:"demo-vehicle-van-1", name:"Van 1", vehicle_number:"1", license_plate:"MOW-101", vin:"DEMO-VIN-0001", odometer:84210, status:"due_for_service", last_service_date:"2026-02-01", next_service_date:"2026-05-20", registration_due_date:"2026-06-15", notes:"Demo fleet record with upcoming service.", updated_at:"2026-05-14" }
