@@ -55,7 +55,7 @@
   }
 
   function renderVehicleCard(vehicle){
-    return card(vehicle.name, vehicleDetailLines(vehicle), vehicleTags(vehicle), tone(vehicle.status));
+    return card(vehicle.name, vehicleDetailLines(vehicle), vehicleTags(vehicle), tone(vehicle.status)) + vehicleStoryPanel(vehicle);
   }
 
   function renderVehicleDetail(vehicle){
@@ -95,6 +95,34 @@
       [receipt.date, money(receipt.totalAmount)],
       ""
     );
+  }
+
+  function storyRows(items, emptyText, formatter){
+    return items.length ? items.slice(0,5).map(formatter).join("") + (items.length > 5 ? `<p>+ ${items.length - 5} more</p>` : "") : `<p>${esc(emptyText)}</p>`;
+  }
+
+  function isOpenRecord(item){
+    return !["complete","completed","closed","archived","canceled"].includes(String(item.status || "").toLowerCase());
+  }
+
+  function vehicleStoryPanel(vehicle){
+    const docs = fleetDocumentsForVehicle(vehicle);
+    const work = activeItems("tasks").filter(task => task.vehicleId === vehicle.id);
+    const openWork = work.filter(isOpenRecord);
+    const history = work.filter(task => !isOpenRecord(task));
+    const titles = docs.filter(doc => /title|registration|warranty|manual/i.test(`${doc.fileType || ""} ${doc.fileName || ""} ${doc.notes || ""}`));
+    const photos = docs.filter(doc => /photo|image|jpg|jpeg|png|heic/i.test(`${doc.fileType || ""} ${doc.fileName || ""}`));
+    return `<details class="object-story">
+      <summary>Overview, history, documents, titles, photos, and open work</summary>
+      <div class="object-story-grid">
+        <section class="object-story-section"><h4>Overview</h4>${storyRows([vehicle], "No overview yet.", item => `<p>${esc(compact([item.vehicleNumber ? `Vehicle #: ${item.vehicleNumber}` : "", item.plate ? `Plate: ${item.plate}` : "", item.vin ? `VIN: ${item.vin}` : "", item.mileage ? `Odometer: ${item.mileage}` : "", titleize(item.status)]).join(" | "))}</p>`)}</section>
+        <section class="object-story-section"><h4>History</h4>${storyRows(history, "No completed vehicle repairs yet.", item => `<p>${esc(compact([item.date, item.workOrderNumber, item.name]).join(" | "))}</p>`)}</section>
+        <section class="object-story-section"><h4>Documents</h4>${storyRows(docs, "No linked documents yet.", doc => `<p>${esc(doc.fileName)}</p>`)}</section>
+        <section class="object-story-section"><h4>Warranties / Titles</h4>${storyRows(titles, "No titles, registration, warranties, or manuals linked yet.", doc => `<p>${esc(doc.fileName)}</p>`)}</section>
+        <section class="object-story-section"><h4>Photos</h4>${storyRows(photos, "No photos linked yet.", doc => `<p>${esc(doc.fileName)}</p>`)}</section>
+        <section class="object-story-section"><h4>Open Work</h4>${storyRows(openWork, "No open work linked.", item => `<p>${esc(compact([item.date, item.workOrderNumber, item.name]).join(" | "))}</p>`)}</section>
+      </div>
+    </details>`;
   }
 
   async function addVehicle(e){

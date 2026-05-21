@@ -644,9 +644,37 @@ function renderSpaces(){
 
 function renderAssets(){
   const assets = activeItems("assets");
-  document.getElementById("assetList").innerHTML = assets.length ? assets.map((a)=>{ const space = app.spaces.find(s => s.id === a.spaceId); return card(a.name,[space ? `Space: ${space.name}` : "", a.notes],[a.assetTag,a.category,a.status],tone(a.status)) + rowActions("assets", a); }).join("") : empty("No assets yet.");
+  document.getElementById("assetList").innerHTML = assets.length ? assets.map((a)=>{ const space = app.spaces.find(s => s.id === a.spaceId); return card(a.name,[space ? `Space: ${space.name}` : "", a.notes],[a.assetTag,a.category,a.status],tone(a.status)) + rowActions("assets", a) + assetStoryPanel(a); }).join("") : empty("No assets yet.");
   const options = `<option value="">No asset</option>` + assets.map(a => `<option value="${a.id}">${esc(a.name)}</option>`).join("");
   ["taskAsset","fileAsset"].forEach(el => { if(document.getElementById(el)) document.getElementById(el).innerHTML = options; });
+}
+
+function objectStoryRows(items, emptyText, formatter){
+  return items.length ? items.slice(0,5).map(formatter).join("") + (items.length > 5 ? `<p>+ ${items.length - 5} more</p>` : "") : `<p>${esc(emptyText)}</p>`;
+}
+
+function assetStoryPanel(asset){
+  const docs = activeItems("files").filter(file => file.relatedAssetId === asset.id);
+  const work = activeItems("tasks").filter(task => task.assetId === asset.id);
+  const openWork = work.filter(isOpenRecord);
+  const history = work.filter(task => !isOpenRecord(task));
+  const warranties = docs.filter(doc => /warranty|manual|title|registration/i.test(`${doc.fileType || ""} ${doc.fileName || ""} ${doc.notes || ""}`));
+  const photos = docs.filter(doc => /photo|image|jpg|jpeg|png|heic/i.test(`${doc.fileType || ""} ${doc.fileName || ""}`));
+  return `<details class="object-story">
+    <summary>Overview, history, documents, photos, and open work</summary>
+    <div class="object-story-grid">
+      <section class="object-story-section"><h4>Overview</h4>${objectStoryRows([asset], "No overview yet.", item => `<p>${esc(compact([item.assetTag ? `Tag: ${item.assetTag}` : "", item.category, titleize(item.status), item.notes]).join(" | "))}</p>`)}</section>
+      <section class="object-story-section"><h4>History</h4>${objectStoryRows(history, "No completed repairs yet.", item => `<p>${esc(compact([item.date, item.workOrderNumber, item.name]).join(" | "))}</p>`)}</section>
+      <section class="object-story-section"><h4>Documents</h4>${objectStoryRows(docs, "No linked documents yet.", doc => `<p>${esc(doc.fileName)}</p>`)}</section>
+      <section class="object-story-section"><h4>Warranties / Manuals</h4>${objectStoryRows(warranties, "No warranties or manuals linked yet.", doc => `<p>${esc(doc.fileName)}</p>`)}</section>
+      <section class="object-story-section"><h4>Photos</h4>${objectStoryRows(photos, "No photos linked yet.", doc => `<p>${esc(doc.fileName)}</p>`)}</section>
+      <section class="object-story-section"><h4>Open Work</h4>${objectStoryRows(openWork, "No open work linked.", item => `<p>${esc(compact([item.date, item.workOrderNumber, item.name]).join(" | "))}</p>`)}</section>
+    </div>
+  </details>`;
+}
+
+function isOpenRecord(item){
+  return !["complete","completed","closed","archived","canceled"].includes(String(item.status || "").toLowerCase());
 }
 
 function renderVendors(){

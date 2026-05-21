@@ -4,6 +4,84 @@
   const Mappers = window.FieldOps.Services.mappers;
   const previewUrlCache = new Map();
 
+function uploadKindToFileType(kind){
+  return {
+    photo:"Photo",
+    receipt:"Fuel Receipt",
+    warranty:"Warranty / Manual",
+    title:"Vehicle Title / Registration",
+    estimate:"Estimate",
+    other:"Other / Not sure"
+  }[kind] || "Other / Not sure";
+}
+
+function applyUploadKind(){
+  const kind = document.getElementById("uploadKind")?.value || "other";
+  if(document.getElementById("fileType")) fileType.value = uploadKindToFileType(kind);
+  const guidance = document.getElementById("uploadGuidance");
+  if(!guidance) return;
+  guidance.textContent = kind === "receipt"
+    ? "Receipts go to Needs Review first. Uploading proof helps route the expense, but does not replace any required accounting receipt process."
+    : kind === "photo"
+      ? "Photos can support a request, work order, vehicle, asset, or uncertain review item."
+      : kind === "warranty"
+        ? "Warranty/manual uploads are easiest to find later when linked to a vehicle or asset/system."
+        : kind === "title"
+          ? "Vehicle title/registration uploads are easiest to find later when linked to a vehicle."
+          : kind === "estimate"
+            ? "Estimates and invoices go to Needs Review before becoming official budget/accounting work."
+            : "If you are not sure where this belongs, leave it as Not sure and the team can review it.";
+}
+
+function uploadConnectionCollections(){
+  return {
+    vehicle: activeItems("vehicles").map(item => ({ id:item.id, label:item.name })),
+    place: [
+      ...activeItems("buildings").map(item => ({ id:`building:${item.id}`, label:`Building: ${item.name}` })),
+      ...activeItems("spaces").map(item => ({ id:`space:${item.id}`, label:`Space: ${item.name}` }))
+    ],
+    asset: activeItems("assets").map(item => ({ id:item.id, label:item.name })),
+    work_order: activeItems("tasks").map(item => ({ id:item.id, label:item.workOrderNumber ? `${item.workOrderNumber} - ${item.name}` : item.name })),
+    project: activeItems("projects").map(item => ({ id:item.id, label:item.name }))
+  };
+}
+
+function clearUploadQuickLinkFields(){
+  ["fileBuilding","fileSpace","fileAsset","fileProject","fileWorkOrder","fileVehicle"].forEach(idValue => {
+    const el = document.getElementById(idValue);
+    if(el) el.value = "";
+  });
+}
+
+function applyUploadConnection(clearLinks = true){
+  const connection = document.getElementById("uploadConnection")?.value || "not_sure";
+  const label = document.getElementById("uploadRecordLabel");
+  const record = document.getElementById("uploadConnectionRecord");
+  const previousValue = record?.value || "";
+  if(clearLinks) clearUploadQuickLinkFields();
+  if(!label || !record) return;
+  const items = uploadConnectionCollections()[connection] || [];
+  label.classList.toggle("hidden", !items.length || connection === "not_sure");
+  record.innerHTML = `<option value="">Choose one</option>` + items.map(item => `<option value="${esc(item.id)}">${esc(item.label)}</option>`).join("");
+  if(previousValue && items.some(item => item.id === previousValue)) record.value = previousValue;
+}
+
+function applyUploadRecordLink(){
+  const connection = document.getElementById("uploadConnection")?.value || "not_sure";
+  const value = document.getElementById("uploadConnectionRecord")?.value || "";
+  clearUploadQuickLinkFields();
+  if(!value) return;
+  if(connection === "vehicle" && document.getElementById("fileVehicle")) fileVehicle.value = value;
+  if(connection === "asset" && document.getElementById("fileAsset")) fileAsset.value = value;
+  if(connection === "work_order" && document.getElementById("fileWorkOrder")) fileWorkOrder.value = value;
+  if(connection === "project" && document.getElementById("fileProject")) fileProject.value = value;
+  if(connection === "place"){
+    const [type, idValue] = value.split(":");
+    if(type === "building" && document.getElementById("fileBuilding")) fileBuilding.value = idValue;
+    if(type === "space" && document.getElementById("fileSpace")) fileSpace.value = idValue;
+  }
+}
+
 async function saveDocumentMetadata({ docId, fileNameValue, fileTypeValue, storagePath, extractedText = "", extractionStatus = "not_supported", links = {}, notes = "" }){
   if(!requireInsertPermission("field_ops_documents", "upload documents")) throw new Error("Role cannot upload documents");
   const wid = workspaceId();
@@ -35,6 +113,8 @@ async function addFileRecord(e){
   e.preventDefault();
   try{
     if(!requireInsertPermission("field_ops_documents", "upload documents")) return;
+    applyUploadKind();
+    applyUploadRecordLink();
     setInlineState("fileSaveState", "Uploading...", "pending");
     setStatus("Uploading document...");
     const upload = document.getElementById("documentUpload").files[0];
@@ -74,7 +154,8 @@ async function addFileRecord(e){
       notes:fileNotes.value
     });
 
-    if(extractedText){
+    const uncertainUpload = (document.getElementById("uploadConnection")?.value || "not_sure") === "not_sure";
+    if(extractedText || uncertainUpload){
       await createImportReview("document", typeToImportTarget(fileType.value), { file_name:fileNameValue, extracted_text:extractedText }, `Review extracted ${fileType.value} from ${fileNameValue}`, docId);
     }
 
@@ -92,6 +173,8 @@ async function addFileRecord(e){
 
 function typeToImportTarget(type){
   if(type === "Fuel Receipt") return "fuel_receipt";
+  if(type === "Vehicle Title / Registration") return "vehicle";
+  if(type === "Warranty / Manual") return "asset";
   if(["Contract","Bid","Estimate","Invoice"].includes(type)) return "budget_item";
   if(type === "Inspection") return "work_order";
   return "work_order";
@@ -101,6 +184,8 @@ function typeToImportTarget(type){
 
 function renderFiles(){
   const files = activeItems("files");
+  applyUploadKind();
+  applyUploadConnection(false);
   ensureDocumentPreviewUrls(files);
   document.getElementById("fileList").innerHTML = files.length ? files.map(f => {
     const building = app.buildings.find(b => b.id === f.relatedBuildingId);
@@ -213,5 +298,8 @@ function renderLinkedDocumentPanels(){
     ensureDocumentPreviewUrls,
     documentContextLabel
   });
+  document.getElementById("uploadKind")?.addEventListener("change", applyUploadKind);
+  document.getElementById("uploadConnection")?.addEventListener("change", applyUploadConnection);
+  document.getElementById("uploadConnectionRecord")?.addEventListener("change", applyUploadRecordLink);
 })();
 

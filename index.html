@@ -5,8 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>Field Operations Command Center</title>
 
-<link rel="stylesheet" href="styles/tokens/tokens.css?v=20260521-assignedwork1" />
-<link rel="stylesheet" href="styles.css?v=20260521-assignedwork1" />
+<link rel="stylesheet" href="styles/tokens/tokens.css?v=20260521-uploadhistory1" />
+<link rel="stylesheet" href="styles.css?v=20260521-uploadhistory1" />
 </head>
 
 <body data-auth="signed-out" data-role="signed-out">
@@ -796,20 +796,47 @@
         </div>
       </div>
       <form id="fileForm" class="mobile-upload-form">
+        <label>What are you uploading?
+          <select id="uploadKind">
+            <option value="photo">Photo</option>
+            <option value="receipt">Receipt</option>
+            <option value="warranty">Warranty / Manual</option>
+            <option value="title">Vehicle title / registration</option>
+            <option value="estimate">Estimate / Invoice</option>
+            <option value="other">Other file</option>
+          </select>
+        </label>
+        <label>What is this connected to?
+          <select id="uploadConnection">
+            <option value="not_sure">Not sure</option>
+            <option value="vehicle">Vehicle</option>
+            <option value="place">Building / space</option>
+            <option value="asset">Asset / system</option>
+            <option value="work_order">Work order</option>
+            <option value="project">Project</option>
+          </select>
+        </label>
+        <label id="uploadRecordLabel" class="full hidden">Choose the record<select id="uploadConnectionRecord"></select></label>
         <label>File name or link<input id="fileName" required placeholder="estimate.pdf, inspection report, photo link..." /></label>
-        <label>What kind of file is this?<select id="fileType"><option>Photo</option><option>Fuel Receipt</option><option>Estimate</option><option>Invoice</option><option>Spreadsheet</option><option>Contract</option><option>Bid</option><option>Inspection</option><option>Report</option><option>Checklist</option><option>Other / Not sure</option></select></label>
-        <p class="meta full">Uploading a receipt or proof helps route and review the expense, but does not replace any required accounting receipt process.</p>
         <label>Upload file<input id="documentUpload" type="file" accept=".pdf,.csv,.xlsx,.xls,image/*" /></label>
-        <label>Related building<select id="fileBuilding"></select></label>
-        <label>Related space / room<select id="fileSpace"></select></label>
-        <label>Related asset / system<select id="fileAsset"></select></label>
-        <label>Related project<select id="fileProject"></select></label>
-        <label>Related work order<select id="fileWorkOrder"></select></label>
-        <label>Related vehicle<select id="fileVehicle"></select></label>
-        <label>Related vendor<select id="fileBid"></select></label>
-        <label>Related fuel receipt<select id="fileFuelReceipt"></select></label>
-        <label>Related budget item<select id="fileBudgetItem"></select></label>
-        <label>Source<input id="fileSource" placeholder="Upload, vendor, office, import..." /></label>
+        <p id="uploadGuidance" class="meta full">Uploads go to Needs Review first when the connection is uncertain.</p>
+        <p class="meta full">Uploading a receipt or proof helps route and review the expense, but does not replace any required accounting receipt process.</p>
+        <details class="full advanced-upload-details">
+          <summary>More details</summary>
+          <div class="form-grid">
+            <label>What kind of file is this?<select id="fileType"><option>Photo</option><option>Fuel Receipt</option><option>Warranty / Manual</option><option>Vehicle Title / Registration</option><option>Estimate</option><option>Invoice</option><option>Spreadsheet</option><option>Contract</option><option>Bid</option><option>Inspection</option><option>Report</option><option>Checklist</option><option>Other / Not sure</option></select></label>
+            <label>Related building<select id="fileBuilding"></select></label>
+            <label>Related space / room<select id="fileSpace"></select></label>
+            <label>Related asset / system<select id="fileAsset"></select></label>
+            <label>Related project<select id="fileProject"></select></label>
+            <label>Related work order<select id="fileWorkOrder"></select></label>
+            <label>Related vehicle<select id="fileVehicle"></select></label>
+            <label>Related vendor<select id="fileBid"></select></label>
+            <label>Related fuel receipt<select id="fileFuelReceipt"></select></label>
+            <label>Related budget item<select id="fileBudgetItem"></select></label>
+            <label>Source<input id="fileSource" placeholder="Upload, vendor, office, import..." /></label>
+          </div>
+        </details>
         <label class="full">Notes<textarea id="fileNotes" placeholder="What this file proves, where it came from, or what to review..."></textarea></label>
         <p id="fileSaveState" class="meta full" data-state="">Ready</p>
         <div class="actions full"><button type="submit">Upload / Add Document</button></div>
@@ -1049,28 +1076,28 @@
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="state/app-state.js?v=20260521-assignedwork1"></script>
-<script src="components/cards.js?v=20260521-assignedwork1"></script>
-<script src="components/forms.js?v=20260521-assignedwork1"></script>
-<script src="auth/roles.js?v=20260521-assignedwork1"></script>
-<script src="auth/session.js?v=20260521-assignedwork1"></script>
-<script src="services/supabase-service.js?v=20260521-assignedwork1"></script>
-<script src="services/mappers.js?v=20260521-assignedwork1"></script>
-<script src="services/import-review-service.js?v=20260521-assignedwork1"></script>
-<script src="services/materials-service.js?v=20260521-assignedwork1"></script>
-<script src="services/demo-service.js?v=20260521-assignedwork1"></script>
-<script src="services/interaction-service.js?v=20260521-assignedwork1"></script>
-<script src="sync/pending-queue.js?v=20260521-assignedwork1"></script>
-<script src="services/auth-service.js?v=20260521-assignedwork1"></script>
-<script src="services/sync-service.js?v=20260521-assignedwork1"></script>
-<script src="views/registry.js?v=20260521-assignedwork1"></script>
-<script src="views/today-dashboard.js?v=20260521-assignedwork1"></script>
-<script src="views/work-orders.js?v=20260521-assignedwork1"></script>
-<script src="views/documents.js?v=20260521-assignedwork1"></script>
-<script src="views/projects-budget.js?v=20260521-assignedwork1"></script>
-<script src="views/materials.js?v=20260521-assignedwork1"></script>
-<script src="views/review-queue.js?v=20260521-assignedwork1"></script>
-<script src="views/fleet.js?v=20260521-assignedwork1"></script>
-<script src="app.js?v=20260521-assignedwork1"></script>
+<script src="state/app-state.js?v=20260521-uploadhistory1"></script>
+<script src="components/cards.js?v=20260521-uploadhistory1"></script>
+<script src="components/forms.js?v=20260521-uploadhistory1"></script>
+<script src="auth/roles.js?v=20260521-uploadhistory1"></script>
+<script src="auth/session.js?v=20260521-uploadhistory1"></script>
+<script src="services/supabase-service.js?v=20260521-uploadhistory1"></script>
+<script src="services/mappers.js?v=20260521-uploadhistory1"></script>
+<script src="services/import-review-service.js?v=20260521-uploadhistory1"></script>
+<script src="services/materials-service.js?v=20260521-uploadhistory1"></script>
+<script src="services/demo-service.js?v=20260521-uploadhistory1"></script>
+<script src="services/interaction-service.js?v=20260521-uploadhistory1"></script>
+<script src="sync/pending-queue.js?v=20260521-uploadhistory1"></script>
+<script src="services/auth-service.js?v=20260521-uploadhistory1"></script>
+<script src="services/sync-service.js?v=20260521-uploadhistory1"></script>
+<script src="views/registry.js?v=20260521-uploadhistory1"></script>
+<script src="views/today-dashboard.js?v=20260521-uploadhistory1"></script>
+<script src="views/work-orders.js?v=20260521-uploadhistory1"></script>
+<script src="views/documents.js?v=20260521-uploadhistory1"></script>
+<script src="views/projects-budget.js?v=20260521-uploadhistory1"></script>
+<script src="views/materials.js?v=20260521-uploadhistory1"></script>
+<script src="views/review-queue.js?v=20260521-uploadhistory1"></script>
+<script src="views/fleet.js?v=20260521-uploadhistory1"></script>
+<script src="app.js?v=20260521-uploadhistory1"></script>
 </body>
 </html>
