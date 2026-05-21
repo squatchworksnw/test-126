@@ -3,8 +3,8 @@
   window.FieldOps.Auth = window.FieldOps.Auth || {};
 
   const VIEW_ACCESS = {
-    owner: ["dashboard","workOrders","workOrderDetail","reviewDetail","projects","materials","buildings","spaces","assets","vehicles","fuelReceipts","vendors","budget","documents","importReview","importCenter","reports","settings"],
-    admin: ["dashboard","workOrders","workOrderDetail","reviewDetail","projects","materials","vehicles","fuelReceipts","vendors","documents","importReview","importCenter","reports","settings"],
+    owner: ["dashboard","workOrders","scheduledWork","workOrderDetail","reviewDetail","projects","materials","buildings","spaces","assets","vehicles","fuelReceipts","vendors","budget","documents","importReview","importCenter","reports","settings"],
+    admin: ["dashboard","workOrders","scheduledWork","workOrderDetail","reviewDetail","projects","materials","vehicles","fuelReceipts","vendors","documents","importReview","importCenter","reports","settings"],
     submitter: ["fieldPortal","importReview","materials","documents"],
     "signed-out": ["login"]
   };

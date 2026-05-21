@@ -10,6 +10,7 @@
     "renderVendors",
     "renderMaterials",
     "renderTasks",
+    "renderScheduledWork",
     "renderFleet",
     "renderFuelReceipts",
     "renderFiles",

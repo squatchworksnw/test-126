@@ -1,17 +1,17 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>Field Operations Command Center</title>
 
-<link rel="stylesheet" href="styles/tokens/tokens.css?v=20260521-workfilters1" />
-<link rel="stylesheet" href="styles.css?v=20260521-workfilters1" />
+<link rel="stylesheet" href="styles/tokens/tokens.css?v=20260521-scheduled1" />
+<link rel="stylesheet" href="styles.css?v=20260521-scheduled1" />
 </head>
 
 <body data-auth="signed-out" data-role="signed-out">
 <a class="skip-link" href="#mainContent">Skip to workspace</a>
-<div id="pilotIndicator" class="pilot-indicator hidden">Pilot environment — verify before operational use</div>
+<div id="pilotIndicator" class="pilot-indicator hidden">Pilot environment - verify before operational use</div>
 <section id="login" class="view login-screen active" aria-label="Sign in">
   <div class="login-card editorial-card">
     <div>
@@ -540,12 +540,46 @@
           <button type="button" class="filter-pill" data-work-filter="completed" onclick="setWorkOrderFilter('completed')">Completed</button>
           <button type="button" class="filter-pill" data-work-filter="anchor" onclick="setWorkOrderFilter('anchor')">Needs Anchor Review</button>
         </div>
+        <div class="actions">
+          <button type="button" class="ghost" onclick="showView('scheduledWork')">Open Scheduled Work</button>
+        </div>
       </div>
       <div id="taskList" class="card-list"></div>
     </section>
     <section class="panel" data-admin-only>
       <div class="panel-title"><div><h3>Inactive Work Orders</h3><p class="meta">Recoverable records kept out of the active field list.</p></div></div>
       <div id="archivedTaskList" class="card-list"></div>
+    </section>
+  </section>
+
+  <section id="scheduledWork" class="view">
+    <section class="panel">
+      <div class="panel-title">
+        <div>
+          <h2>Scheduled Work</h2>
+          <p class="meta">Imported master calendar work, recurring tasks, fleet schedule items, and walkthrough checks live here so daily work stays focused.</p>
+        </div>
+        <div class="actions no-print">
+          <button class="ghost" type="button" onclick="showView('workOrders')">Back to Work Orders</button>
+        </div>
+      </div>
+      <div class="work-order-tools no-print">
+        <label class="work-order-search">Search scheduled work
+          <input id="scheduledWorkSearchInput" type="search" placeholder="Search date, kitchen, fleet, walkthrough..." autocomplete="off" oninput="renderScheduledWork()" />
+        </label>
+        <div class="filter-pills" role="group" aria-label="Scheduled work filters">
+          <button type="button" class="filter-pill active" data-scheduled-filter="upcoming" onclick="setScheduledWorkFilter('upcoming')">Upcoming</button>
+          <button type="button" class="filter-pill" data-scheduled-filter="today" onclick="setScheduledWorkFilter('today')">Today</button>
+          <button type="button" class="filter-pill" data-scheduled-filter="overdue" onclick="setScheduledWorkFilter('overdue')">Overdue</button>
+          <button type="button" class="filter-pill" data-scheduled-filter="month" onclick="setScheduledWorkFilter('month')">This Month</button>
+          <button type="button" class="filter-pill" data-scheduled-filter="fleet" onclick="setScheduledWorkFilter('fleet')">Fleet</button>
+          <button type="button" class="filter-pill" data-scheduled-filter="walkthrough" onclick="setScheduledWorkFilter('walkthrough')">Walkthrough</button>
+          <button type="button" class="filter-pill" data-scheduled-filter="completed" onclick="setScheduledWorkFilter('completed')">Completed</button>
+          <button type="button" class="filter-pill" data-scheduled-filter="all" onclick="setScheduledWorkFilter('all')">All Scheduled</button>
+        </div>
+        <p id="scheduledWorkStatus" class="meta" aria-live="polite">Showing upcoming scheduled work.</p>
+      </div>
+      <div id="scheduledWorkList" class="scheduled-work-list"></div>
     </section>
   </section>
 
@@ -968,29 +1002,29 @@
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="state/app-state.js?v=20260521-workfilters1"></script>
-<script src="components/cards.js?v=20260521-workfilters1"></script>
-<script src="components/forms.js?v=20260521-workfilters1"></script>
-<script src="auth/roles.js?v=20260521-workfilters1"></script>
-<script src="auth/session.js?v=20260521-workfilters1"></script>
-<script src="services/supabase-service.js?v=20260521-workfilters1"></script>
-<script src="services/mappers.js?v=20260521-workfilters1"></script>
-<script src="services/import-review-service.js?v=20260521-workfilters1"></script>
-<script src="services/materials-service.js?v=20260521-workfilters1"></script>
-<script src="services/demo-service.js?v=20260521-workfilters1"></script>
-<script src="services/interaction-service.js?v=20260521-workfilters1"></script>
-<script src="sync/pending-queue.js?v=20260521-workfilters1"></script>
-<script src="services/auth-service.js?v=20260521-workfilters1"></script>
-<script src="services/sync-service.js?v=20260521-workfilters1"></script>
-<script src="views/registry.js?v=20260521-workfilters1"></script>
-<script src="views/today-dashboard.js?v=20260521-workfilters1"></script>
-<script src="views/work-orders.js?v=20260521-workfilters1"></script>
-<script src="views/documents.js?v=20260521-workfilters1"></script>
-<script src="views/projects-budget.js?v=20260521-workfilters1"></script>
-<script src="views/materials.js?v=20260521-workfilters1"></script>
-<script src="views/review-queue.js?v=20260521-workfilters1"></script>
-<script src="views/fleet.js?v=20260521-workfilters1"></script>
-<script src="app.js?v=20260521-workfilters1"></script>
+<script src="state/app-state.js?v=20260521-scheduled1"></script>
+<script src="components/cards.js?v=20260521-scheduled1"></script>
+<script src="components/forms.js?v=20260521-scheduled1"></script>
+<script src="auth/roles.js?v=20260521-scheduled1"></script>
+<script src="auth/session.js?v=20260521-scheduled1"></script>
+<script src="services/supabase-service.js?v=20260521-scheduled1"></script>
+<script src="services/mappers.js?v=20260521-scheduled1"></script>
+<script src="services/import-review-service.js?v=20260521-scheduled1"></script>
+<script src="services/materials-service.js?v=20260521-scheduled1"></script>
+<script src="services/demo-service.js?v=20260521-scheduled1"></script>
+<script src="services/interaction-service.js?v=20260521-scheduled1"></script>
+<script src="sync/pending-queue.js?v=20260521-scheduled1"></script>
+<script src="services/auth-service.js?v=20260521-scheduled1"></script>
+<script src="services/sync-service.js?v=20260521-scheduled1"></script>
+<script src="views/registry.js?v=20260521-scheduled1"></script>
+<script src="views/today-dashboard.js?v=20260521-scheduled1"></script>
+<script src="views/work-orders.js?v=20260521-scheduled1"></script>
+<script src="views/documents.js?v=20260521-scheduled1"></script>
+<script src="views/projects-budget.js?v=20260521-scheduled1"></script>
+<script src="views/materials.js?v=20260521-scheduled1"></script>
+<script src="views/review-queue.js?v=20260521-scheduled1"></script>
+<script src="views/fleet.js?v=20260521-scheduled1"></script>
+<script src="app.js?v=20260521-scheduled1"></script>
 </body>
 </html>
 

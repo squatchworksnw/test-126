@@ -112,6 +112,10 @@ header{
 .filter-pills{display:flex;flex-wrap:wrap;gap:8px}
 .filter-pill{padding:9px 12px;border-radius:999px;border:1px solid var(--border);background:#fffaf0;color:var(--text);font-size:.88rem}
 .filter-pill.active{background:var(--navy);border-color:var(--navy);color:#fff}
+.scheduled-work-list{display:grid;gap:10px}
+.scheduled-work-row{display:grid;grid-template-columns:120px minmax(0,1fr) 120px 110px auto;align-items:center;gap:12px;background:var(--paper-soft);border:1px solid var(--border);border-radius:14px;padding:12px}
+.scheduled-date,.scheduled-source{font-weight:800;color:var(--navy);font-size:.9rem}
+.scheduled-work-row strong{color:var(--text)}
 .sync-pill{border:1px solid var(--border);background:var(--paper-soft);border-radius:999px;padding:8px 10px;display:flex;align-items:center;gap:7px;font-size:.82rem;white-space:nowrap;box-shadow:var(--soft-shadow)}
 .sync-dot{width:10px;height:10px;border-radius:50%;background:var(--ok)}
 .sync-pill[data-companion="bee"]::after{
@@ -755,6 +759,7 @@ a.file-link{color:var(--teal-deep);font-weight:700;text-decoration:underline}
   .search-results{position:static;margin-top:8px;max-height:45vh}
   .filter-pills{display:grid;grid-template-columns:1fr 1fr}
   .filter-pill{min-height:44px}
+  .scheduled-work-row{grid-template-columns:1fr;align-items:start}
   .primary-add-btn{width:100%;min-height:48px}
   .sync-pill{width:100%;justify-content:flex-start}
   .auth-pill{width:100%;align-items:stretch;flex-direction:column;border-radius:16px}

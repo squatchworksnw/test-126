@@ -2,7 +2,9 @@
   window.FieldOps = window.FieldOps || {};
   window.FieldOps.Views = window.FieldOps.Views || {};
   const WORK_ORDER_VISIBLE_LIMIT = 80;
+  const SCHEDULED_WORK_VISIBLE_LIMIT = 120;
   let workOrderFilter = "attention";
+  let scheduledWorkFilter = "upcoming";
 
 function renderTasks(){
   const tasks = activeItems("tasks");
@@ -85,7 +87,7 @@ function workOrderMatchesFilter(task, filter){
   if(filter === "walkthrough") return isOpenWorkOrder(task) && haystack.includes("walkthrough");
   if(filter === "completed") return String(task.status || "").toLowerCase() === "complete";
   if(filter === "anchor") return isOpenWorkOrder(task) && haystack.includes("needs anchor review");
-  return isOpenWorkOrder(task) && task.date && task.date <= weekEnd;
+  return isOpenWorkOrder(task) && !isScheduledWorkOrder(task) && task.date && task.date <= weekEnd;
 }
 
 function filteredWorkOrders(tasks){
@@ -114,6 +116,7 @@ function renderWorkOrderFilterStatus(allTasks, visibleTasks, shownTasks){
 function workOrderFilterLabel(filter){
   const labels = {
     attention:"attention",
+    upcoming:"upcoming",
     today:"today",
     overdue:"overdue",
     week:"this week",
@@ -123,7 +126,8 @@ function workOrderFilterLabel(filter){
     kitchen:"kitchen",
     walkthrough:"walkthrough",
     completed:"completed",
-    anchor:"needs anchor review"
+    anchor:"needs anchor review",
+    all:"all scheduled"
   };
   return labels[filter] || "attention";
 }
@@ -146,6 +150,108 @@ function setWorkOrderFilter(filter){
 function handleWorkOrderSearch(){
   syncWorkOrderFilterControls();
   renderTasks();
+}
+
+function isScheduledWorkOrder(task){
+  const haystack = workOrderHaystack(task);
+  return haystack.includes("master import key:") ||
+    haystack.includes("scheduled from master calendar") ||
+    haystack.includes("recurring template") ||
+    haystack.includes("fleet recurring schedule item") ||
+    haystack.includes("walkthrough checklist item");
+}
+
+function sourceMonthForScheduledWork(task){
+  const notes = String(task.notes || "");
+  const source = notes.match(/Source:\s*([A-Za-z]{3,9}\s+\d{4})/i)?.[1];
+  if(source) return source;
+  if(task.date){
+    return new Date(`${task.date}T12:00:00`).toLocaleDateString(undefined, { month:"short", year:"numeric" });
+  }
+  return "No source month";
+}
+
+function areaSystemForScheduledWork(task){
+  const notes = String(task.notes || "");
+  return notes.match(/Area\/system:\s*([^\n]+)/i)?.[1]?.trim() ||
+    notes.match(/Applies to:\s*([^\n]+)/i)?.[1]?.trim() ||
+    notes.match(/Needs anchor review:\s*([^\n]+)/i)?.[1]?.trim() ||
+    task.location ||
+    "Needs anchor review";
+}
+
+function scheduledWorkSearchValue(){
+  return String(document.getElementById("scheduledWorkSearchInput")?.value || "").trim().toLowerCase();
+}
+
+function scheduledWorkMatchesFilter(task, filter){
+  const today = todayStringLocal();
+  const currentMonth = monthString(today);
+  const haystack = workOrderHaystack(task);
+  if(filter === "today") return isOpenWorkOrder(task) && task.date === today;
+  if(filter === "overdue") return isOpenWorkOrder(task) && task.date && task.date < today;
+  if(filter === "month") return isOpenWorkOrder(task) && monthString(task.date) === currentMonth;
+  if(filter === "fleet") return isOpenWorkOrder(task) && (haystack.includes("fleet") || haystack.includes("vehicle") || Boolean(task.vehicleId));
+  if(filter === "walkthrough") return isOpenWorkOrder(task) && haystack.includes("walkthrough");
+  if(filter === "completed") return String(task.status || "").toLowerCase() === "complete";
+  if(filter === "all") return true;
+  return isOpenWorkOrder(task) && (!task.date || task.date >= today);
+}
+
+function filteredScheduledWork(){
+  const query = scheduledWorkSearchValue();
+  return activeItems("tasks")
+    .filter(isScheduledWorkOrder)
+    .filter(task => query ? workOrderHaystack(task).includes(query) : scheduledWorkMatchesFilter(task, scheduledWorkFilter))
+    .sort((a,b) => String(a.date || "9999-99-99").localeCompare(String(b.date || "9999-99-99")) || String(a.name || "").localeCompare(String(b.name || "")));
+}
+
+function scheduledWorkRow(task){
+  return `<article class="scheduled-work-row">
+    <div class="scheduled-date">${esc(task.date || "No date")}</div>
+    <div>
+      <strong>${esc(task.name || "Scheduled work")}</strong>
+      <p class="meta">${esc(areaSystemForScheduledWork(task))}</p>
+    </div>
+    <div class="scheduled-source">${esc(sourceMonthForScheduledWork(task))}</div>
+    <div><span class="status-chip ${tone(task.status)}">${esc(titleize(task.status || "open"))}</span></div>
+    <div class="actions no-print">
+      <button type="button" onclick="openWorkOrderDetail('${task.id}')">Open</button>
+      ${String(task.status || "").toLowerCase() === "complete" ? "" : `<button class="ghost" type="button" onclick="markWorkOrderComplete('${task.id}')">Complete</button>`}
+    </div>
+  </article>`;
+}
+
+function renderScheduledWork(){
+  const list = document.getElementById("scheduledWorkList");
+  if(!list) return;
+  syncScheduledWorkFilterControls();
+  const items = filteredScheduledWork();
+  const shown = items.slice(0, SCHEDULED_WORK_VISIBLE_LIMIT);
+  list.innerHTML = shown.length
+    ? shown.map(scheduledWorkRow).join("") + (items.length > shown.length ? empty(`Showing the first ${shown.length} of ${items.length}. Search or choose a tighter filter to narrow this down.`) : "")
+    : empty(scheduledWorkSearchValue() ? "No scheduled work matches that search." : "No scheduled work in this view.");
+  const status = document.getElementById("scheduledWorkStatus");
+  if(status){
+    const label = scheduledWorkSearchValue() ? `search for "${scheduledWorkSearchValue()}"` : workOrderFilterLabel(scheduledWorkFilter);
+    status.textContent = `Showing ${shown.length} of ${items.length} for ${label}.`;
+  }
+}
+
+function syncScheduledWorkFilterControls(){
+  const searching = Boolean(scheduledWorkSearchValue());
+  document.querySelectorAll("[data-scheduled-filter]").forEach(button => {
+    const active = button.dataset.scheduledFilter === scheduledWorkFilter && !searching;
+    button.classList.toggle("active", active);
+    button.setAttribute("aria-pressed", active ? "true" : "false");
+  });
+}
+
+function setScheduledWorkFilter(filter){
+  scheduledWorkFilter = filter || "upcoming";
+  const search = document.getElementById("scheduledWorkSearchInput");
+  if(search) search.value = "";
+  renderScheduledWork();
 }
 
 
@@ -517,6 +623,8 @@ function completionErrorMessage(err){
     renderTasks,
     setWorkOrderFilter,
     handleWorkOrderSearch,
+    renderScheduledWork,
+    setScheduledWorkFilter,
     workOrderCardWithActions,
     workOrderCard,
     archiveWorkOrderById,
@@ -533,6 +641,8 @@ function completionErrorMessage(err){
     renderTasks,
     setWorkOrderFilter,
     handleWorkOrderSearch,
+    renderScheduledWork,
+    setScheduledWorkFilter,
     workOrderCardWithActions,
     workOrderCard,
     archiveWorkOrderById,
