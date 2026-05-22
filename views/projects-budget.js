@@ -75,7 +75,36 @@ function renderBudget(){
 function projectCard(p){ return card(p.name,[p.summary,p.notes],[titleize(p.status),titleize(p.priority),`Estimated ${money(p.cost)}`,p.budget?`Budget ${money(p.budget)}`:"",p.date],tone(p.priority)); }
 
 
-function projectCardWithActions(p){ return projectCard(p) + rowActions("projects", p); }
+function projectStoryPanel(project){
+  const work = activeItems("tasks").filter(item => item.projectId === project.id);
+  const openWork = work.filter(item => !["complete","canceled"].includes(String(item.status || "").toLowerCase()));
+  const docs = activeItems("files").filter(item => item.relatedProjectId === project.id);
+  const bids = activeItems("bids").filter(item => item.projectId === project.id);
+  const budgetItems = activeItems("budgetItems").filter(item => item.projectId === project.id);
+  const spentOrPlanned = budgetItems.reduce((sum, item) => sum + Number(item.amount || 0), 0);
+  const recentWork = work
+    .slice()
+    .sort((a,b) => String(b.updatedAt || b.date || "").localeCompare(String(a.updatedAt || a.date || "")))
+    .slice(0, 3);
+  const rows = [
+    `${openWork.length} open work item${openWork.length === 1 ? "" : "s"}`,
+    `${docs.length} linked document${docs.length === 1 ? "" : "s"}`,
+    `${bids.length} bid${bids.length === 1 ? "" : "s"} / ${budgetItems.length} budget item${budgetItems.length === 1 ? "" : "s"}`,
+    spentOrPlanned ? `${money(spentOrPlanned)} tracked` : ""
+  ].filter(Boolean);
+  return `<details class="object-story">
+    <summary>Project story</summary>
+    <div class="object-story-grid">
+      ${rows.map(row => `<span>${esc(row)}</span>`).join("") || `<span>No related history yet.</span>`}
+    </div>
+    <div class="timeline compact-timeline">
+      ${recentWork.length ? recentWork.map(item => `<article class="timeline-item"><strong>${esc(item.name || "Work item")}</strong><p>${esc([titleize(item.status), item.date].filter(Boolean).join(" | "))}</p></article>`).join("") : empty("Related work will appear here as this project develops.")}
+    </div>
+  </details>`;
+}
+
+
+function projectCardWithActions(p){ return projectCard(p) + rowActions("projects", p) + projectStoryPanel(p); }
 
 
 function bidCard(b){ const project = app.projects.find(p => p.id === b.projectId); return card(b.vendor,[`Amount: ${money(b.amount)}`, project ? `Project: ${project.name}` : "", b.notes],[titleize(b.status), b.date], tone(b.status)); }

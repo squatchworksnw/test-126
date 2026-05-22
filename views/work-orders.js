@@ -483,10 +483,17 @@ function renderAssignedWorkDetail(task){
   const target = document.getElementById("assignedWorkDetail");
   if(!target) return;
   const docs = linkedDocsForTask(task);
+  const supplyRequests = linkedSupplyRequestsForTask(task);
   const scheduledTask = isScheduledWorkOrder(task) ? task : linkedScheduledTaskForWork(task);
   const historyLines = String(task.notes || "").split("\n").filter(Boolean).slice(-8);
   target.innerHTML = `<section class="detail-block assigned-inline-detail" tabindex="-1">
     <div class="panel-title"><div><h3>${esc(task.name || "Assigned work")}</h3><p class="meta">${esc(compact([titleize(task.status), titleize(task.priority), task.date ? `Due ${task.date}` : "No due date", assignedContext(task)]).join(" | "))}</p></div></div>
+    <div class="object-story-grid assigned-context-strip" aria-label="Assigned work context">
+      <span>${esc(assignedContext(task) || "No location set")}</span>
+      <span>${docs.length} linked document${docs.length === 1 ? "" : "s"}</span>
+      <span>${supplyRequests.length} supply request${supplyRequests.length === 1 ? "" : "s"}</span>
+      <span>${scheduledTask ? "Connected to scheduled work" : "Field update ready"}</span>
+    </div>
     <div class="actions no-print">
       <button type="button" onclick="completeAssignedWorkItem('${task.id}')">Complete</button>
       <button class="ghost" type="button" onclick="addAssignedWorkNote('${task.id}')">Add Note</button>

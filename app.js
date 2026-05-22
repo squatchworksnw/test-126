@@ -1903,7 +1903,7 @@ async function createUploadedDocumentForImport(file, fileTypeValue, extractedTex
     storagePath,
     extractedText,
     extractionStatus,
-    notes:"Uploaded through Import / Extraction Center"
+    notes:"Uploaded through File Review"
   });
   return docId;
 }

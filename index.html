@@ -5,13 +5,13 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>Field Operations Command Center</title>
 
-<link rel="stylesheet" href="styles/tokens/tokens.css?v=20260522-v3align1" />
-<link rel="stylesheet" href="styles.css?v=20260522-v3align1" />
+<link rel="stylesheet" href="styles/tokens/tokens.css?v=20260522-operationalize1" />
+<link rel="stylesheet" href="styles.css?v=20260522-operationalize1" />
 </head>
 
 <body data-auth="signed-out" data-role="signed-out">
 <a class="skip-link" href="#mainContent">Skip to workspace</a>
-<div id="pilotIndicator" class="pilot-indicator hidden">Technical testing mode</div>
+<div id="pilotIndicator" class="pilot-indicator hidden">Workspace check mode</div>
 <section id="login" class="view login-screen active" aria-label="Sign in">
   <div class="login-card editorial-card">
     <div>
@@ -22,13 +22,13 @@
     </div>
     <div class="login-panel">
       <label>Email<input id="loginEmail" type="email" placeholder="email for workspace access" autocomplete="email" /></label>
-      <label>Test password<input id="loginPassword" type="password" placeholder="temporary pilot password" autocomplete="current-password" /></label>
+      <label>Password<input id="loginPassword" type="password" placeholder="password" autocomplete="current-password" /></label>
       <div class="actions">
         <button id="loginSignInBtn" type="button">Email sign-in link</button>
         <button id="loginPasswordSignInBtn" class="ghost" type="button">Sign in with password</button>
         <button id="loginDemoBtn" class="ghost technical-only hidden" type="button">Demo mode</button>
       </div>
-      <p class="meta small">Use one of the approved workspace emails. Access is set by your workspace role.</p>
+      <p class="meta small">Use your team email. Access is set by your workspace role.</p>
     </div>
   </div>
 </section>
@@ -1134,29 +1134,29 @@
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="state/app-state.js?v=20260522-v3align1"></script>
-<script src="components/cards.js?v=20260522-v3align1"></script>
-<script src="components/forms.js?v=20260522-v3align1"></script>
-<script src="auth/roles.js?v=20260522-v3align1"></script>
-<script src="auth/session.js?v=20260522-v3align1"></script>
-<script src="services/supabase-service.js?v=20260522-v3align1"></script>
-<script src="services/mappers.js?v=20260522-v3align1"></script>
-<script src="services/import-review-service.js?v=20260522-v3align1"></script>
-<script src="services/materials-service.js?v=20260522-v3align1"></script>
-<script src="services/demo-service.js?v=20260522-v3align1"></script>
-<script src="services/interaction-service.js?v=20260522-v3align1"></script>
-<script src="sync/pending-queue.js?v=20260522-v3align1"></script>
-<script src="services/auth-service.js?v=20260522-v3align1"></script>
-<script src="services/sync-service.js?v=20260522-v3align1"></script>
-<script src="views/registry.js?v=20260522-v3align1"></script>
-<script src="views/today-dashboard.js?v=20260522-v3align1"></script>
-<script src="views/work-orders.js?v=20260522-v3align1"></script>
-<script src="views/documents.js?v=20260522-v3align1"></script>
-<script src="views/projects-budget.js?v=20260522-v3align1"></script>
-<script src="views/materials.js?v=20260522-v3align1"></script>
-<script src="views/review-queue.js?v=20260522-v3align1"></script>
-<script src="views/fleet.js?v=20260522-v3align1"></script>
-<script src="app.js?v=20260522-v3align1"></script>
+<script src="state/app-state.js?v=20260522-operationalize1"></script>
+<script src="components/cards.js?v=20260522-operationalize1"></script>
+<script src="components/forms.js?v=20260522-operationalize1"></script>
+<script src="auth/roles.js?v=20260522-operationalize1"></script>
+<script src="auth/session.js?v=20260522-operationalize1"></script>
+<script src="services/supabase-service.js?v=20260522-operationalize1"></script>
+<script src="services/mappers.js?v=20260522-operationalize1"></script>
+<script src="services/import-review-service.js?v=20260522-operationalize1"></script>
+<script src="services/materials-service.js?v=20260522-operationalize1"></script>
+<script src="services/demo-service.js?v=20260522-operationalize1"></script>
+<script src="services/interaction-service.js?v=20260522-operationalize1"></script>
+<script src="sync/pending-queue.js?v=20260522-operationalize1"></script>
+<script src="services/auth-service.js?v=20260522-operationalize1"></script>
+<script src="services/sync-service.js?v=20260522-operationalize1"></script>
+<script src="views/registry.js?v=20260522-operationalize1"></script>
+<script src="views/today-dashboard.js?v=20260522-operationalize1"></script>
+<script src="views/work-orders.js?v=20260522-operationalize1"></script>
+<script src="views/documents.js?v=20260522-operationalize1"></script>
+<script src="views/projects-budget.js?v=20260522-operationalize1"></script>
+<script src="views/materials.js?v=20260522-operationalize1"></script>
+<script src="views/review-queue.js?v=20260522-operationalize1"></script>
+<script src="views/fleet.js?v=20260522-operationalize1"></script>
+<script src="app.js?v=20260522-operationalize1"></script>
 </body>
 </html>
 

@@ -138,6 +138,17 @@
       : helpers.empty(emptyMessage);
   }
 
+  function plural(count, one, many){
+    return `${count} ${count === 1 ? one : many}`;
+  }
+
+  function namedPriorityLine(items, fallback, suffix){
+    if(!items.length) return fallback;
+    const first = items[0];
+    const title = first.name || first.title || first.fileName || "One item";
+    return `${title}${suffix ? ` ${suffix}` : ""}${items.length > 1 ? `, plus ${plural(items.length - 1, "more item", "more items")}` : ""}.`;
+  }
+
   function getRecentActivity(state, helpers){
     return [
       ...helpers.activeItems("tasks").map(item => ({...item, _type:"Work order"})),
@@ -165,11 +176,11 @@
     document.getElementById("dailyGreeting").textContent = `${greeting}${state.settings.userDisplayName ? `, ${state.settings.userDisplayName}` : ""}.`;
     const pressureCount = todayState.reviewCount + todayState.overdue.length + todayState.dueToday.length + todayState.fleetAlerts.length;
     document.getElementById("dailyRhythmLines").innerHTML = [
-      pressureCount ? `${pressureCount} thing${pressureCount === 1 ? "" : "s"} deserve attention today.` : "All clear for the daily rhythm.",
-      todayState.reviewCount ? `${todayState.reviewCount} waiting in Needs Review.` : "Needs Review is clear.",
-      todayState.overdue.length ? `${todayState.overdue.length} overdue.` : "No overdue work.",
-      todayState.dueToday.length ? `${todayState.dueToday.length} due today.` : "No tasks due today.",
-      todayState.fleetAlerts.length ? `${todayState.fleetAlerts.length} vehicle${todayState.fleetAlerts.length === 1 ? "" : "s"} to check.` : "Vehicles are quiet."
+      pressureCount ? `${plural(pressureCount, "thing", "things")} deserve attention today.` : "All clear for the daily rhythm.",
+      todayState.reviewCount ? `${plural(todayState.reviewCount, "approval", "approvals")} waiting.` : "No approvals waiting.",
+      namedPriorityLine(todayState.dueToday, "No tasks due today.", "is due today"),
+      todayState.overdue.length ? namedPriorityLine(todayState.overdue, "", "is overdue") : "No overdue work.",
+      todayState.fleetAlerts.length ? namedPriorityLine(todayState.fleetAlerts, "", "needs a fleet check") : "No urgent fleet issues."
     ].filter(Boolean).map(line => `<p>${helpers.esc(line)}</p>`).join("");
 
     document.getElementById("reviewQueueCount").textContent = `${todayState.reviewCount} waiting`;
