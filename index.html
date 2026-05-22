@@ -5,8 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>Field Operations Command Center</title>
 
-<link rel="stylesheet" href="styles/tokens/tokens.css?v=20260522-readiness1" />
-<link rel="stylesheet" href="styles.css?v=20260522-readiness1" />
+<link rel="stylesheet" href="styles/tokens/tokens.css?v=20260522-continuity1" />
+<link rel="stylesheet" href="styles.css?v=20260522-continuity1" />
 </head>
 
 <body data-auth="signed-out" data-role="signed-out">
@@ -81,6 +81,7 @@
     <button class="tab" data-view="workOrders" data-nav-group="operations">Work</button>
     <button class="tab" data-view="documents" data-nav-group="support">Upload</button>
     <button class="tab" data-view="importReview" data-nav-group="command">Needs Review</button>
+    <button class="tab" data-view="inbox" data-nav-group="command">Inbox <span id="inboxBadge" class="nav-badge hidden">0</span></button>
     <button class="tab" data-view="settings" data-nav-group="oversight">More</button>
   </nav>
 </header>
@@ -197,6 +198,35 @@
         <button type="button" onclick="showView('workOrders')">Create Work Order</button>
         <button type="button" class="ghost" onclick="showView('importReview')">Needs Review</button>
         <button type="button" class="ghost" onclick="openUploadFile()">Upload</button>
+      </div>
+    </section>
+
+    <section id="firstLaunchPanel" class="panel first-launch-panel hidden" aria-live="polite">
+      <div class="panel-title">
+        <div>
+          <p class="eyebrow">First setup</p>
+          <h2>Let’s make this workspace feel alive.</h2>
+          <p class="meta">Three small steps. You can skip after naming the workspace.</p>
+        </div>
+        <button class="ghost" type="button" onclick="completeFirstLaunchSetup()">Skip setup</button>
+      </div>
+      <div class="setup-progress" aria-label="Setup progress"><span id="setupProgressBar"></span></div>
+      <div class="setup-step-grid">
+        <article class="setup-step-card" data-setup-step="workspace">
+          <strong>1. Name workspace</strong>
+          <label>Workspace name<input id="setupWorkspaceName" placeholder="Meals on Wheels Operations" /></label>
+          <button type="button" onclick="saveSetupWorkspaceName()">Save name</button>
+        </article>
+        <article class="setup-step-card" data-setup-step="anchor">
+          <strong>2. Add first building or vehicle</strong>
+          <p class="meta">Start with the place or vehicle you care about most.</p>
+          <div class="actions"><button type="button" onclick="openSetupBuilding()">Add building</button><button class="ghost" type="button" onclick="openSetupVehicle()">Add vehicle</button></div>
+        </article>
+        <article class="setup-step-card" data-setup-step="task">
+          <strong>3. Create first task</strong>
+          <p class="meta">Add one real thing that needs attention.</p>
+          <button type="button" onclick="openSetupTask()">Create task</button>
+        </article>
       </div>
     </section>
 
@@ -318,6 +348,24 @@
       <div class="stat"><span>Open bids</span><strong id="bidCount">0</strong></div>
     </section>
 
+  </section>
+
+  <section id="inbox" class="view">
+    <section class="home-hero panel editorial-card">
+      <div>
+        <p class="eyebrow">Inbox</p>
+        <h2>Quiet updates from the workspace.</h2>
+        <p class="meta">Approvals, assignments, uploads, and completed work appear here so people know what happened.</p>
+      </div>
+      <div class="quick-actions no-print">
+        <button type="button" onclick="markAllNotificationsRead()">Mark all read</button>
+        <button class="ghost" type="button" onclick="clearOperationalNotifications()">Clear inbox</button>
+      </div>
+    </section>
+    <section class="panel">
+      <div class="panel-title"><div><h3>Recent updates</h3><p class="meta">Calm status continuity, not a chat feed.</p></div></div>
+      <div id="notificationList" class="card-list"></div>
+    </section>
   </section>
 
   <section id="importReview" class="view">
@@ -1045,6 +1093,8 @@
   </section>
 </main>
 
+<aside id="workflowPromptDock" class="workflow-prompt-dock hidden" aria-live="polite" aria-label="Suggested next steps"></aside>
+
 <div id="addNewModal" class="quick-add-backdrop hidden" role="dialog" aria-modal="true" aria-labelledby="addNewTitle">
   <div class="quick-add-card">
     <div class="panel-title">
@@ -1078,29 +1128,29 @@
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="state/app-state.js?v=20260522-readiness1"></script>
-<script src="components/cards.js?v=20260522-readiness1"></script>
-<script src="components/forms.js?v=20260522-readiness1"></script>
-<script src="auth/roles.js?v=20260522-readiness1"></script>
-<script src="auth/session.js?v=20260522-readiness1"></script>
-<script src="services/supabase-service.js?v=20260522-readiness1"></script>
-<script src="services/mappers.js?v=20260522-readiness1"></script>
-<script src="services/import-review-service.js?v=20260522-readiness1"></script>
-<script src="services/materials-service.js?v=20260522-readiness1"></script>
-<script src="services/demo-service.js?v=20260522-readiness1"></script>
-<script src="services/interaction-service.js?v=20260522-readiness1"></script>
-<script src="sync/pending-queue.js?v=20260522-readiness1"></script>
-<script src="services/auth-service.js?v=20260522-readiness1"></script>
-<script src="services/sync-service.js?v=20260522-readiness1"></script>
-<script src="views/registry.js?v=20260522-readiness1"></script>
-<script src="views/today-dashboard.js?v=20260522-readiness1"></script>
-<script src="views/work-orders.js?v=20260522-readiness1"></script>
-<script src="views/documents.js?v=20260522-readiness1"></script>
-<script src="views/projects-budget.js?v=20260522-readiness1"></script>
-<script src="views/materials.js?v=20260522-readiness1"></script>
-<script src="views/review-queue.js?v=20260522-readiness1"></script>
-<script src="views/fleet.js?v=20260522-readiness1"></script>
-<script src="app.js?v=20260522-readiness1"></script>
+<script src="state/app-state.js?v=20260522-continuity1"></script>
+<script src="components/cards.js?v=20260522-continuity1"></script>
+<script src="components/forms.js?v=20260522-continuity1"></script>
+<script src="auth/roles.js?v=20260522-continuity1"></script>
+<script src="auth/session.js?v=20260522-continuity1"></script>
+<script src="services/supabase-service.js?v=20260522-continuity1"></script>
+<script src="services/mappers.js?v=20260522-continuity1"></script>
+<script src="services/import-review-service.js?v=20260522-continuity1"></script>
+<script src="services/materials-service.js?v=20260522-continuity1"></script>
+<script src="services/demo-service.js?v=20260522-continuity1"></script>
+<script src="services/interaction-service.js?v=20260522-continuity1"></script>
+<script src="sync/pending-queue.js?v=20260522-continuity1"></script>
+<script src="services/auth-service.js?v=20260522-continuity1"></script>
+<script src="services/sync-service.js?v=20260522-continuity1"></script>
+<script src="views/registry.js?v=20260522-continuity1"></script>
+<script src="views/today-dashboard.js?v=20260522-continuity1"></script>
+<script src="views/work-orders.js?v=20260522-continuity1"></script>
+<script src="views/documents.js?v=20260522-continuity1"></script>
+<script src="views/projects-budget.js?v=20260522-continuity1"></script>
+<script src="views/materials.js?v=20260522-continuity1"></script>
+<script src="views/review-queue.js?v=20260522-continuity1"></script>
+<script src="views/fleet.js?v=20260522-continuity1"></script>
+<script src="app.js?v=20260522-continuity1"></script>
 </body>
 </html>
 

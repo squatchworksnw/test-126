@@ -530,6 +530,7 @@ async function completeAssignedWorkItem(taskId){
     InteractionService?.showConfirmation?.("Work completed", "This assigned item was marked complete and kept in the work history.", [
       { label:"Upload proof", run:() => uploadDocumentForScheduledTask(task.id) }
     ]);
+    addOperationalNotification?.({ type:"work_completed", title:"Work completed", detail:task.name || "Assigned work was completed.", view:"assignedWork", recordId:task.id, role:"all" });
     await loadWorkspaceData();
   }catch(err){
     const message = permissionAwareErrorMessage(err);
@@ -612,6 +613,7 @@ async function createWorkOrderFromScheduledTask(taskId){
       InteractionService?.showConfirmation?.("Work order created", "The scheduled item now has a linked work order.", [
         { label:"Open work order", run:() => openWorkOrderDetail(saved.id) }
       ]);
+      addOperationalNotification?.({ type:"work_created", title:"Scheduled work became active work", detail:task.name || "A linked work order was created.", view:"workOrderDetail", recordId:saved.id, role:"operations" });
       openWorkOrderDetail(saved.id);
     } else {
       setStatus("Linked work order queued until connection returns");
@@ -658,6 +660,7 @@ async function createSupplyRequestFromScheduledTask(taskId){
     InteractionService?.showConfirmation?.("Supply request sent", "It is waiting in Needs Review before becoming official work.", [
       { label:"Open Needs Review", run:() => showView("importReview") }
     ]);
+    addOperationalNotification?.({ type:"supply_submitted", title:"Supply request sent", detail:title, view:"importReview", recordId:review?.id || "", role:"operations" });
     showView("importReview");
   }catch(err){ handleWriteError(err); }
 }
@@ -968,6 +971,22 @@ async function markWorkOrderComplete(workOrderId){
     InteractionService?.showConfirmation?.("Work completed", task.vehicleId ? "Vehicle work is complete. Upload a receipt, photo, or service document if you have one." : "This task was marked complete and kept in the work history.", [
       { label:"Upload proof", run:() => uploadDocumentForScheduledTask(task.id) }
     ]);
+    addOperationalNotification?.({ type:"work_completed", title:"Work completed", detail:task.name || "A work order was completed.", view:"workOrderDetail", recordId:task.id, role:"all" });
+    if(task.vehicleId){
+      InteractionService?.showWorkflowPrompt?.({
+        key:`vehicle-service:${task.id}`,
+        title:"Update the service record?",
+        detail:"Vehicle work is complete. Check the next service date, odometer, or receipt while it is fresh.",
+        actions:[{ label:"Open vehicle", run:() => showView("vehicles") }]
+      });
+    } else if(isScheduledWorkOrder(task)){
+      InteractionService?.showWorkflowPrompt?.({
+        key:`scheduled-followup:${task.id}`,
+        title:"Schedule follow-up?",
+        detail:"If this recurring task needs another visit, keep the next step connected.",
+        actions:[{ label:"Open Scheduled Work", run:() => showView("scheduledWork") }]
+      });
+    }
     loadWorkspaceData().catch(err => {
       console.error("Completion saved, but workspace refresh failed", err);
       setWorkOrderDetailState(`Complete saved, but refresh failed: ${permissionAwareErrorMessage(err)}`, "saved");
@@ -1051,6 +1070,9 @@ async function saveWorkOrderDetailUpdates(){
     setStatus("Work order saved");
     setWorkOrderDetailState("Saved", "saved");
     InteractionService?.showConfirmation?.("Work order saved", "Your update was saved to the shared workspace.");
+    if(assignedChanged && assignee){
+      addOperationalNotification?.({ type:"work_assigned", title:"Work assigned", detail:`${task.name || "Work order"} assigned to ${assignee}.`, view:"workOrderDetail", recordId:task.id, role:"all" });
+    }
     loadWorkspaceData().catch(err => {
       console.error("Work order saved, but workspace refresh failed", err);
       setWorkOrderDetailState(`Saved, but refresh failed: ${permissionAwareErrorMessage(err)}`, "saved");

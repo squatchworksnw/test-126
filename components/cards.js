@@ -60,7 +60,18 @@
     if(!value) return "";
     return `<button class="ghost" type="button" onclick="showView('${esc(viewId)}')">${esc(label)}: ${esc(value)}</button>`;
   }
-  function empty(msg){ return `<div class="empty-state" data-companion="team"><p>${esc(msg)}</p></div>`; }
+  function empty(msg){
+    const hints = {
+      "No vehicles yet.":"Add your first vehicle when you are ready to track service, title, registration, and receipts.",
+      "No buildings yet.":"Add your first building to start connecting rooms, assets, documents, and work history.",
+      "No documents linked yet.":"Uploads will appear here once photos, receipts, warranties, titles, or estimates are added.",
+      "No work orders in this view.":"All clear for this filter. Try Today, Overdue, or Search if you are looking for something specific.",
+      "No submitted requests yet.":"Requests and uploads you send will appear here with their status.",
+      "Nothing needs review right now.":"All clear. New requests, uploads, receipts, and imports will wait here before becoming active work.",
+      "No tasks assigned yet.":"Assigned Work shows tasks connected to you when a manager assigns something."
+    };
+    return `<div class="empty-state" data-companion="team"><p>${esc(msg)}</p>${hints[msg] ? `<small>${esc(hints[msg])}</small>` : ""}</div>`;
+  }
 
   Object.assign(window.FieldOps.Components, { esc, money, compact, titleize, previewText, tone, card, detailRow, documentPreviewCard, relatedSummaryCard, linkedButton, empty });
 })();

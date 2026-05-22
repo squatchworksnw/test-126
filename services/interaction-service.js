@@ -19,6 +19,16 @@
     { label:"Upload Receipt", view:"documents", detail:"Gas, supply, invoice, or purchase receipt. This helps route review, but does not replace any required accounting receipt process." },
     { label:"Purchase / Supply Request", view:"materials", action:"openSupplyRequest", detail:"Materials, supplies, event needs, gifts, marketing items, or other purchase/order requests." }
   ];
+  const DISMISSED_PROMPTS_KEY = "field_ops_dismissed_prompts";
+  const NOTIFICATIONS_KEY = "field_ops_notifications";
+
+  function readJson(key, fallback){
+    try{ return JSON.parse(localStorage.getItem(key) || ""); }catch(_err){ return fallback; }
+  }
+
+  function writeJson(key, value){
+    try{ localStorage.setItem(key, JSON.stringify(value)); }catch(_err){}
+  }
 
   function currentAddNewOptions(){
     if(typeof window.canSubmitOnly === "function" && window.canSubmitOnly()) return submitterAddNewOptions;
@@ -98,6 +108,83 @@
     body.appendChild(dialog);
     dialog.querySelector("[data-confirm-done]")?.focus();
     showToast(title, "saved");
+  }
+
+  function dismissedPromptKeys(){
+    return new Set(readJson(DISMISSED_PROMPTS_KEY, []));
+  }
+
+  function dismissWorkflowPrompt(key){
+    const keys = dismissedPromptKeys();
+    keys.add(key);
+    writeJson(DISMISSED_PROMPTS_KEY, Array.from(keys));
+    document.querySelector?.(`[data-workflow-prompt="${esc(key)}"]`)?.remove();
+  }
+
+  function showWorkflowPrompt({ key, title, detail = "", actions = [] }){
+    if(!key || dismissedPromptKeys().has(key)) return;
+    const dock = document.getElementById("workflowPromptDock");
+    if(!dock) return;
+    const existing = dock.querySelector(`[data-workflow-prompt="${CSS.escape(key)}"]`);
+    if(existing) existing.remove();
+    const prompt = document.createElement("article");
+    prompt.className = "workflow-prompt";
+    prompt.dataset.workflowPrompt = key;
+    prompt.innerHTML = `
+      <div>
+        <p class="eyebrow">What next?</p>
+        <h3>${esc(title)}</h3>
+        ${detail ? `<p>${esc(detail)}</p>` : ""}
+      </div>
+      <div class="workflow-prompt-actions">
+        ${actions.map((action, index) => `<button type="button" class="${index ? "ghost" : ""}" data-workflow-action="${index}">${esc(action.label)}</button>`).join("")}
+        <button type="button" class="ghost" data-workflow-dismiss>Not now</button>
+      </div>
+    `;
+    prompt.querySelectorAll("[data-workflow-action]")?.forEach(button => {
+      button.addEventListener("click", () => {
+        const action = actions[Number(button.dataset.workflowAction)];
+        if(typeof action?.run === "function") action.run();
+        dismissWorkflowPrompt(key);
+      });
+    });
+    prompt.querySelector("[data-workflow-dismiss]")?.addEventListener("click", () => dismissWorkflowPrompt(key));
+    dock.prepend(prompt);
+    dock.classList.remove("hidden");
+  }
+
+  function notifications(){
+    return readJson(NOTIFICATIONS_KEY, []);
+  }
+
+  function addNotification({ type = "update", title, detail = "", view = "", recordId = "", role = "all" }){
+    if(!title) return;
+    const items = notifications();
+    const idValue = `${type}:${recordId || title}:${Date.now()}`;
+    items.unshift({
+      id:idValue,
+      type,
+      title,
+      detail,
+      view,
+      recordId,
+      role,
+      read:false,
+      createdAt:new Date().toISOString()
+    });
+    writeJson(NOTIFICATIONS_KEY, items.slice(0, 80));
+    if(typeof window.renderNotifications === "function") window.renderNotifications();
+  }
+
+  function markNotificationRead(idValue){
+    const items = notifications().map(item => item.id === idValue ? { ...item, read:true } : item);
+    writeJson(NOTIFICATIONS_KEY, items);
+    if(typeof window.renderNotifications === "function") window.renderNotifications();
+  }
+
+  function clearNotifications(){
+    writeJson(NOTIFICATIONS_KEY, []);
+    if(typeof window.renderNotifications === "function") window.renderNotifications();
   }
 
   function renderAddNewOptions(){
@@ -216,6 +303,12 @@
     droppedReviewFile: null,
     showToast,
     showConfirmation,
+    showWorkflowPrompt,
+    dismissWorkflowPrompt,
+    notifications,
+    addNotification,
+    markNotificationRead,
+    clearNotifications,
     openAddNew,
     closeAddNew,
     initAddNewModal,

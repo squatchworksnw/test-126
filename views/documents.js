@@ -211,6 +211,22 @@ async function addFileRecord(e){
     InteractionService?.showConfirmation?.("Upload submitted", uploadDetail, uncertainUpload ? [
       { label:"Open Needs Review", run:() => showView("importReview") }
     ] : []);
+    addOperationalNotification?.({
+      type:"upload_submitted",
+      title:"Upload submitted",
+      detail:fileNameValue,
+      view: uncertainUpload ? "importReview" : "documents",
+      recordId:docId,
+      role:"all"
+    });
+    if(uploadKind === "warranty" && uncertainUpload){
+      InteractionService?.showWorkflowPrompt?.({
+        key:`attach-warranty:${docId}`,
+        title:"Attach this warranty to an asset?",
+        detail:"Linking it to a vehicle, asset, or system makes it easier to find later.",
+        actions:[{ label:"Open upload library", run:() => showView("documents") }]
+      });
+    }
     await refreshAfterWrite?.("Document saved");
   }catch(err){
     setInlineState("fileSaveState", `Upload failed: ${permissionAwareErrorMessage(err)}`, "failed");

@@ -134,6 +134,7 @@ async function approveSelectedReviewItems(){
       ? `Approved ${approved}. ${failed} could not be approved. ${firstFailure ? `First issue: ${firstFailure}` : ""}`
       : `Approved ${approved} item${approved === 1 ? "" : "s"} into work orders.`;
   }
+  if(approved) addOperationalNotification?.({ type:"request_approved", title:"Review items approved", detail:`${approved} item${approved === 1 ? "" : "s"} became active work.`, view:"workOrders", role:"operations" });
 }
 
 async function archiveSelectedReviewItems(){
@@ -166,6 +167,7 @@ async function archiveSelectedReviewItems(){
   renderReviewQueue();
   if(status) status.textContent = failed ? `Closed ${moved}. ${failed} could not be closed.` : `Closed ${moved} review item${moved === 1 ? "" : "s"}.`;
   if(moved) InteractionService?.showConfirmation?.("Review items closed", "They were not approved into active work and stay recoverable.");
+  if(moved) addOperationalNotification?.({ type:"request_rejected", title:"Review items closed", detail:`${moved} item${moved === 1 ? "" : "s"} moved out of Needs Review.`, view:"importReview", role:"operations" });
 }
 
 
@@ -213,6 +215,7 @@ async function addSubmission(e){
     setInlineState("submissionSaveState", "Saved - we'll take a look at it.", "saved");
     setStatus("Saved - we'll take a look at it.");
     InteractionService?.showConfirmation?.("Request sent", "Saved - we'll take a look at it.");
+    addOperationalNotification?.({ type:"request_submitted", title:"Request sent", detail:submissionDescription.value.slice(0, 120), view:"importReview", role:"submitter" });
     loadWorkspaceData().catch(err => console.error("Submission saved, but refresh failed", err));
   }catch(err){
     setInlineState("submissionSaveState", `Could not send while ${currentStep}: ${permissionAwareErrorMessage(err)}`, "failed");
@@ -338,6 +341,15 @@ async function approveReviewDetail(){
     selectedWorkOrderId = created.id;
     setInlineState("reviewDetailSaveState", created.alreadyConverted ? "Already approved" : "Approved into work order", "saved");
     InteractionService?.showConfirmation?.("Work order created", created.alreadyConverted ? "This review item was already approved." : "The review item is now an active work order.");
+    addOperationalNotification?.({ type:"request_approved", title:"Request approved", detail:payload.title || "Approved into a work order.", view:"workOrderDetail", recordId:created.id, role:"all" });
+    if(!created.alreadyConverted){
+      InteractionService?.showWorkflowPrompt?.({
+        key:`assign-approved-work:${created.id}`,
+        title:"Assign this work now?",
+        detail:"Assigning it helps the right person see it in their work list.",
+        actions:[{ label:"Open work order", run:() => openWorkOrderDetail(created.id) }]
+      });
+    }
     const refreshed = await refreshAfterWrite?.("Approved into work order");
     if(refreshed !== false) showView("workOrderDetail");
     else setInlineState("reviewDetailSaveState", "Approved into a work order, but the workspace refresh failed. Refresh before opening the work order.", "saved");
@@ -353,6 +365,7 @@ async function archiveSubmissionById(reviewId){
   try{
     await ImportReviewService.archiveReview(reviewId, importReviewContext());
     InteractionService?.showConfirmation?.("Review item closed", "It was not approved into active work and can be found in history if needed.");
+    addOperationalNotification?.({ type:"request_rejected", title:"Request was not approved", detail:"It was moved out of Needs Review and kept for history.", view:"importReview", recordId:reviewId, role:"all" });
     await loadWorkspaceData();
   }
   catch(err){ handleWriteError(err); }

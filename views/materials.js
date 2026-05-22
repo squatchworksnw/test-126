@@ -73,6 +73,7 @@
       }, materialsContext());
       e.target.reset();
       setInlineState("materialSaveState", "Supply / material request sent for review", "saved");
+      addOperationalNotification?.({ type:"supply_submitted", title:"Supply request sent", detail:"It is waiting in Needs Review.", view:"materials", role:"all" });
       await refreshAfterWrite?.("Supply / material request sent for review");
     }catch(err){
       setInlineState("materialSaveState", `Could not send: ${err.message}`, "failed");
@@ -88,6 +89,13 @@
       await MaterialsService.approveMaterialReview(review, materialsContext());
       setStatus("Supply / material request approved to budget");
       InteractionService?.showConfirmation?.("Supply request approved", "The reviewed request was saved to budget tracking.");
+      addOperationalNotification?.({ type:"supply_approved", title:"Supply request approved", detail:review.description || "The request was approved.", view:"materials", recordId:review.id, role:"all" });
+      InteractionService?.showWorkflowPrompt?.({
+        key:`delivery-work:${review.id}`,
+        title:"Create a delivery work order?",
+        detail:"If someone needs to pick up, deliver, or install these supplies, create follow-up work.",
+        actions:[{ label:"Create work order", run:() => showView("workOrders") }]
+      });
       await refreshAfterWrite?.("Supply / material request approved to budget");
     }catch(err){ handleWriteError(err); }
   }

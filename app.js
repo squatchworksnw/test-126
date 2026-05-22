@@ -42,6 +42,7 @@ const runtimeState = AppState.bindRuntimeGlobals(AppState.createRuntimeState({
 const app = runtimeState.app;
 let lastWorkspaceLoadAt = "";
 const LARGE_TEXT_MODE_KEY = "field_ops_large_text_mode";
+const FIRST_LAUNCH_KEY_PREFIX = "field_ops_first_launch_done";
 
 function id(){ return crypto.randomUUID ? crypto.randomUUID() : String(Date.now() + Math.random()); }
 function activeItems(section){ return AppState.activeItems(app, section); }
@@ -353,7 +354,16 @@ async function addTask(e){
     e.target.reset();
     setInlineState("taskSaveState", saved?._queued ? "Queued until connection returns" : "Work order saved", saved?._queued ? "pending" : "saved");
     if(!saved?._queued) InteractionService?.showConfirmation?.("Work order created", "It is now active and visible in Work Orders.");
-    if(saved?.id && !saved?._queued) selectedWorkOrderId = saved.id;
+    if(saved?.id && !saved?._queued){
+      selectedWorkOrderId = saved.id;
+      addOperationalNotification({ type:"work_created", title:"Work order created", detail:title, view:"workOrderDetail", recordId:saved.id, role:"operations" });
+      InteractionService?.showWorkflowPrompt?.({
+        key:`assign-work:${saved.id}`,
+        title:"Assign this work now?",
+        detail:"Add a person, team, or vendor so it can appear in Assigned Work.",
+        actions:[{ label:"Open work order", run:() => openWorkOrderDetail(saved.id) }]
+      });
+    }
   }catch(err){
     setInlineState("taskSaveState", `Save failed: ${err.message}`, "failed");
     handleWriteError(err);
@@ -410,6 +420,8 @@ globalThis.createViewHelpers = createViewHelpers;
 
 function render(){
   renderFieldPortal();
+  renderFirstLaunchSetup();
+  renderNotifications();
   window.FieldOps.Views.TodayDashboard.render(app, createViewHelpers());
   window.FieldOps.Views.ProjectsBudget.render(app, createViewHelpers());
   VIEW_RENDERERS.forEach(rendererName => {
@@ -424,6 +436,122 @@ function render(){
 function renderFieldPortal(){
   const count = document.getElementById("portalSubmissionCount");
   if(count) count.textContent = `${activeItems("submissions").length} sent`;
+}
+
+function firstLaunchKey(){
+  return `${FIRST_LAUNCH_KEY_PREFIX}:${workspaceId() || "local"}`;
+}
+
+function firstLaunchDone(){
+  try{ return localStorage.getItem(firstLaunchKey()) === "1"; }catch(_err){ return true; }
+}
+
+function completeFirstLaunchSetup(){
+  try{ localStorage.setItem(firstLaunchKey(), "1"); }catch(_err){}
+  renderFirstLaunchSetup();
+}
+
+async function saveSetupWorkspaceName(){
+  const value = document.getElementById("setupWorkspaceName")?.value?.trim();
+  if(!value) return;
+  try{
+    if(currentWorkspace?.id && isOwner()) await updateRecord("field_ops_workspaces", workspaceId(), { name:value });
+    app.settings.workspaceName = value;
+    if(document.getElementById("workspaceName")) workspaceName.value = value;
+    setStatus("Workspace name saved");
+    renderFirstLaunchSetup();
+  }catch(err){ handleWriteError(err); }
+}
+
+function openSetupBuilding(){
+  showView("buildings");
+  setTimeout(() => setFormCollapsed("buildingForm", false), 0);
+}
+
+function openSetupVehicle(){
+  showView("vehicles");
+  setTimeout(() => setFormCollapsed("vehicleForm", false), 0);
+}
+
+function openSetupTask(){
+  showView("workOrders");
+  setTimeout(() => setFormCollapsed("taskForm", false), 0);
+}
+
+function renderFirstLaunchSetup(){
+  const panel = document.getElementById("firstLaunchPanel");
+  if(!panel) return;
+  const visible = isAuthenticated() && currentWorkspace && canManageOperations() && !firstLaunchDone();
+  const hasName = Boolean(app.settings.workspaceName && app.settings.workspaceName !== "Field Operations Command Center");
+  const hasAnchor = activeItems("buildings").length || activeItems("vehicles").length;
+  const hasTask = activeItems("tasks").length;
+  const completed = [hasName, hasAnchor, hasTask].filter(Boolean).length;
+  panel.classList.toggle("hidden", !visible || completed === 3);
+  if(visible && completed === 3) completeFirstLaunchSetup();
+  const progress = document.getElementById("setupProgressBar");
+  if(progress) progress.style.width = `${Math.max(8, completed / 3 * 100)}%`;
+  const setupName = document.getElementById("setupWorkspaceName");
+  if(setupName && !setupName.value) setupName.value = app.settings.workspaceName || "";
+  document.querySelector("[data-setup-step='workspace']")?.classList.toggle("complete", hasName);
+  document.querySelector("[data-setup-step='anchor']")?.classList.toggle("complete", Boolean(hasAnchor));
+  document.querySelector("[data-setup-step='task']")?.classList.toggle("complete", Boolean(hasTask));
+}
+
+function notificationAllowed(item){
+  const role = currentRole() || "signed-out";
+  return !item.role || item.role === "all" || item.role === role || (item.role === "operations" && canManageOperations()) || (item.role === "submitter" && canSubmitOnly());
+}
+
+function renderNotifications(){
+  const items = (InteractionService?.notifications?.() || []).filter(notificationAllowed);
+  const unread = items.filter(item => !item.read).length;
+  const badge = document.getElementById("inboxBadge");
+  if(badge){
+    badge.textContent = String(unread);
+    badge.classList.toggle("hidden", !unread);
+  }
+  const list = document.getElementById("notificationList");
+  if(!list) return;
+  list.innerHTML = items.length ? items.slice(0, 30).map(item => `
+    <article class="card notification-card ${item.read ? "" : "unread"}">
+      <h4>${esc(item.title)}</h4>
+      ${item.detail ? `<p>${esc(item.detail)}</p>` : ""}
+      <p class="notification-time">${esc(item.createdAt ? new Date(item.createdAt).toLocaleString() : "")}</p>
+      <div class="actions no-print">
+        ${item.view ? `<button type="button" onclick="openNotification('${esc(item.id)}','${esc(item.view)}','${esc(item.recordId || "")}')">Open</button>` : ""}
+        <button class="ghost" type="button" onclick="markNotificationRead('${esc(item.id)}')">Mark read</button>
+      </div>
+    </article>
+  `).join("") : empty("No updates yet. Approvals, assignments, uploads, and completed work will appear here.");
+}
+
+function openNotification(idValue, view, recordId = ""){
+  markNotificationRead(idValue);
+  if(view === "workOrderDetail" && recordId){
+    openWorkOrderDetail(recordId);
+    return;
+  }
+  if(view === "reviewDetail" && recordId){
+    openReviewDetail(recordId);
+    return;
+  }
+  showView(view);
+}
+
+function markNotificationRead(idValue){
+  InteractionService?.markNotificationRead?.(idValue);
+}
+
+function markAllNotificationsRead(){
+  (InteractionService?.notifications?.() || []).forEach(item => InteractionService.markNotificationRead(item.id));
+}
+
+function clearOperationalNotifications(){
+  InteractionService?.clearNotifications?.();
+}
+
+function addOperationalNotification(config){
+  InteractionService?.addNotification?.(config);
 }
 
 function searchTextFor(item){
@@ -1941,6 +2069,15 @@ async function approveSelectedRecurringRows(){
     await loadWorkspaceData();
     showView("dashboard");
     alert(`${added} recurring task${added === 1 ? "" : "s"} approved into scheduled work.`);
+    if(added){
+      addOperationalNotification({ type:"recurring_approved", title:"Recurring work approved", detail:`${added} task${added === 1 ? "" : "s"} added to Scheduled Work.`, view:"scheduledWork", role:"operations" });
+      InteractionService?.showWorkflowPrompt?.({
+        key:`recurring-followup:${Date.now()}`,
+        title:"Review this week’s scheduled work?",
+        detail:"New recurring tasks are now separate from urgent work. Check the upcoming rhythm when you are ready.",
+        actions:[{ label:"Open Scheduled Work", run:() => showView("scheduledWork") }]
+      });
+    }
   }catch(err){ handleWriteError(err); }
 }
 
