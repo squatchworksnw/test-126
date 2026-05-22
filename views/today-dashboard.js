@@ -20,6 +20,7 @@
     const assignedWork = openTasks
       .filter(t => t.assignedTo || assignedFromNotes(t.notes))
       .sort((a,b) => String(a.date || "9999-99-99").localeCompare(String(b.date || "9999-99-99")));
+    const assignedToday = assignedWork.filter(t => !t.date || t.date <= weekEndString);
     const scheduledUpcoming = openTasks
       .filter(t => isScheduledWork(t) && t.date && t.date >= today && t.date <= weekEndString)
       .sort((a,b) => String(a.date).localeCompare(String(b.date)));
@@ -31,6 +32,7 @@
       blockedTasks,
       urgentDue,
       assignedWork,
+      assignedToday,
       scheduledUpcoming,
       recentlyCompleted: activeTasks.filter(t => t.status === "complete").sort((a,b) => String(dateValue(b)).localeCompare(String(dateValue(a)))).slice(0,5),
       activeProjects: helpers.activeItems("projects").filter(p => p.status !== "complete"),
@@ -163,6 +165,7 @@
     document.getElementById("dailyGreeting").textContent = `${greeting}${state.settings.userDisplayName ? `, ${state.settings.userDisplayName}` : ""}.`;
     document.getElementById("dailyRhythmLines").innerHTML = [
       todayState.reviewCount ? `${todayState.reviewCount} waiting in Needs Review.` : "No pending review items.",
+      todayState.assignedToday.length ? `${todayState.assignedToday.length} assigned task${todayState.assignedToday.length === 1 ? "" : "s"} to check.` : "",
       todayState.overdue.length ? `${todayState.overdue.length} overdue.` : "Nothing overdue.",
       todayState.dueToday.length ? `${todayState.dueToday.length} due today.` : "Nothing due today.",
       todayState.fleetAlerts.length ? `${todayState.fleetAlerts.length} fleet alert${todayState.fleetAlerts.length === 1 ? "" : "s"}.` : "Fleet is quiet."
@@ -192,13 +195,13 @@
     const priorityCounts = {
       todayReviewCount: todayState.reviewCount,
       todayOverdueCount: todayState.overdue.length,
-      todayDueCount: todayState.dueToday.length,
+      todayDueCount: todayState.assignedToday.length || todayState.dueToday.length,
       todayUrgentDueCount: todayState.urgentDue.length,
       todayFleetCount: todayState.fleetAlerts.length,
       todayWeekCount: todayState.thisWeek.length,
       todayCompletedCount: todayState.recentlyCompleted.length,
       todayScheduledCount: todayState.scheduledUpcoming.length,
-      todayAssignedCount: todayState.assignedWork.length,
+      todayAssignedCount: todayState.assignedToday.length,
       todayRecentCount: todayState.recentActivity.length,
       todayUrgentCount: todayState.urgentTasks.length,
       todayBlockedCount: todayState.blockedTasks.length,
@@ -226,8 +229,8 @@
     if(weekList) weekList.innerHTML = renderTodayWorkList(todayState.thisWeek, state, helpers, "No upcoming work this week.");
     const fleetAlertList = document.getElementById("fleetAlertList");
     if(fleetAlertList) fleetAlertList.innerHTML = todayState.fleetAlerts.length ? todayState.fleetAlerts.slice(0,5).map(helpers.renderVehicleAlertCard).join("") : helpers.empty("No active fleet alerts.");
-    const assignedWorkList = document.getElementById("assignedWorkList");
-    if(assignedWorkList) assignedWorkList.innerHTML = renderTodayWorkList(todayState.assignedWork, state, helpers, "No assigned work waiting.");
+    const todayAssignedList = document.getElementById("todayAssignedList");
+    if(todayAssignedList) todayAssignedList.innerHTML = renderTodayWorkList(todayState.assignedToday, state, helpers, "No assigned work waiting.");
     const scheduledTodayList = document.getElementById("scheduledTodayList");
     if(scheduledTodayList) scheduledTodayList.innerHTML = renderTodayWorkList(todayState.scheduledUpcoming, state, helpers, "No scheduled work this week.");
     const recentActivityList = document.getElementById("recentActivityList");
@@ -245,7 +248,7 @@
         key === "dueToday" ? todayState.dueToday.length :
         key === "overdue" ? todayState.overdue.length :
         key === "urgentDue" ? todayState.urgentDue.length :
-        key === "assigned" ? todayState.assignedWork.length :
+        key === "assigned" ? todayState.assignedToday.length :
         key === "scheduled" ? todayState.scheduledUpcoming.length :
         key === "thisWeek" ? todayState.thisWeek.length :
         key === "fleet" ? todayState.fleetAlerts.length :

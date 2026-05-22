@@ -122,6 +122,7 @@ header{
 .search-result span{font-size:.75rem;color:var(--muted);font-weight:850;text-transform:uppercase;letter-spacing:.05em}
 .search-result strong{color:var(--navy)}
 .search-result em{font-style:normal;color:var(--muted);font-size:.84rem}
+.search-result small{color:var(--teal-deep);font-size:.8rem;font-weight:800}
 .search-empty{padding:12px;color:var(--muted)}
 .work-order-tools{display:grid;gap:14px;margin:12px 0 18px}
 .work-order-search{max-width:620px}
@@ -148,6 +149,8 @@ header{
 }
 .confirmation-banner strong{color:var(--navy);font-size:1rem}
 .confirmation-banner p{margin:3px 0 0;color:var(--muted);font-size:.9rem}
+.confirmation-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap;justify-content:flex-end}
+.confirmation-actions button{min-height:40px}
 .scheduled-work-list{display:grid;gap:10px}
 .scheduled-work-row{display:grid;grid-template-columns:120px minmax(0,1fr) 120px 110px auto;align-items:center;gap:12px;background:var(--paper-soft);border:1px solid var(--border);border-radius:14px;padding:12px}
 .scheduled-date,.scheduled-source{font-weight:800;color:var(--navy);font-size:.9rem}
@@ -325,6 +328,9 @@ body[data-auth="signed-in"] #login{display:none!important}
 }
 .today-panel.priority-review{
   border-left:7px solid var(--brass);
+}
+.today-panel.priority-my-work{
+  border-left:7px solid var(--teal-deep);
 }
 .today-panel.is-soft-empty{
   box-shadow:var(--soft-shadow);

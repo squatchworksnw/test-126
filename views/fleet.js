@@ -110,10 +110,11 @@
     const work = activeItems("tasks").filter(task => task.vehicleId === vehicle.id);
     const openWork = work.filter(isOpenRecord);
     const history = work.filter(task => !isOpenRecord(task));
+    const recurring = work.filter(task => /scheduled from master calendar|recurring|master import key:/i.test(`${task.notes || ""} ${task.type || ""}`));
     const titles = docs.filter(doc => /title|registration|warranty|manual/i.test(`${doc.fileType || ""} ${doc.fileName || ""} ${doc.notes || ""}`));
     const photos = docs.filter(doc => /photo|image|jpg|jpeg|png|heic/i.test(`${doc.fileType || ""} ${doc.fileName || ""}`));
     return `<details class="object-story">
-      <summary>Overview, history, documents, titles, photos, and open work</summary>
+      <summary>Story: ${docs.length} file${docs.length === 1 ? "" : "s"}, ${history.length} completed, ${openWork.length} open</summary>
       <div class="object-story-grid">
         <section class="object-story-section"><h4>Overview</h4>${storyRows([vehicle], "No overview yet.", item => `<p>${esc(compact([item.vehicleNumber ? `Vehicle #: ${item.vehicleNumber}` : "", item.plate ? `Plate: ${item.plate}` : "", item.vin ? `VIN: ${item.vin}` : "", item.mileage ? `Odometer: ${item.mileage}` : "", titleize(item.status)]).join(" | "))}</p>`)}</section>
         <section class="object-story-section"><h4>History</h4>${storyRows(history, "No completed vehicle repairs yet.", item => `<p>${esc(compact([item.date, item.workOrderNumber, item.name]).join(" | "))}</p>`)}</section>
@@ -121,6 +122,7 @@
         <section class="object-story-section"><h4>Warranties / Titles</h4>${storyRows(titles, "No titles, registration, warranties, or manuals linked yet.", doc => `<p>${esc(doc.fileName)}</p>`)}</section>
         <section class="object-story-section"><h4>Photos</h4>${storyRows(photos, "No photos linked yet.", doc => `<p>${esc(doc.fileName)}</p>`)}</section>
         <section class="object-story-section"><h4>Open Work</h4>${storyRows(openWork, "No open work linked.", item => `<p>${esc(compact([item.date, item.workOrderNumber, item.name]).join(" | "))}</p>`)}</section>
+        <section class="object-story-section"><h4>Recurring Maintenance</h4>${storyRows(recurring, "No recurring maintenance linked yet.", item => `<p>${esc(compact([item.date, item.name]).join(" | "))}</p>`)}</section>
       </div>
     </details>`;
   }

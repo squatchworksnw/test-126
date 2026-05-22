@@ -433,7 +433,7 @@ function searchTextFor(item){
     .toLowerCase();
 }
 
-function recordSearchEntry(type, view, item, detailParts = []){
+function recordSearchEntry(type, view, item, detailParts = [], summaryParts = []){
   const title = item.name || item.title || item.fileName || item.vendor || item.workOrderNumber || "Untitled";
   return {
     id:item.id,
@@ -442,7 +442,8 @@ function recordSearchEntry(type, view, item, detailParts = []){
     view,
     title,
     detail:compact(detailParts).join(" · "),
-    haystack:[type, title, detailParts.join(" "), searchTextFor(item)].join(" ").toLowerCase()
+    summary:compact(summaryParts).join(" · "),
+    haystack:[type, title, detailParts.join(" "), summaryParts.join(" "), searchTextFor(item)].join(" ").toLowerCase()
   };
 }
 
@@ -462,14 +463,67 @@ function groupedSearchResults(matches){
     .filter(section => section.items.length);
 }
 
+function openWorkForLink(predicate){
+  return activeItems("tasks").filter(task => predicate(task) && String(task.status || "").toLowerCase() !== "complete");
+}
+
+function completedWorkForLink(predicate){
+  return activeItems("tasks").filter(task => predicate(task) && String(task.status || "").toLowerCase() === "complete");
+}
+
+function docsForLink(predicate){
+  return activeItems("files").filter(predicate);
+}
+
+function docTypeCount(docs, pattern){
+  return docs.filter(doc => pattern.test(`${doc.fileType || ""} ${doc.fileName || ""} ${doc.notes || ""}`)).length;
+}
+
+function objectSearchSummary(kind, item){
+  if(kind === "vehicle"){
+    const docs = docsForLink(doc => doc.relatedVehicleId === item.id);
+    const open = openWorkForLink(task => task.vehicleId === item.id);
+    const history = completedWorkForLink(task => task.vehicleId === item.id);
+    const titles = docTypeCount(docs, /title|registration|warranty|manual/i);
+    return [
+      open.length ? `${open.length} open work` : "",
+      history.length ? `${history.length} completed repair${history.length === 1 ? "" : "s"}` : "",
+      docs.length ? `${docs.length} file${docs.length === 1 ? "" : "s"}` : "",
+      titles ? `${titles} title/warranty file${titles === 1 ? "" : "s"}` : "",
+      item.serviceDate ? `Service ${item.serviceDate}` : ""
+    ];
+  }
+  if(kind === "asset"){
+    const docs = docsForLink(doc => doc.relatedAssetId === item.id);
+    const open = openWorkForLink(task => task.assetId === item.id);
+    const history = completedWorkForLink(task => task.assetId === item.id);
+    const warranties = docTypeCount(docs, /warranty|manual|title|registration/i);
+    return [
+      open.length ? `${open.length} open work` : "",
+      history.length ? `${history.length} completed repair${history.length === 1 ? "" : "s"}` : "",
+      docs.length ? `${docs.length} file${docs.length === 1 ? "" : "s"}` : "",
+      warranties ? `${warranties} warranty/manual file${warranties === 1 ? "" : "s"}` : ""
+    ];
+  }
+  if(kind === "building"){
+    const docs = docsForLink(doc => doc.relatedBuildingId === item.id);
+    const open = openWorkForLink(task => task.buildingId === item.id);
+    return [open.length ? `${open.length} open work` : "", docs.length ? `${docs.length} file${docs.length === 1 ? "" : "s"}` : ""];
+  }
+  return [];
+}
+
 function buildOperationalSearchIndex(){
   return [
-    ...activeItems("tasks").map(item => recordSearchEntry("Work order", "workOrders", item, [item.status, item.priority, item.location, item.notes])),
-    ...activeItems("vehicles").map(item => recordSearchEntry("Vehicle", "vehicles", item, [item.plate, item.vin, item.status, item.registration, item.notes])),
-    ...activeItems("assets").map(item => recordSearchEntry("Asset / system", "assets", item, [item.assetTag, item.category, item.status, item.notes])),
-    ...activeItems("buildings").map(item => recordSearchEntry("Building", "buildings", item, [item.code, item.address, item.status, item.notes])),
+    ...activeItems("tasks").map(item => recordSearchEntry("Work order", "workOrders", item, [item.status, item.priority, item.location, item.notes], [
+      docsForLink(doc => doc.relatedWorkItemId === item.id).length ? `${docsForLink(doc => doc.relatedWorkItemId === item.id).length} linked file(s)` : "",
+      item.date ? `Due ${item.date}` : ""
+    ])),
+    ...activeItems("vehicles").map(item => recordSearchEntry("Vehicle", "vehicles", item, [item.plate, item.vin, item.status, item.registration, item.notes], objectSearchSummary("vehicle", item))),
+    ...activeItems("assets").map(item => recordSearchEntry("Asset / system", "assets", item, [item.assetTag, item.category, item.status, item.notes], objectSearchSummary("asset", item))),
+    ...activeItems("buildings").map(item => recordSearchEntry("Building", "buildings", item, [item.code, item.address, item.status, item.notes], objectSearchSummary("building", item))),
     ...activeItems("spaces").map(item => recordSearchEntry("Space / room", "spaces", item, [item.spaceType, item.floor, item.status, item.notes])),
-    ...activeItems("files").map(item => recordSearchEntry("Document", "documents", item, [item.fileType, item.source, item.notes, item.extractedText])),
+    ...activeItems("files").map(item => recordSearchEntry("Document", "documents", item, [item.fileType, item.notes, item.extractedText], [documentSearchContext(item)])),
     ...activeItems("vendors").map(item => recordSearchEntry("Vendor", "vendors", item, [item.vendorType, item.contactName, item.phone, item.email, item.notes])),
     ...activeItems("projects").map(item => recordSearchEntry("Project", "projects", item, [item.status, item.priority, item.location, item.notes])),
     ...activeItems("fuelReceipts").map(item => recordSearchEntry("Fuel receipt", "fuelReceipts", item, [item.vendor, item.date, item.totalAmount, item.odometer, item.notes])),
@@ -501,11 +555,25 @@ function renderGlobalSearch(){
             <span>${esc(item.type)}</span>
             <strong>${esc(item.title)}</strong>
             ${item.detail ? `<em>${esc(item.detail)}</em>` : ""}
+            ${item.summary ? `<small>${esc(item.summary)}</small>` : ""}
           </button>
         `).join("")}
       </section>
     `).join("")
     : `<div class="search-empty">No matching records yet.</div>`;
+}
+
+function documentSearchContext(file){
+  const vehicle = app.vehicles.find(item => item.id === file.relatedVehicleId);
+  const asset = app.assets.find(item => item.id === file.relatedAssetId);
+  const work = app.tasks.find(item => item.id === file.relatedWorkItemId);
+  const building = app.buildings.find(item => item.id === file.relatedBuildingId);
+  const project = app.projects.find(item => item.id === file.relatedProjectId);
+  return vehicle ? `Vehicle: ${vehicle.name}` :
+    asset ? `Asset: ${asset.name}` :
+    work ? `Work: ${work.name}` :
+    building ? `Building: ${building.name}` :
+    project ? `Project: ${project.name}` : "";
 }
 
 function openSearchResult(view, idValue){
@@ -659,10 +727,11 @@ function assetStoryPanel(asset){
   const work = activeItems("tasks").filter(task => task.assetId === asset.id);
   const openWork = work.filter(isOpenRecord);
   const history = work.filter(task => !isOpenRecord(task));
+  const recurring = work.filter(task => /scheduled from master calendar|recurring|master import key:/i.test(`${task.notes || ""} ${task.type || ""}`));
   const warranties = docs.filter(doc => /warranty|manual|title|registration/i.test(`${doc.fileType || ""} ${doc.fileName || ""} ${doc.notes || ""}`));
   const photos = docs.filter(doc => /photo|image|jpg|jpeg|png|heic/i.test(`${doc.fileType || ""} ${doc.fileName || ""}`));
   return `<details class="object-story">
-    <summary>Overview, history, documents, photos, and open work</summary>
+    <summary>Story: ${docs.length} file${docs.length === 1 ? "" : "s"}, ${history.length} completed, ${openWork.length} open</summary>
     <div class="object-story-grid">
       <section class="object-story-section"><h4>Overview</h4>${objectStoryRows([asset], "No overview yet.", item => `<p>${esc(compact([item.assetTag ? `Tag: ${item.assetTag}` : "", item.category, titleize(item.status), item.notes]).join(" | "))}</p>`)}</section>
       <section class="object-story-section"><h4>History</h4>${objectStoryRows(history, "No completed repairs yet.", item => `<p>${esc(compact([item.date, item.workOrderNumber, item.name]).join(" | "))}</p>`)}</section>
@@ -670,6 +739,7 @@ function assetStoryPanel(asset){
       <section class="object-story-section"><h4>Warranties / Manuals</h4>${objectStoryRows(warranties, "No warranties or manuals linked yet.", doc => `<p>${esc(doc.fileName)}</p>`)}</section>
       <section class="object-story-section"><h4>Photos</h4>${objectStoryRows(photos, "No photos linked yet.", doc => `<p>${esc(doc.fileName)}</p>`)}</section>
       <section class="object-story-section"><h4>Open Work</h4>${objectStoryRows(openWork, "No open work linked.", item => `<p>${esc(compact([item.date, item.workOrderNumber, item.name]).join(" | "))}</p>`)}</section>
+      <section class="object-story-section"><h4>Recurring Maintenance</h4>${objectStoryRows(recurring, "No recurring maintenance linked yet.", item => `<p>${esc(compact([item.date, item.name]).join(" | "))}</p>`)}</section>
     </div>
   </details>`;
 }

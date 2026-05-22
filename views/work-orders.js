@@ -527,7 +527,9 @@ async function completeAssignedWorkItem(taskId){
     if(error) throw withSupabaseCallDetails(error, "field_ops_work_orders", "complete assigned work", payload);
     if(!data) throw new Error("No row was updated. This account may not be allowed to complete this assigned work yet.");
     setStatus("Assigned work marked complete");
-    InteractionService?.showConfirmation?.("Work completed", "This assigned item was marked complete and kept in the work history.");
+    InteractionService?.showConfirmation?.("Work completed", "This assigned item was marked complete and kept in the work history.", [
+      { label:"Upload proof", run:() => uploadDocumentForScheduledTask(task.id) }
+    ]);
     await loadWorkspaceData();
   }catch(err){
     const message = permissionAwareErrorMessage(err);
@@ -607,7 +609,9 @@ async function createWorkOrderFromScheduledTask(taskId){
         notes:appendHistory(task.notes, `Linked work order created: ${saved.id}`)
       });
       setStatus("Linked work order created");
-      InteractionService?.showConfirmation?.("Work order created", "The scheduled item now has a linked work order.");
+      InteractionService?.showConfirmation?.("Work order created", "The scheduled item now has a linked work order.", [
+        { label:"Open work order", run:() => openWorkOrderDetail(saved.id) }
+      ]);
       openWorkOrderDetail(saved.id);
     } else {
       setStatus("Linked work order queued until connection returns");
@@ -651,7 +655,9 @@ async function createSupplyRequestFromScheduledTask(taskId){
       });
     }
     setStatus("Supply request sent to Needs Review");
-    InteractionService?.showConfirmation?.("Supply request sent", "It is waiting in Needs Review before becoming official work.");
+    InteractionService?.showConfirmation?.("Supply request sent", "It is waiting in Needs Review before becoming official work.", [
+      { label:"Open Needs Review", run:() => showView("importReview") }
+    ]);
     showView("importReview");
   }catch(err){ handleWriteError(err); }
 }
@@ -959,7 +965,9 @@ async function markWorkOrderComplete(workOrderId){
     if(error) throw withSupabaseCallDetails(error, "field_ops_work_orders", "update completion", payload);
     if(!data) throw withSupabaseCallDetails(new Error("No row was updated. This usually means permissions blocked the update, the record is archived, or the workspace did not match."), "field_ops_work_orders", "update completion", payload);
     setWorkOrderDetailState("Complete saved", "saved");
-    InteractionService?.showConfirmation?.("Work completed", "This task was marked complete and kept in the work history.");
+    InteractionService?.showConfirmation?.("Work completed", task.vehicleId ? "Vehicle work is complete. Upload a receipt, photo, or service document if you have one." : "This task was marked complete and kept in the work history.", [
+      { label:"Upload proof", run:() => uploadDocumentForScheduledTask(task.id) }
+    ]);
     loadWorkspaceData().catch(err => {
       console.error("Completion saved, but workspace refresh failed", err);
       setWorkOrderDetailState(`Complete saved, but refresh failed: ${permissionAwareErrorMessage(err)}`, "saved");

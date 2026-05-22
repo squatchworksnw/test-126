@@ -154,6 +154,7 @@ async function addFileRecord(e){
       notes:fileNotes.value
     });
 
+    const uploadKind = document.getElementById("uploadKind")?.value || "";
     const uncertainUpload = (document.getElementById("uploadConnection")?.value || "not_sure") === "not_sure";
     if(extractedText || uncertainUpload){
       await createImportReview("document", typeToImportTarget(fileType.value), { file_name:fileNameValue, extracted_text:extractedText }, `Review extracted ${fileType.value} from ${fileNameValue}`, docId);
@@ -162,7 +163,14 @@ async function addFileRecord(e){
     e.target.reset();
     setInlineState("fileSaveState", "Saved", "saved");
     setStatus("Document saved");
-    InteractionService?.showConfirmation?.("Upload submitted", uncertainUpload ? "It is waiting in Needs Review so the team can place it correctly." : "The file was saved and linked to the selected record.");
+    const uploadDetail = uncertainUpload
+      ? "It is waiting in Needs Review so the team can place it correctly."
+      : uploadKind === "warranty" || uploadKind === "title"
+        ? "The file was saved and will be easier to find from the linked vehicle, asset, or system."
+        : "The file was saved and linked to the selected record.";
+    InteractionService?.showConfirmation?.("Upload submitted", uploadDetail, uncertainUpload ? [
+      { label:"Open Needs Review", run:() => showView("importReview") }
+    ] : []);
     await refreshAfterWrite?.("Document saved");
   }catch(err){
     setInlineState("fileSaveState", `Upload failed: ${permissionAwareErrorMessage(err)}`, "failed");

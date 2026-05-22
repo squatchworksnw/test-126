@@ -52,7 +52,7 @@
     }
   }
 
-  function showConfirmation(title, detail = ""){
+  function showConfirmation(title, detail = "", actions = []){
     const body = document.body;
     if(!body || typeof body.appendChild !== "function" || typeof document.createElement !== "function") return;
     const existing = typeof document.querySelector === "function" ? document.querySelector(".confirmation-banner") : null;
@@ -66,9 +66,19 @@
         <strong>${esc(title)}</strong>
         ${detail ? `<p>${esc(detail)}</p>` : ""}
       </div>
-      <button type="button" class="ghost" aria-label="Dismiss confirmation">OK</button>
+      <div class="confirmation-actions">
+        ${actions.map((action, index) => `<button type="button" class="${index ? "ghost" : ""}" data-confirm-action="${index}">${esc(action.label)}</button>`).join("")}
+        <button type="button" class="ghost" aria-label="Dismiss confirmation">OK</button>
+      </div>
     `;
-    banner.querySelector("button")?.addEventListener("click", () => banner.remove());
+    banner.querySelectorAll("[data-confirm-action]")?.forEach(button => {
+      button.addEventListener("click", () => {
+        const action = actions[Number(button.dataset.confirmAction)];
+        if(typeof action?.run === "function") action.run();
+        banner.remove();
+      });
+    });
+    banner.querySelector("button[aria-label='Dismiss confirmation']")?.addEventListener("click", () => banner.remove());
     body.appendChild(banner);
     showToast(title, "saved");
     if(typeof window.setTimeout === "function"){
