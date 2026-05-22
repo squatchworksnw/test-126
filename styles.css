@@ -591,6 +591,38 @@ body[data-auth="signed-in"] #login{display:none!important}
 .workspace-card.files{border-top:5px solid #719a98}
 .workspace-card.calendar{border-top:5px solid #8c9260}
 .workspace-card.reports{border-top:5px solid #788a95}
+.operational-path{
+  grid-column:1/-1;
+  display:flex;
+  flex-wrap:wrap;
+  gap:8px;
+  margin-top:10px;
+}
+.operational-path span{
+  position:relative;
+  display:inline-flex;
+  align-items:center;
+  min-height:34px;
+  padding:6px 12px;
+  border:1px solid var(--border);
+  border-radius:999px;
+  background:var(--paper-soft);
+  color:var(--navy);
+  font-weight:850;
+}
+.operational-path span:not(:last-child)::after{
+  content:"";
+  width:16px;
+  height:1px;
+  margin-left:12px;
+  background:var(--border);
+}
+.operational-memory-note{
+  margin:12px 0;
+  border-left:6px solid var(--sage);
+  background:#edf4ee;
+}
+.operational-memory-note p{margin:0;color:var(--navy)}
 
 .panel-title{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:10px}
 .panel-title h2,.panel-title h3{font-family:Fraunces, Georgia, serif;margin:0;color:var(--navy);font-weight:720;letter-spacing:0}

@@ -505,7 +505,7 @@ async function updateAssignedWorkNotes(task, message, successMessage){
     setStatus("Saving assigned work...");
     const { data, error } = await updateRow("field_ops_work_orders", task.id, payload, workspaceId());
     if(error) throw withSupabaseCallDetails(error, "field_ops_work_orders", "update assigned work", payload);
-    if(!data) throw new Error("No row was updated. Database permission rules may not allow this account to update assigned work yet.");
+    if(!data) throw new Error("No row was updated. This account may not be allowed to update assigned work yet.");
     setStatus(successMessage);
     await loadWorkspaceData();
     const refreshed = app.tasks.find(item => item.id === task.id);
@@ -843,6 +843,9 @@ function renderWorkOrderDetail(){
       <span class="status-chip">${esc(task.date ? `Due ${task.date}` : "No due date")}</span>
       <span class="status-chip">${esc(assignedTo || "Unassigned")}</span>
     </div>
+    <section class="detail-block operational-memory-note">
+      <p><strong>This record is part of the operational memory.</strong> Notes, files, related objects, and completed work stay connected here so the story is not lost.</p>
+    </section>
     <section class="asset-memory-strip">
       <div>
         <span>Operational anchor</span>

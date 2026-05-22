@@ -73,7 +73,7 @@ async function createImportReview(source, proposedType, proposedData, notes, doc
 function showAccessDenied(targetView){
   const message = document.getElementById("accessDeniedMessage");
   const role = titleize(currentRole() || "signed-out");
-  if(message) message.textContent = `${role} access does not include ${titleize(targetView)}. Database permission rules still protect the workspace; this screen is hidden to prevent mistakes.`;
+  if(message) message.textContent = `${role} access does not include ${titleize(targetView)}. Your workspace access keeps this area protected.`;
   setStatus("Access limited by role");
   setActiveView("accessDenied");
 }
@@ -615,12 +615,14 @@ function objectSearchSummary(kind, item){
     const history = completedWorkForLink(task => task.vehicleId === item.id);
     const fuel = activeItems("fuelReceipts").filter(receipt => receipt.vehicleId === item.id);
     const titles = docTypeCount(docs, /title|registration|warranty|manual/i);
+    const latest = [...open, ...history].sort((a,b) => String(b.updatedAt || b.date || "").localeCompare(String(a.updatedAt || a.date || "")))[0];
     return [
       open.length ? `${open.length} open work` : "",
       history.length ? `${history.length} completed repair${history.length === 1 ? "" : "s"}` : "",
       fuel.length ? `${fuel.length} fuel/service record${fuel.length === 1 ? "" : "s"}` : "",
       docs.length ? `${docs.length} file${docs.length === 1 ? "" : "s"}` : "",
       titles ? `${titles} title/warranty file${titles === 1 ? "" : "s"}` : "",
+      latest ? `Latest: ${latest.name || latest.title}` : "",
       item.serviceDate ? `Service ${item.serviceDate}` : ""
     ];
   }
@@ -629,11 +631,13 @@ function objectSearchSummary(kind, item){
     const open = openWorkForLink(task => task.assetId === item.id);
     const history = completedWorkForLink(task => task.assetId === item.id);
     const warranties = docTypeCount(docs, /warranty|manual|title|registration/i);
+    const latest = [...open, ...history].sort((a,b) => String(b.updatedAt || b.date || "").localeCompare(String(a.updatedAt || a.date || "")))[0];
     return [
       open.length ? `${open.length} open work` : "",
       history.length ? `${history.length} completed repair${history.length === 1 ? "" : "s"}` : "",
       docs.length ? `${docs.length} file${docs.length === 1 ? "" : "s"}` : "",
-      warranties ? `${warranties} warranty/manual file${warranties === 1 ? "" : "s"}` : ""
+      warranties ? `${warranties} warranty/manual file${warranties === 1 ? "" : "s"}` : "",
+      latest ? `Latest: ${latest.name || latest.title}` : ""
     ];
   }
   if(kind === "building"){
@@ -655,9 +659,10 @@ function objectSearchSummary(kind, item){
 
 function buildOperationalSearchIndex(){
   return [
-    ...activeItems("tasks").map(item => recordSearchEntry("Work order", "workOrders", item, [item.status, item.priority, item.location, item.notes], [
+    ...activeItems("tasks").map(item => recordSearchEntry("Work order", "workOrders", item, [item.status, item.priority, item.location, item.notes, linkedSearchContext(item)], [
       docsForLink(doc => doc.relatedWorkItemId === item.id).length ? `${docsForLink(doc => doc.relatedWorkItemId === item.id).length} linked file(s)` : "",
-      item.date ? `Due ${item.date}` : ""
+      item.date ? `Due ${item.date}` : "",
+      linkedSearchContext(item)
     ])),
     ...activeItems("vehicles").map(item => recordSearchEntry("Vehicle", "vehicles", item, [item.plate, item.vin, item.status, item.registration, item.notes], objectSearchSummary("vehicle", item))),
     ...activeItems("assets").map(item => recordSearchEntry("Asset / system", "assets", item, [item.assetTag, item.category, item.status, item.notes], objectSearchSummary("asset", item))),
@@ -669,6 +674,21 @@ function buildOperationalSearchIndex(){
     ...activeItems("fuelReceipts").map(item => recordSearchEntry("Fuel receipt", "fuelReceipts", item, [item.vendor, item.date, item.totalAmount, item.odometer, item.notes])),
     ...activeItems("submissions").map(item => recordSearchEntry("Needs Review", "importReview", item, [item.status, item.category, item.location, item.description]))
   ];
+}
+
+function linkedSearchContext(task){
+  const vehicle = app.vehicles.find(item => item.id === task.vehicleId);
+  const asset = app.assets.find(item => item.id === task.assetId);
+  const space = app.spaces.find(item => item.id === task.spaceId);
+  const building = app.buildings.find(item => item.id === task.buildingId);
+  const vendor = app.vendors.find(item => item.id === task.vendorBidId);
+  return compact([
+    vehicle ? `Vehicle: ${vehicle.name}` : "",
+    asset ? `Asset: ${asset.name}` : "",
+    space ? `Space: ${space.name}` : "",
+    building ? `Building: ${building.name}` : "",
+    vendor ? `Vendor: ${vendor.name}` : ""
+  ]).join(" · ");
 }
 
 function renderGlobalSearch(){

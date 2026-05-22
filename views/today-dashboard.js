@@ -89,7 +89,7 @@
 
   function renderMiniItem(item, helpers, type){
     const title = item.name || item.title || item.fileName || item.vendor || "Untitled";
-    const detail = compact([item.location, item.category, item.status, item.priority, item.fileType, item.date]).slice(0, 3);
+    const detail = compact([item.location, item.category, item.fileType, item.date]).slice(0, 2);
     return helpers.card(title, detail, [type], helpers.tone(item.priority || item.status));
   }
 
@@ -163,7 +163,9 @@
     const todayState = getNeedsAttentionToday(state, helpers);
     const greeting = new Date().getHours() < 12 ? "Good morning" : new Date().getHours() < 17 ? "Good afternoon" : "Good evening";
     document.getElementById("dailyGreeting").textContent = `${greeting}${state.settings.userDisplayName ? `, ${state.settings.userDisplayName}` : ""}.`;
+    const pressureCount = todayState.reviewCount + todayState.overdue.length + todayState.dueToday.length + todayState.fleetAlerts.length;
     document.getElementById("dailyRhythmLines").innerHTML = [
+      pressureCount ? `${pressureCount} thing${pressureCount === 1 ? "" : "s"} deserve attention today.` : "All clear for the daily rhythm.",
       todayState.reviewCount ? `${todayState.reviewCount} waiting in Needs Review.` : "Needs Review is clear.",
       todayState.overdue.length ? `${todayState.overdue.length} overdue.` : "No overdue work.",
       todayState.dueToday.length ? `${todayState.dueToday.length} due today.` : "No tasks due today.",

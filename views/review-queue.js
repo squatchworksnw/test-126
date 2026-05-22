@@ -16,7 +16,9 @@ function renderReviewQueue(){
   const status = document.getElementById("bulkReviewStatus");
   if(status && canManageOperations()){
     const waiting = reviews.filter(item => item.status === "Needs Review").length;
-    status.textContent = `${waiting} matching item${waiting === 1 ? "" : "s"} waiting for review. Showing ${visibleReviews.length}.`;
+    status.textContent = waiting
+      ? `${waiting} item${waiting === 1 ? "" : "s"} waiting. Open one, fix details, then approve it into work.`
+      : "Nothing needs review right now.";
   }
   document.getElementById("submissionList").innerHTML = reviews.length ? visibleReviews.map(item => {
     const doc = item.documentId ? app.files.find(file => file.id === item.documentId) : null;
@@ -24,7 +26,7 @@ function renderReviewQueue(){
     const select = item.status === "Needs Review" && canManageOperations()
       ? `<label class="bulk-review-select"><input type="checkbox" data-review-select="${item.id}" /> Select</label>`
       : "";
-    return `<div class="bulk-review-row">${select}${card(item.description || "Review item", [item.importedRecord?.file_name, doc ? `Attached file: ${doc.fileName}` : item.documentId ? "Attached file" : "", item.convertedRecordId ? `Approved work order: ${item.convertedRecordId}` : ""], [item.category, item.status, item.source, reviewRouteLabel(item)], tone(item.status))}${actions}</div>`;
+    return `<div class="bulk-review-row">${select}${card(item.description || "Review item", [item.importedRecord?.file_name, doc ? `Attached file: ${doc.fileName}` : item.documentId ? "Attached file" : "", item.convertedRecordId ? `Approved work order: ${item.convertedRecordId}` : "Waiting for a human review"], [item.category, item.status, reviewRouteLabel(item)], tone(item.status))}${actions}</div>`;
   }).join("") + (reviews.length > visibleReviews.length ? empty(`Showing the first ${visibleReviews.length}. Use the filter or finish these before loading more.`) : "") : empty(canSubmitOnly() ? "No submitted requests yet." : "Nothing needs review right now.");
 }
 
@@ -278,7 +280,7 @@ function renderImportReviewDetail(){
   const doc = review.documentId ? app.files.find(file => file.id === review.documentId) : null;
   const converted = Boolean(review.convertedRecordId) || String(review.status || "").toLowerCase() === "approved";
   title.textContent = data.title || data.name || "Review Submission";
-  meta.textContent = compact([review.source, review.status, review.documentId ? "Document attached" : "No document"]).join(" | ");
+  meta.textContent = compact(["Intake item", review.status, review.documentId ? "Document attached" : "No document", "Review before active work"]).join(" | ");
   form.innerHTML = `
     <div class="form-grid">
       <label class="full">Work order title<input name="title" required value="${esc(data.title || data.name || review.description || "")}" /></label>
