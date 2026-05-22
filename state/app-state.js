@@ -47,7 +47,7 @@
       selectedWorkOrderId: "",
       selectedReviewId: "",
       filters: {},
-      syncStatus: "Sign in to use Supabase"
+      syncStatus: "Sign in to load workspace"
     };
   }
 

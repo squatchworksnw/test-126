@@ -20,8 +20,8 @@
     const pendingQueueDetails = document.getElementById("pendingQueueDetails");
     if(pendingQueueDetails){
       pendingQueueDetails.innerHTML = pendingWrites.length ? pendingWrites.map(item => ctx.card(
-        `${ctx.titleize(item.action)} pending`,
-        [ctx.titleize(String(item.table || "").replace("field_ops_","")), item.lastError ? `Last error: ${item.lastError}` : "", `Attempts: ${item.attempts || 0}`],
+        `${ctx.titleize(item.action)} still saving`,
+        [ctx.titleize(String(item.table || "").replace("field_ops_","")), item.lastError ? `Last problem: ${item.lastError}` : "", `Tries: ${item.attempts || 0}`],
         [item.createdAt],
         item.lastError ? "warning" : ""
       )).join("") : "";
@@ -56,7 +56,7 @@
     pendingWrites.push(queued);
     ctx.setPendingWrites(pendingWrites);
     savePendingWrites(ctx);
-    setStatus(`${pendingWrites.length} pending retry${pendingWrites.length === 1 ? "" : "s"}`, ctx);
+    setStatus(`${pendingWrites.length} item${pendingWrites.length === 1 ? "" : "s"} still saving`, ctx);
     return queued;
   }
 
@@ -73,17 +73,17 @@
     const pendingWrites = ctx.getPendingWrites();
     if(!pendingWrites.length){
       renderPendingQueueState(ctx);
-      if(showAlert) setStatus("No items waiting to sync");
+      if(showAlert) setStatus("Nothing waiting to save");
       return;
     }
     if(!ctx.requireAuth(showAlert)) return;
     if(!navigator.onLine){
-      setStatus(`${pendingWrites.length} pending - offline`, ctx);
-      if(showAlert) alert("This device is offline. Pending writes will retry when connection returns.");
+      setStatus(`${pendingWrites.length} item${pendingWrites.length === 1 ? "" : "s"} still saving - offline`, ctx);
+      if(showAlert) alert("This device is offline. Waiting items will save when connection returns.");
       return;
     }
 
-    setStatus(`Retrying ${pendingWrites.length} item${pendingWrites.length === 1 ? "" : "s"} waiting to sync...`, ctx);
+    setStatus(`Trying ${pendingWrites.length} waiting item${pendingWrites.length === 1 ? "" : "s"} again...`, ctx);
     const remaining = [];
     for(const item of pendingWrites){
       try{
@@ -97,7 +97,7 @@
     ctx.setPendingWrites(remaining);
     savePendingWrites(ctx);
     await ctx.loadWorkspaceData();
-    setStatus(remaining.length ? `${remaining.length} retry failed` : "Pending writes saved", ctx);
+    setStatus(remaining.length ? `${remaining.length} item${remaining.length === 1 ? "" : "s"} still need attention` : "Waiting items saved", ctx);
     if(showAlert){
       alert(remaining.length ? `${remaining.length} item${remaining.length === 1 ? "" : "s"} still need attention.` : "Waiting items were saved.");
     }

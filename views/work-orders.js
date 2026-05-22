@@ -443,7 +443,7 @@ function renderAssignedWork(){
     button.classList.toggle("active", active);
     button.setAttribute("aria-pressed", active ? "true" : "false");
   });
-  list.innerHTML = shown.length ? shown.map(assignedWorkCard).join("") + (items.length > shown.length ? empty(`Showing the first ${shown.length} of ${items.length}. Search to narrow this down.`) : "") : empty(assignedWorkSearchValue() ? "No assigned work matches that search." : "No assigned work for this login yet.");
+  list.innerHTML = shown.length ? shown.map(assignedWorkCard).join("") + (items.length > shown.length ? empty(`Showing the first ${shown.length} of ${items.length}. Search to narrow this down.`) : "") : empty(assignedWorkSearchValue() ? "No assigned work matches that search." : "No tasks assigned yet.");
   const status = document.getElementById("assignedWorkStatus");
   if(status){
     const label = assignedWorkSearchValue() ? `search for "${assignedWorkSearchValue()}"` : assignedWorkFilter.replace(/_/g, " ");

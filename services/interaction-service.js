@@ -55,37 +55,49 @@
   function showConfirmation(title, detail = "", actions = []){
     const body = document.body;
     if(!body || typeof body.appendChild !== "function" || typeof document.createElement !== "function") return;
-    const existing = typeof document.querySelector === "function" ? document.querySelector(".confirmation-banner") : null;
+    const existing = typeof document.querySelector === "function" ? document.querySelector(".success-screen-backdrop") : null;
     if(existing && typeof existing.remove === "function") existing.remove();
-    const banner = document.createElement("section");
-    banner.className = "confirmation-banner";
-    banner.setAttribute("role", "status");
-    banner.setAttribute("aria-live", "polite");
-    banner.innerHTML = `
-      <div>
-        <strong>${esc(title)}</strong>
-        ${detail ? `<p>${esc(detail)}</p>` : ""}
-      </div>
-      <div class="confirmation-actions">
-        ${actions.map((action, index) => `<button type="button" class="${index ? "ghost" : ""}" data-confirm-action="${index}">${esc(action.label)}</button>`).join("")}
-        <button type="button" class="ghost" aria-label="Dismiss confirmation">OK</button>
+    const dialog = document.createElement("section");
+    dialog.className = "success-screen-backdrop";
+    dialog.setAttribute("role", "dialog");
+    dialog.setAttribute("aria-modal", "true");
+    dialog.setAttribute("aria-labelledby", "successScreenTitle");
+    dialog.innerHTML = `
+      <div class="success-screen" role="document">
+        <div class="success-icon" aria-hidden="true">✓</div>
+        <div>
+          <p class="eyebrow">Saved</p>
+          <h2 id="successScreenTitle">${esc(title)}</h2>
+          ${detail ? `<p>${esc(detail)}</p>` : ""}
+        </div>
+        <div class="success-actions">
+          ${actions.map((action, index) => `<button type="button" class="${index ? "ghost" : ""}" data-confirm-action="${index}">${esc(action.label)}</button>`).join("")}
+          <button type="button" class="ghost" data-confirm-done>Done</button>
+        </div>
       </div>
     `;
-    banner.querySelectorAll("[data-confirm-action]")?.forEach(button => {
+    const close = () => dialog.remove();
+    dialog.querySelectorAll("[data-confirm-action]")?.forEach(button => {
       button.addEventListener("click", () => {
         const action = actions[Number(button.dataset.confirmAction)];
         if(typeof action?.run === "function") action.run();
-        banner.remove();
+        close();
       });
     });
-    banner.querySelector("button[aria-label='Dismiss confirmation']")?.addEventListener("click", () => banner.remove());
-    body.appendChild(banner);
+    dialog.querySelector("[data-confirm-done]")?.addEventListener("click", close);
+    dialog.addEventListener("click", event => {
+      if(event.target === dialog) close();
+    });
+    const escapeHandler = event => {
+      if(event.key === "Escape"){
+        close();
+        document.removeEventListener("keydown", escapeHandler);
+      }
+    };
+    document.addEventListener("keydown", escapeHandler);
+    body.appendChild(dialog);
+    dialog.querySelector("[data-confirm-done]")?.focus();
     showToast(title, "saved");
-    if(typeof window.setTimeout === "function"){
-      window.setTimeout(() => {
-        if(typeof banner.remove === "function") banner.remove();
-      }, 7000);
-    }
   }
 
   function renderAddNewOptions(){

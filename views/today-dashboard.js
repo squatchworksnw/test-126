@@ -164,11 +164,10 @@
     const greeting = new Date().getHours() < 12 ? "Good morning" : new Date().getHours() < 17 ? "Good afternoon" : "Good evening";
     document.getElementById("dailyGreeting").textContent = `${greeting}${state.settings.userDisplayName ? `, ${state.settings.userDisplayName}` : ""}.`;
     document.getElementById("dailyRhythmLines").innerHTML = [
-      todayState.reviewCount ? `${todayState.reviewCount} waiting in Needs Review.` : "No pending review items.",
-      todayState.assignedToday.length ? `${todayState.assignedToday.length} assigned task${todayState.assignedToday.length === 1 ? "" : "s"} to check.` : "",
-      todayState.overdue.length ? `${todayState.overdue.length} overdue.` : "Nothing overdue.",
-      todayState.dueToday.length ? `${todayState.dueToday.length} due today.` : "Nothing due today.",
-      todayState.fleetAlerts.length ? `${todayState.fleetAlerts.length} fleet alert${todayState.fleetAlerts.length === 1 ? "" : "s"}.` : "Fleet is quiet."
+      todayState.reviewCount ? `${todayState.reviewCount} waiting in Needs Review.` : "Needs Review is clear.",
+      todayState.overdue.length ? `${todayState.overdue.length} overdue.` : "No overdue work.",
+      todayState.dueToday.length ? `${todayState.dueToday.length} due today.` : "No tasks due today.",
+      todayState.fleetAlerts.length ? `${todayState.fleetAlerts.length} vehicle${todayState.fleetAlerts.length === 1 ? "" : "s"} to check.` : "Vehicles are quiet."
     ].filter(Boolean).map(line => `<p>${helpers.esc(line)}</p>`).join("");
 
     document.getElementById("reviewQueueCount").textContent = `${todayState.reviewCount} waiting`;
@@ -208,9 +207,10 @@
       todayClearCount: quietBuckets,
       todayVendorCount: todayState.activeProjects.length + todayState.openBids.length
     };
+    const calmCount = value => value ? String(value) : "All clear";
     Object.entries(priorityCounts).forEach(([id, value]) => {
       const el = document.getElementById(id);
-      if(el) el.textContent = value;
+      if(el) el.textContent = ["todayReviewCount","todayOverdueCount","todayDueCount","todayFleetCount"].includes(id) ? calmCount(value) : value;
     });
     const scheduledSummary = document.getElementById("todayScheduledSummary");
     if(scheduledSummary) scheduledSummary.textContent = `Recurring work this week: ${todayState.scheduledUpcoming.length}`;

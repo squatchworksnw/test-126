@@ -5,8 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>Field Operations Command Center</title>
 
-<link rel="stylesheet" href="styles/tokens/tokens.css?v=20260522-converge1" />
-<link rel="stylesheet" href="styles.css?v=20260522-converge1" />
+<link rel="stylesheet" href="styles/tokens/tokens.css?v=20260522-readiness1" />
+<link rel="stylesheet" href="styles.css?v=20260522-readiness1" />
 </head>
 
 <body data-auth="signed-out" data-role="signed-out">
@@ -207,34 +207,19 @@
         <em>Incoming items waiting</em>
       </button>
       <button class="priority-tile due" type="button" onclick="showView('workOrders')">
-        <span>My Tasks Today</span>
+        <span>Tasks Due Today</span>
         <strong id="todayDueCount">0</strong>
-        <em>Assigned and due now</em>
+        <em>Work due now</em>
       </button>
       <button class="priority-tile urgent" type="button" onclick="showView('workOrders')">
         <span>Overdue</span>
         <strong id="todayOverdueCount">0</strong>
         <em>Past due and still open</em>
       </button>
-      <button class="priority-tile week" type="button" onclick="showView('workOrders')">
-        <span>This Week</span>
-        <strong id="todayWeekCount">0</strong>
-        <em>Next few days</em>
-      </button>
       <button class="priority-tile fleet" type="button" onclick="showView('vehicles')">
-        <span>Fleet Alerts</span>
+        <span>Vehicles Needing Service</span>
         <strong id="todayFleetCount">0</strong>
         <em>Vehicles to check</em>
-      </button>
-      <button class="priority-tile clear" type="button" onclick="showView('workOrders')">
-        <span>Recently Completed</span>
-        <strong id="todayCompletedCount">0</strong>
-        <em>Recently closed</em>
-      </button>
-      <button class="priority-tile clear" type="button" onclick="showView('dashboard')">
-        <span>Recently Changed</span>
-        <strong id="todayRecentCount">0</strong>
-        <em>Latest activity</em>
       </button>
     </section>
 
@@ -245,7 +230,7 @@
       </section>
 
       <section class="panel today-panel priority-my-work" data-hide-when-empty="assigned">
-        <div class="panel-title"><div><h3>My Tasks Today</h3><p class="meta">Assigned work due now or waiting for you.</p></div><button class="ghost" type="button" onclick="showView('assignedWork')">View all</button></div>
+        <div class="panel-title"><div><h3>My Tasks Today</h3><p class="meta">Assigned work due now.</p></div><button class="ghost" type="button" onclick="showView('assignedWork')">View all</button></div>
         <div id="todayAssignedList" class="card-list"></div>
       </section>
 
@@ -259,24 +244,9 @@
         <div id="dueTodayList" class="card-list"></div>
       </section>
 
-      <section class="panel today-panel" data-hide-when-empty="thisWeek">
-        <div class="panel-title"><div><h3>This Week</h3><p class="meta">Upcoming work without the full calendar.</p></div><button class="ghost" type="button" onclick="setWorkOrderFilter('week');showView('workOrders')">View all</button></div>
-        <div id="weekList" class="card-list"></div>
-      </section>
-
       <section class="panel today-panel" data-hide-when-empty="fleet">
         <div class="panel-title"><div><h3>Fleet / Service Alerts</h3><p class="meta">Vehicles that need attention.</p></div><button class="ghost" type="button" onclick="showView('vehicles')">View all</button></div>
         <div id="fleetAlertList" class="card-list"></div>
-      </section>
-
-      <section class="panel today-panel" data-hide-when-empty="completed">
-        <div class="panel-title"><div><h3>Recently Completed</h3><p class="meta">Latest closed work.</p></div><button class="ghost" type="button" onclick="setWorkOrderFilter('completed');showView('workOrders')">View all</button></div>
-        <div id="recentCompletedList" class="card-list"></div>
-      </section>
-
-      <section class="panel today-panel" data-hide-when-empty="recent">
-        <div class="panel-title"><div><h3>Recently Changed</h3><p class="meta">Latest records touched.</p></div><button class="ghost" type="button" onclick="document.getElementById('globalSearchInput')?.focus()">Find</button></div>
-        <div id="recentActivityList" class="card-list"></div>
       </section>
 
       <details class="panel today-panel quiet-details" data-hide-when-empty="scheduled">
@@ -805,33 +775,54 @@
         </div>
       </div>
       <form id="fileForm" class="mobile-upload-form">
-        <label>What are you uploading?
-          <select id="uploadKind">
+        <div class="upload-step full">
+          <h3>What are you uploading?</h3>
+          <div class="upload-choice-grid" role="group" aria-label="Choose upload type">
+            <button type="button" class="upload-choice-card" data-upload-kind="photo"><strong>Photo</strong><span>Image from the field</span></button>
+            <button type="button" class="upload-choice-card" data-upload-kind="receipt"><strong>Receipt</strong><span>Proof of purchase</span></button>
+            <button type="button" class="upload-choice-card" data-upload-kind="invoice"><strong>Invoice</strong><span>Vendor bill</span></button>
+            <button type="button" class="upload-choice-card" data-upload-kind="warranty"><strong>Warranty</strong><span>Manual or coverage file</span></button>
+            <button type="button" class="upload-choice-card" data-upload-kind="estimate"><strong>Estimate</strong><span>Bid or quote</span></button>
+            <button type="button" class="upload-choice-card" data-upload-kind="other"><strong>Other</strong><span>Not sure yet</span></button>
+          </div>
+          <select id="uploadKind" class="technical-select-hidden" aria-label="Upload type">
             <option value="photo">Photo</option>
             <option value="receipt">Receipt</option>
+            <option value="invoice">Invoice</option>
             <option value="warranty">Warranty / Manual</option>
             <option value="title">Vehicle title / registration</option>
             <option value="estimate">Estimate / Invoice</option>
             <option value="other">Other file</option>
           </select>
-        </label>
-        <label>What is this connected to?
-          <select id="uploadConnection">
+        </div>
+        <div class="upload-step full">
+          <h3>What is this connected to?</h3>
+          <div class="upload-choice-grid connection" role="group" aria-label="Choose related record type">
+            <button type="button" class="upload-choice-card" data-upload-connection="not_sure"><strong>Not sure</strong><span>The team can place it</span></button>
+            <button type="button" class="upload-choice-card" data-upload-connection="vehicle"><strong>Vehicle</strong><span>Car, van, title, receipt</span></button>
+            <button type="button" class="upload-choice-card" data-upload-connection="place"><strong>Building / space</strong><span>Room or location</span></button>
+            <button type="button" class="upload-choice-card" data-upload-connection="asset"><strong>Asset / system</strong><span>Freezer, sink, HVAC</span></button>
+            <button type="button" class="upload-choice-card" data-upload-connection="work_order"><strong>Work order</strong><span>Existing task</span></button>
+            <button type="button" class="upload-choice-card" data-upload-connection="project"><strong>Project</strong><span>Scope or estimate</span></button>
+            <button type="button" class="upload-choice-card" data-upload-connection="vendor"><strong>Vendor</strong><span>Invoice or contract</span></button>
+          </div>
+          <select id="uploadConnection" class="technical-select-hidden" aria-label="Related record type">
             <option value="not_sure">Not sure</option>
             <option value="vehicle">Vehicle</option>
             <option value="place">Building / space</option>
             <option value="asset">Asset / system</option>
             <option value="work_order">Work order</option>
             <option value="project">Project</option>
+            <option value="vendor">Vendor</option>
           </select>
-        </label>
+        </div>
         <label id="uploadRecordLabel" class="full hidden">Choose the record<select id="uploadConnectionRecord"></select></label>
         <label>File name or link<input id="fileName" required placeholder="estimate.pdf, inspection report, photo link..." /></label>
         <label>Upload file<input id="documentUpload" type="file" accept=".pdf,.csv,.xlsx,.xls,image/*" /></label>
         <p id="uploadGuidance" class="meta full">Uploads go to Needs Review first when the connection is uncertain.</p>
         <p class="meta full">Uploading a receipt or proof helps route and review the expense, but does not replace any required accounting receipt process.</p>
         <details class="full advanced-upload-details">
-          <summary>More details</summary>
+          <summary>Add more details</summary>
           <div class="form-grid">
             <label>What kind of file is this?<select id="fileType"><option>Photo</option><option>Fuel Receipt</option><option>Warranty / Manual</option><option>Vehicle Title / Registration</option><option>Estimate</option><option>Invoice</option><option>Spreadsheet</option><option>Contract</option><option>Bid</option><option>Inspection</option><option>Report</option><option>Checklist</option><option>Other / Not sure</option></select></label>
             <label>Related building<select id="fileBuilding"></select></label>
@@ -985,7 +976,7 @@
       </div>
       <div class="actions">
         <button onclick="syncNow()">Refresh Workspace</button>
-        <button class="ghost" onclick="flushPendingWrites(true)">Retry items waiting to sync</button>
+        <button class="ghost" onclick="flushPendingWrites(true)">Retry items still saving</button>
         <button class="ghost" onclick="loadFromCloud()">Reload Workspace</button>
         <button class="ghost" onclick="downloadBackup()">Download Backup</button>
         <label class="ghost" style="display:inline-flex;align-items:center;padding:10px 12px;border:1px solid var(--border);border-radius:12px;cursor:pointer;font-weight:700;">
@@ -994,7 +985,8 @@
         </label>
       </div>
       <p class="meta small">Status: <strong id="settingsSyncStatus">Sign in to load workspace</strong></p>
-      <p class="meta small">Waiting to sync: <strong id="pendingQueueCount">0</strong></p>
+      <p class="meta small">Still saving: <strong id="pendingQueueCount">0</strong></p>
+      <label class="settings-toggle"><input id="largeTextModeToggle" type="checkbox" /> Large Text Mode</label>
       <div id="pendingQueueDetails" class="card-list"></div>
       <p class="meta small">Secure workspace records are on: creates, edits, files, and items needing review save to the shared workspace.</p>
       <p class="meta small">Workspace: <strong id="settingsWorkspaceId">Not loaded</strong></p>
@@ -1026,7 +1018,8 @@
       <p class="meta small">If an email is not found, add or invite that person in the account system first. This screen assigns workspace access; it does not expose secret admin keys.</p>
     </section>
 
-    <section class="panel" id="diagnosticPanel" data-admin-only>
+    <details class="panel" id="diagnosticPanel" data-admin-only>
+      <summary>Technical Details</summary>
       <div class="panel-title">
         <div>
           <h3>Technical Diagnostics</h3>
@@ -1043,7 +1036,7 @@
         <div class="stat"><span>Last Load</span><strong id="diagLastLoadAt">Never</strong></div>
       </div>
       <p class="meta small">Run <strong>sql/rls_verification.sql</strong> in the Supabase SQL Editor before pilot use.</p>
-    </section>
+    </details>
 
     <section class="panel">
       <div class="panel-title"><div><h3>App Maintenance</h3><p class="meta">Only use this if you want to clear this device.</p></div></div>
@@ -1085,29 +1078,29 @@
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="state/app-state.js?v=20260522-converge1"></script>
-<script src="components/cards.js?v=20260522-converge1"></script>
-<script src="components/forms.js?v=20260522-converge1"></script>
-<script src="auth/roles.js?v=20260522-converge1"></script>
-<script src="auth/session.js?v=20260522-converge1"></script>
-<script src="services/supabase-service.js?v=20260522-converge1"></script>
-<script src="services/mappers.js?v=20260522-converge1"></script>
-<script src="services/import-review-service.js?v=20260522-converge1"></script>
-<script src="services/materials-service.js?v=20260522-converge1"></script>
-<script src="services/demo-service.js?v=20260522-converge1"></script>
-<script src="services/interaction-service.js?v=20260522-converge1"></script>
-<script src="sync/pending-queue.js?v=20260522-converge1"></script>
-<script src="services/auth-service.js?v=20260522-converge1"></script>
-<script src="services/sync-service.js?v=20260522-converge1"></script>
-<script src="views/registry.js?v=20260522-converge1"></script>
-<script src="views/today-dashboard.js?v=20260522-converge1"></script>
-<script src="views/work-orders.js?v=20260522-converge1"></script>
-<script src="views/documents.js?v=20260522-converge1"></script>
-<script src="views/projects-budget.js?v=20260522-converge1"></script>
-<script src="views/materials.js?v=20260522-converge1"></script>
-<script src="views/review-queue.js?v=20260522-converge1"></script>
-<script src="views/fleet.js?v=20260522-converge1"></script>
-<script src="app.js?v=20260522-converge1"></script>
+<script src="state/app-state.js?v=20260522-readiness1"></script>
+<script src="components/cards.js?v=20260522-readiness1"></script>
+<script src="components/forms.js?v=20260522-readiness1"></script>
+<script src="auth/roles.js?v=20260522-readiness1"></script>
+<script src="auth/session.js?v=20260522-readiness1"></script>
+<script src="services/supabase-service.js?v=20260522-readiness1"></script>
+<script src="services/mappers.js?v=20260522-readiness1"></script>
+<script src="services/import-review-service.js?v=20260522-readiness1"></script>
+<script src="services/materials-service.js?v=20260522-readiness1"></script>
+<script src="services/demo-service.js?v=20260522-readiness1"></script>
+<script src="services/interaction-service.js?v=20260522-readiness1"></script>
+<script src="sync/pending-queue.js?v=20260522-readiness1"></script>
+<script src="services/auth-service.js?v=20260522-readiness1"></script>
+<script src="services/sync-service.js?v=20260522-readiness1"></script>
+<script src="views/registry.js?v=20260522-readiness1"></script>
+<script src="views/today-dashboard.js?v=20260522-readiness1"></script>
+<script src="views/work-orders.js?v=20260522-readiness1"></script>
+<script src="views/documents.js?v=20260522-readiness1"></script>
+<script src="views/projects-budget.js?v=20260522-readiness1"></script>
+<script src="views/materials.js?v=20260522-readiness1"></script>
+<script src="views/review-queue.js?v=20260522-readiness1"></script>
+<script src="views/fleet.js?v=20260522-readiness1"></script>
+<script src="app.js?v=20260522-readiness1"></script>
 </body>
 </html>
 

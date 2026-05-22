@@ -8,6 +8,7 @@ function uploadKindToFileType(kind){
   return {
     photo:"Photo",
     receipt:"Fuel Receipt",
+    invoice:"Invoice",
     warranty:"Warranty / Manual",
     title:"Vehicle Title / Registration",
     estimate:"Estimate",
@@ -15,9 +16,28 @@ function uploadKindToFileType(kind){
   }[kind] || "Other / Not sure";
 }
 
+function defaultConnectionForKind(kind){
+  return {
+    receipt:"vehicle",
+    photo:"place",
+    invoice:"vendor",
+    estimate:"project",
+    warranty:"asset",
+    title:"vehicle",
+    other:"not_sure"
+  }[kind] || "not_sure";
+}
+
 function applyUploadKind(){
   const kind = document.getElementById("uploadKind")?.value || "other";
   if(document.getElementById("fileType")) fileType.value = uploadKindToFileType(kind);
+  const connection = document.getElementById("uploadConnection");
+  const defaultConnection = defaultConnectionForKind(kind);
+  if(connection && defaultConnection && connection.value === "not_sure"){
+    connection.value = defaultConnection;
+    applyUploadConnection(false);
+  }
+  syncUploadChoiceCards();
   const guidance = document.getElementById("uploadGuidance");
   if(!guidance) return;
   guidance.textContent = kind === "receipt"
@@ -28,7 +48,7 @@ function applyUploadKind(){
         ? "Warranty/manual uploads are easiest to find later when linked to a vehicle or asset/system."
         : kind === "title"
           ? "Vehicle title/registration uploads are easiest to find later when linked to a vehicle."
-          : kind === "estimate"
+          : kind === "estimate" || kind === "invoice"
             ? "Estimates and invoices go to Needs Review before becoming official budget/accounting work."
             : "If you are not sure where this belongs, leave it as Not sure and the team can review it.";
 }
@@ -42,14 +62,30 @@ function uploadConnectionCollections(){
     ],
     asset: activeItems("assets").map(item => ({ id:item.id, label:item.name })),
     work_order: activeItems("tasks").map(item => ({ id:item.id, label:item.workOrderNumber ? `${item.workOrderNumber} - ${item.name}` : item.name })),
-    project: activeItems("projects").map(item => ({ id:item.id, label:item.name }))
+    project: activeItems("projects").map(item => ({ id:item.id, label:item.name })),
+    vendor: activeItems("vendors").map(item => ({ id:item.id, label:item.name }))
   };
 }
 
 function clearUploadQuickLinkFields(){
-  ["fileBuilding","fileSpace","fileAsset","fileProject","fileWorkOrder","fileVehicle"].forEach(idValue => {
+  ["fileBuilding","fileSpace","fileAsset","fileProject","fileWorkOrder","fileVehicle","fileBid"].forEach(idValue => {
     const el = document.getElementById(idValue);
     if(el) el.value = "";
+  });
+}
+
+function syncUploadChoiceCards(){
+  const kind = document.getElementById("uploadKind")?.value || "other";
+  const connection = document.getElementById("uploadConnection")?.value || "not_sure";
+  document.querySelectorAll("[data-upload-kind]").forEach(button => {
+    const active = button.dataset.uploadKind === kind;
+    button.classList.toggle("active", active);
+    button.setAttribute("aria-pressed", active ? "true" : "false");
+  });
+  document.querySelectorAll("[data-upload-connection]").forEach(button => {
+    const active = button.dataset.uploadConnection === connection;
+    button.classList.toggle("active", active);
+    button.setAttribute("aria-pressed", active ? "true" : "false");
   });
 }
 
@@ -64,6 +100,7 @@ function applyUploadConnection(clearLinks = true){
   label.classList.toggle("hidden", !items.length || connection === "not_sure");
   record.innerHTML = `<option value="">Choose one</option>` + items.map(item => `<option value="${esc(item.id)}">${esc(item.label)}</option>`).join("");
   if(previousValue && items.some(item => item.id === previousValue)) record.value = previousValue;
+  syncUploadChoiceCards();
 }
 
 function applyUploadRecordLink(){
@@ -75,6 +112,7 @@ function applyUploadRecordLink(){
   if(connection === "asset" && document.getElementById("fileAsset")) fileAsset.value = value;
   if(connection === "work_order" && document.getElementById("fileWorkOrder")) fileWorkOrder.value = value;
   if(connection === "project" && document.getElementById("fileProject")) fileProject.value = value;
+  if(connection === "vendor" && document.getElementById("fileBid")) fileBid.value = value;
   if(connection === "place"){
     const [type, idValue] = value.split(":");
     if(type === "building" && document.getElementById("fileBuilding")) fileBuilding.value = idValue;
@@ -155,7 +193,9 @@ async function addFileRecord(e){
     });
 
     const uploadKind = document.getElementById("uploadKind")?.value || "";
-    const uncertainUpload = (document.getElementById("uploadConnection")?.value || "not_sure") === "not_sure";
+    const uploadConnectionValue = document.getElementById("uploadConnection")?.value || "not_sure";
+    const selectedLinkedRecord = document.getElementById("uploadConnectionRecord")?.value || "";
+    const uncertainUpload = uploadConnectionValue === "not_sure" || (uploadConnectionValue !== "not_sure" && !selectedLinkedRecord);
     if(extractedText || uncertainUpload){
       await createImportReview("document", typeToImportTarget(fileType.value), { file_name:fileNameValue, extracted_text:extractedText }, `Review extracted ${fileType.value} from ${fileNameValue}`, docId);
     }
@@ -195,6 +235,7 @@ function renderFiles(){
   const files = activeItems("files");
   applyUploadKind();
   applyUploadConnection(false);
+  syncUploadChoiceCards();
   ensureDocumentPreviewUrls(files);
   document.getElementById("fileList").innerHTML = files.length ? files.map(f => {
     const building = app.buildings.find(b => b.id === f.relatedBuildingId);
@@ -310,5 +351,22 @@ function renderLinkedDocumentPanels(){
   document.getElementById("uploadKind")?.addEventListener("change", applyUploadKind);
   document.getElementById("uploadConnection")?.addEventListener("change", applyUploadConnection);
   document.getElementById("uploadConnectionRecord")?.addEventListener("change", applyUploadRecordLink);
+  document.querySelectorAll("[data-upload-kind]").forEach(button => {
+    button.addEventListener("click", () => {
+      const select = document.getElementById("uploadKind");
+      const kind = button.dataset.uploadKind || "other";
+      if(select) select.value = kind;
+      const connection = document.getElementById("uploadConnection");
+      if(connection) connection.value = defaultConnectionForKind(kind);
+      applyUploadKind();
+    });
+  });
+  document.querySelectorAll("[data-upload-connection]").forEach(button => {
+    button.addEventListener("click", () => {
+      const select = document.getElementById("uploadConnection");
+      if(select) select.value = button.dataset.uploadConnection || "not_sure";
+      applyUploadConnection();
+    });
+  });
 })();
 

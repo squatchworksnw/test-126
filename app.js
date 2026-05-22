@@ -41,6 +41,7 @@ const runtimeState = AppState.bindRuntimeGlobals(AppState.createRuntimeState({
 }));
 const app = runtimeState.app;
 let lastWorkspaceLoadAt = "";
+const LARGE_TEXT_MODE_KEY = "field_ops_large_text_mode";
 
 function id(){ return crypto.randomUUID ? crypto.randomUUID() : String(Date.now() + Math.random()); }
 function activeItems(section){ return AppState.activeItems(app, section); }
@@ -484,10 +485,12 @@ function objectSearchSummary(kind, item){
     const docs = docsForLink(doc => doc.relatedVehicleId === item.id);
     const open = openWorkForLink(task => task.vehicleId === item.id);
     const history = completedWorkForLink(task => task.vehicleId === item.id);
+    const fuel = activeItems("fuelReceipts").filter(receipt => receipt.vehicleId === item.id);
     const titles = docTypeCount(docs, /title|registration|warranty|manual/i);
     return [
       open.length ? `${open.length} open work` : "",
       history.length ? `${history.length} completed repair${history.length === 1 ? "" : "s"}` : "",
+      fuel.length ? `${fuel.length} fuel/service record${fuel.length === 1 ? "" : "s"}` : "",
       docs.length ? `${docs.length} file${docs.length === 1 ? "" : "s"}` : "",
       titles ? `${titles} title/warranty file${titles === 1 ? "" : "s"}` : "",
       item.serviceDate ? `Service ${item.serviceDate}` : ""
@@ -508,7 +511,16 @@ function objectSearchSummary(kind, item){
   if(kind === "building"){
     const docs = docsForLink(doc => doc.relatedBuildingId === item.id);
     const open = openWorkForLink(task => task.buildingId === item.id);
-    return [open.length ? `${open.length} open work` : "", docs.length ? `${docs.length} file${docs.length === 1 ? "" : "s"}` : ""];
+    const spaces = activeItems("spaces").filter(space => space.buildingId === item.id);
+    const assets = activeItems("assets").filter(asset => asset.buildingId === item.id);
+    const recurring = activeItems("tasks").filter(task => task.buildingId === item.id && /scheduled from master calendar|recurring|master import key:|walkthrough|inspection/i.test(`${task.notes || ""} ${task.type || ""} ${task.name || ""}`));
+    return [
+      open.length ? `${open.length} open work` : "",
+      spaces.length ? `${spaces.length} space${spaces.length === 1 ? "" : "s"}` : "",
+      assets.length ? `${assets.length} asset/system record${assets.length === 1 ? "" : "s"}` : "",
+      recurring.length ? `${recurring.length} inspection/recurring item${recurring.length === 1 ? "" : "s"}` : "",
+      docs.length ? `${docs.length} file${docs.length === 1 ? "" : "s"}` : ""
+    ];
   }
   return [];
 }
@@ -697,9 +709,25 @@ function renderPilotIndicator(){
   indicator.hidden = !visible;
 }
 
+function applyLargeTextMode(enabled){
+  document.body?.classList.toggle("large-text-mode", Boolean(enabled));
+  try{ localStorage.setItem(LARGE_TEXT_MODE_KEY, enabled ? "1" : "0"); }catch(_err){}
+  const toggle = document.getElementById("largeTextModeToggle");
+  if(toggle) toggle.checked = Boolean(enabled);
+}
+
+function initLargeTextMode(){
+  let enabled = false;
+  try{ enabled = localStorage.getItem(LARGE_TEXT_MODE_KEY) === "1"; }catch(_err){}
+  applyLargeTextMode(enabled);
+  document.getElementById("largeTextModeToggle")?.addEventListener("change", event => {
+    applyLargeTextMode(event.target.checked);
+  });
+}
+
 function renderBuildings(){
   const buildings = activeItems("buildings");
-  document.getElementById("buildingList").innerHTML = buildings.length ? buildings.map((b)=>card(b.name,[b.address,b.notes],[b.code,b.status],tone(b.status)) + rowActions("buildings", b)).join("") : empty("No buildings yet.");
+  document.getElementById("buildingList").innerHTML = buildings.length ? buildings.map((b)=>card(b.name,[b.address,b.notes],[b.code,b.status],tone(b.status)) + rowActions("buildings", b) + buildingStoryPanel(b)).join("") : empty("No buildings yet.");
   const options = `<option value="">No building</option>` + buildings.map(b => `<option value="${b.id}">${esc(b.name)}</option>`).join("");
   ["spaceBuilding","assetBuilding","taskBuilding","fileBuilding"].forEach(el => { if(document.getElementById(el)) document.getElementById(el).innerHTML = options; });
 }
@@ -720,6 +748,30 @@ function renderAssets(){
 
 function objectStoryRows(items, emptyText, formatter){
   return items.length ? items.slice(0,5).map(formatter).join("") + (items.length > 5 ? `<p>+ ${items.length - 5} more</p>` : "") : `<p>${esc(emptyText)}</p>`;
+}
+
+function buildingStoryPanel(building){
+  const spaces = activeItems("spaces").filter(space => space.buildingId === building.id);
+  const assets = activeItems("assets").filter(asset => asset.buildingId === building.id);
+  const docs = activeItems("files").filter(file => file.relatedBuildingId === building.id || spaces.some(space => space.id === file.relatedSpaceId) || assets.some(asset => asset.id === file.relatedAssetId));
+  const work = activeItems("tasks").filter(task => task.buildingId === building.id || spaces.some(space => space.id === task.spaceId) || assets.some(asset => asset.id === task.assetId));
+  const openWork = work.filter(isOpenRecord);
+  const history = work.filter(task => !isOpenRecord(task));
+  const recurring = work.filter(task => /scheduled from master calendar|recurring|master import key:|walkthrough|inspection/i.test(`${task.notes || ""} ${task.type || ""} ${task.name || ""}`));
+  const photos = docs.filter(doc => /photo|image|jpg|jpeg|png|heic/i.test(`${doc.fileType || ""} ${doc.fileName || ""}`));
+  return `<details class="object-story">
+    <summary>Story: ${spaces.length} space${spaces.length === 1 ? "" : "s"}, ${assets.length} asset${assets.length === 1 ? "" : "s"}, ${openWork.length} open</summary>
+    <div class="object-story-grid">
+      <section class="object-story-section"><h4>Overview</h4><p>${esc(compact([building.code ? `Code: ${building.code}` : "", building.address, titleize(building.status), building.notes]).join(" | ") || "No overview yet.")}</p></section>
+      <section class="object-story-section"><h4>Spaces / Rooms</h4>${objectStoryRows(spaces, "No spaces linked yet.", item => `<p>${esc(compact([item.name, item.spaceType, item.floor]).join(" | "))}</p>`)}</section>
+      <section class="object-story-section"><h4>Assets / Systems</h4>${objectStoryRows(assets, "No assets linked yet.", item => `<p>${esc(compact([item.name, item.category, item.status]).join(" | "))}</p>`)}</section>
+      <section class="object-story-section"><h4>History</h4>${objectStoryRows(history, "No completed work yet.", item => `<p>${esc(compact([item.date, item.workOrderNumber, item.name]).join(" | "))}</p>`)}</section>
+      <section class="object-story-section"><h4>Documents</h4>${objectStoryRows(docs, "No linked documents yet.", doc => `<p>${esc(doc.fileName)}</p>`)}</section>
+      <section class="object-story-section"><h4>Photos</h4>${objectStoryRows(photos, "No photos linked yet.", doc => `<p>${esc(doc.fileName)}</p>`)}</section>
+      <section class="object-story-section"><h4>Open Work</h4>${objectStoryRows(openWork, "No open work linked.", item => `<p>${esc(compact([item.date, item.workOrderNumber, item.name]).join(" | "))}</p>`)}</section>
+      <section class="object-story-section"><h4>Recurring / Inspections</h4>${objectStoryRows(recurring, "No recurring or inspection work linked yet.", item => `<p>${esc(compact([item.date, item.name]).join(" | "))}</p>`)}</section>
+    </div>
+  </details>`;
 }
 
 function assetStoryPanel(asset){
@@ -1988,6 +2040,7 @@ backupUpload.addEventListener("change", e=>{ if(e.target.files[0]) uploadBackup(
 spreadsheetUpload.addEventListener("change", e=>{ if(e.target.files[0]) handleSpreadsheetFile(e.target.files[0]); e.target.value=""; });
 pdfUpload.addEventListener("change", e=>{ if(e.target.files[0]) handlePdfFile(e.target.files[0]); e.target.value=""; });
 document.getElementById("peopleRoleForm")?.addEventListener("submit", savePeopleRole);
+initLargeTextMode();
 
 if(window.pdfjsLib){
   pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js";
