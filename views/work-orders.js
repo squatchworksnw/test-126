@@ -759,6 +759,22 @@ function anchorMemoryForWorkOrder(task){
 }
 
 
+function recurringPatternForWorkOrder(task){
+  const words = String([task.name, task.type, task.location, task.notes].filter(Boolean).join(" ")).toLowerCase()
+    .split(/[^a-z0-9]+/)
+    .filter(word => word.length > 4 && !["scheduled","complete","normal","priority","assigned","marked","source"].includes(word));
+  const uniqueWords = Array.from(new Set(words)).slice(0, 8);
+  const related = activeItems("tasks").filter(item => {
+    if(item.id === task.id) return false;
+    if(task.assetId && item.assetId === task.assetId) return true;
+    if(task.vehicleId && item.vehicleId === task.vehicleId) return true;
+    const haystack = String([item.name, item.type, item.location, item.notes].filter(Boolean).join(" ")).toLowerCase();
+    return uniqueWords.some(word => haystack.includes(word));
+  }).slice(0, 6);
+  return related;
+}
+
+
 
 async function archiveWorkOrderById(workOrderId){
   if(!requireOperationsPermission("move work orders out of active work")) return;
@@ -828,6 +844,7 @@ function renderWorkOrderDetail(){
   const documents = activeItems("files").filter(f => f.relatedWorkItemId === task.id);
   const attachableDocuments = activeItems("files").filter(f => !f.relatedWorkItemId || f.relatedWorkItemId !== task.id);
   const anchorMemory = anchorMemoryForWorkOrder(task);
+  const recurringPattern = recurringPatternForWorkOrder(task);
   const budgetItems = activeItems("budgetItems").filter(item => item.workOrderId === task.id);
   const budgetTotal = budgetItems.reduce((sum, item) => sum + Number(item.amount || 0), 0);
   const assignedTo = task.assignedTo || assignedFromNotes(task.notes);
@@ -903,6 +920,12 @@ function renderWorkOrderDetail(){
           `${anchorMemory.vehicleHistory.length} prior vehicle work order${anchorMemory.vehicleHistory.length === 1 ? "" : "s"}`
         ], ["Timeline context"], "")}
       </div>
+      <details class="object-story">
+        <summary>Recurring pattern check</summary>
+        <div class="timeline compact-timeline">
+          ${recurringPattern.length ? recurringPattern.map(item => `<article class="timeline-item"><strong>${esc(item.name || "Related work")}</strong><p>${esc([titleize(item.status), item.date, item.location].filter(Boolean).join(" | "))}</p></article>`).join("") : empty("No similar prior work stands out yet.")}
+        </div>
+      </details>
     </section>
     <div class="grid two">
       <section class="detail-block">

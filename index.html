@@ -5,8 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>Field Operations Command Center</title>
 
-<link rel="stylesheet" href="styles/tokens/tokens.css?v=20260522-operationalize1" />
-<link rel="stylesheet" href="styles.css?v=20260522-operationalize1" />
+<link rel="stylesheet" href="styles/tokens/tokens.css?v=20260522-health1" />
+<link rel="stylesheet" href="styles.css?v=20260522-health1" />
 </head>
 
 <body data-auth="signed-out" data-role="signed-out">
@@ -251,6 +251,17 @@
         <strong id="todayFleetCount">0</strong>
         <em>Vehicles to check</em>
       </button>
+    </section>
+
+    <section class="panel operational-health-panel" data-admin-only>
+      <div class="panel-title">
+        <div>
+          <h3>Operational Health</h3>
+          <p class="meta">Calm leadership view of what deserves attention.</p>
+        </div>
+        <button class="ghost" type="button" onclick="buildReport(true)">Open report</button>
+      </div>
+      <div id="operationalHealthSummary" class="operational-health-grid"></div>
     </section>
 
     <section class="today-flow" aria-label="Today workflow">
@@ -813,6 +824,10 @@
         <button class="ghost technical-only hidden" onclick="clearDemoPilotData()">Clear Demo</button>
       </div>
     </section>
+    <section class="panel">
+      <div class="panel-title"><div><h3>Operational Health Summary</h3><p class="meta">Leadership view of backlog, fleet risk, recurring patterns, documents, and budget drift.</p></div></div>
+      <div id="reportHealthSummary" class="operational-health-grid"></div>
+    </section>
     <section class="panel"><div class="panel-title"><h3>Report Preview</h3></div><div id="reportPreview"></div></section>
   </section>
 
@@ -1134,29 +1149,29 @@
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="state/app-state.js?v=20260522-operationalize1"></script>
-<script src="components/cards.js?v=20260522-operationalize1"></script>
-<script src="components/forms.js?v=20260522-operationalize1"></script>
-<script src="auth/roles.js?v=20260522-operationalize1"></script>
-<script src="auth/session.js?v=20260522-operationalize1"></script>
-<script src="services/supabase-service.js?v=20260522-operationalize1"></script>
-<script src="services/mappers.js?v=20260522-operationalize1"></script>
-<script src="services/import-review-service.js?v=20260522-operationalize1"></script>
-<script src="services/materials-service.js?v=20260522-operationalize1"></script>
-<script src="services/demo-service.js?v=20260522-operationalize1"></script>
-<script src="services/interaction-service.js?v=20260522-operationalize1"></script>
-<script src="sync/pending-queue.js?v=20260522-operationalize1"></script>
-<script src="services/auth-service.js?v=20260522-operationalize1"></script>
-<script src="services/sync-service.js?v=20260522-operationalize1"></script>
-<script src="views/registry.js?v=20260522-operationalize1"></script>
-<script src="views/today-dashboard.js?v=20260522-operationalize1"></script>
-<script src="views/work-orders.js?v=20260522-operationalize1"></script>
-<script src="views/documents.js?v=20260522-operationalize1"></script>
-<script src="views/projects-budget.js?v=20260522-operationalize1"></script>
-<script src="views/materials.js?v=20260522-operationalize1"></script>
-<script src="views/review-queue.js?v=20260522-operationalize1"></script>
-<script src="views/fleet.js?v=20260522-operationalize1"></script>
-<script src="app.js?v=20260522-operationalize1"></script>
+<script src="state/app-state.js?v=20260522-health1"></script>
+<script src="components/cards.js?v=20260522-health1"></script>
+<script src="components/forms.js?v=20260522-health1"></script>
+<script src="auth/roles.js?v=20260522-health1"></script>
+<script src="auth/session.js?v=20260522-health1"></script>
+<script src="services/supabase-service.js?v=20260522-health1"></script>
+<script src="services/mappers.js?v=20260522-health1"></script>
+<script src="services/import-review-service.js?v=20260522-health1"></script>
+<script src="services/materials-service.js?v=20260522-health1"></script>
+<script src="services/demo-service.js?v=20260522-health1"></script>
+<script src="services/interaction-service.js?v=20260522-health1"></script>
+<script src="sync/pending-queue.js?v=20260522-health1"></script>
+<script src="services/auth-service.js?v=20260522-health1"></script>
+<script src="services/sync-service.js?v=20260522-health1"></script>
+<script src="views/registry.js?v=20260522-health1"></script>
+<script src="views/today-dashboard.js?v=20260522-health1"></script>
+<script src="views/work-orders.js?v=20260522-health1"></script>
+<script src="views/documents.js?v=20260522-health1"></script>
+<script src="views/projects-budget.js?v=20260522-health1"></script>
+<script src="views/materials.js?v=20260522-health1"></script>
+<script src="views/review-queue.js?v=20260522-health1"></script>
+<script src="views/fleet.js?v=20260522-health1"></script>
+<script src="app.js?v=20260522-health1"></script>
 </body>
 </html>
 

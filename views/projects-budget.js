@@ -110,6 +110,118 @@ function projectCardWithActions(p){ return projectCard(p) + rowActions("projects
 function bidCard(b){ const project = app.projects.find(p => p.id === b.projectId); return card(b.vendor,[`Amount: ${money(b.amount)}`, project ? `Project: ${project.name}` : "", b.notes],[titleize(b.status), b.date], tone(b.status)); }
 
 
+function daysUntil(dateValue){
+  if(!dateValue) return null;
+  const start = new Date(todayString());
+  const target = new Date(dateValue);
+  if(Number.isNaN(target.getTime())) return null;
+  return Math.ceil((target - start) / 86400000);
+}
+
+
+function openWorkItems(){
+  return activeItems("tasks").filter(item => !["complete","canceled","archived"].includes(String(item.status || "").toLowerCase()));
+}
+
+
+function recurringPatternGroups(){
+  const groups = new Map();
+  activeItems("tasks").forEach(task => {
+    const text = [task.name, task.type, task.location, task.notes].filter(Boolean).join(" ").toLowerCase();
+    const key = text.includes("refriger") || text.includes("freezer") || text.includes("cooler") ? "Refrigeration / freezer" :
+      text.includes("roof") || text.includes("leak") || text.includes("water") || text.includes("plumb") ? "Water / roof / plumbing" :
+      text.includes("vehicle") || text.includes("van") || text.includes("truck") || task.vehicleId ? "Fleet service" :
+      text.includes("walkthrough") || text.includes("inspection") ? "Walkthrough / inspection" :
+      text.includes("kitchen") ? "Kitchen operations" : "";
+    if(!key) return;
+    if(!groups.has(key)) groups.set(key, []);
+    groups.get(key).push(task);
+  });
+  return Array.from(groups.entries())
+    .filter(([_key, items]) => items.length > 1)
+    .sort((a,b) => b[1].length - a[1].length)
+    .slice(0, 4);
+}
+
+
+function operationalHealthData(){
+  const tasks = activeItems("tasks");
+  const openTasks = openWorkItems();
+  const today = todayString();
+  const overdue = openTasks.filter(item => item.date && item.date < today);
+  const reviewBacklog = activeItems("submissions").filter(item => String(item.status || "").toLowerCase() === "needs review");
+  const vehicles = activeItems("vehicles");
+  const fleetRisks = vehicles.filter(vehicle => {
+    const serviceDays = daysUntil(vehicle.serviceDate);
+    const registrationDays = daysUntil(vehicle.registration);
+    const status = String(vehicle.status || "").toLowerCase();
+    return status.includes("service") || status.includes("maintenance") || status.includes("out") ||
+      (serviceDays !== null && serviceDays <= 14) || (registrationDays !== null && registrationDays <= 30);
+  });
+  const vendorGaps = activeItems("vendors").filter(vendor => {
+    const insuranceDays = daysUntil(vendor.insuranceExpiresOn);
+    return insuranceDays !== null && insuranceDays <= 30;
+  });
+  const projects = activeItems("projects").filter(project => project.status !== "complete");
+  const budgetDrift = projects.filter(project => Number(project.budget || 0) && Number(project.cost || 0) > Number(project.budget || 0));
+  const documents = activeItems("files");
+  const documentGaps = [
+    ...vehicles.filter(vehicle => !documents.some(file => file.relatedVehicleId === vehicle.id)),
+    ...activeItems("assets").filter(asset => !documents.some(file => file.relatedAssetId === asset.id))
+  ].slice(0, 8);
+  const completed = tasks.filter(item => String(item.status || "").toLowerCase() === "complete");
+  const patterns = recurringPatternGroups();
+  return { tasks, openTasks, overdue, reviewBacklog, vehicles, fleetRisks, vendorGaps, projects, budgetDrift, documentGaps, completed, patterns };
+}
+
+
+function healthTone(count, kind = "attention"){
+  if(!count) return "ok";
+  return kind === "risk" || count > 3 ? "warning" : "notice";
+}
+
+
+function healthCard(title, detail, meta, toneValue){
+  return `<article class="health-card ${toneValue || ""}">
+    <strong>${esc(title)}</strong>
+    <p>${esc(detail)}</p>
+    ${meta ? `<span>${esc(meta)}</span>` : ""}
+  </article>`;
+}
+
+
+function renderOperationalHealthSummary(){
+  const data = operationalHealthData();
+  const firstPattern = data.patterns[0];
+  const cards = [
+    healthCard("Maintenance attention", data.overdue.length ? `${data.overdue.length} overdue item${data.overdue.length === 1 ? "" : "s"} still open.` : "No overdue maintenance is showing.", data.openTasks.length ? `${data.openTasks.length} open work item${data.openTasks.length === 1 ? "" : "s"}` : "Backlog is clear", healthTone(data.overdue.length)),
+    healthCard("Needs Review", data.reviewBacklog.length ? `${data.reviewBacklog.length} intake item${data.reviewBacklog.length === 1 ? "" : "s"} waiting.` : "No unresolved review backlog.", "Review before active work stays intact", healthTone(data.reviewBacklog.length)),
+    healthCard("Fleet service risk", data.fleetRisks.length ? `${data.fleetRisks.length} vehicle${data.fleetRisks.length === 1 ? "" : "s"} need a service or registration check.` : "Fleet service cadence looks calm.", `${data.vehicles.length} vehicle${data.vehicles.length === 1 ? "" : "s"} tracked`, healthTone(data.fleetRisks.length, "risk")),
+    healthCard("Recurring patterns", firstPattern ? `${firstPattern[1].length} related ${firstPattern[0].toLowerCase()} items are visible.` : "No repeated issue pattern stands out yet.", firstPattern ? "Review related history before spending" : "Patterns will appear as history grows", healthTone(firstPattern ? firstPattern[1].length : 0)),
+    healthCard("Project budget drift", data.budgetDrift.length ? `${data.budgetDrift.length} project${data.budgetDrift.length === 1 ? "" : "s"} may be over approved budget.` : "No project budget drift detected.", `${data.projects.length} active project${data.projects.length === 1 ? "" : "s"}`, healthTone(data.budgetDrift.length, "risk")),
+    healthCard("Vendor / document gaps", data.vendorGaps.length || data.documentGaps.length ? `${data.vendorGaps.length + data.documentGaps.length} record${data.vendorGaps.length + data.documentGaps.length === 1 ? "" : "s"} need supporting detail.` : "Vendor and document coverage looks steady.", data.vendorGaps.length ? "Vendor insurance date coming up" : "Titles, warranties, and records stay linked here", healthTone(data.vendorGaps.length + data.documentGaps.length))
+  ];
+  ["operationalHealthSummary", "reportHealthSummary"].forEach(idValue => {
+    const target = document.getElementById(idValue);
+    if(target) target.innerHTML = cards.join("");
+  });
+  return data;
+}
+
+
+function operationalNarrative(data){
+  const wins = data.completed.slice(0, 3).map(item => item.name || item.title).filter(Boolean);
+  const patternLines = data.patterns.map(([name, items]) => `${items.length} related ${name.toLowerCase()} items`);
+  return `<section class="report-narrative">
+    <h3>Board Continuity Notes</h3>
+    <p>${esc(data.openTasks.length ? `${data.openTasks.length} open work items remain active, with ${data.overdue.length} overdue.` : "No active work backlog is showing right now.")}</p>
+    <p>${esc(data.completed.length ? `${data.completed.length} completed items are preserved in the work history.` : "Completed work will appear here as the record grows.")}</p>
+    <p>${esc(patternLines.length ? `Recurring patterns visible: ${patternLines.join("; ")}.` : "No repeated pattern is strong enough to call out yet.")}</p>
+    ${wins.length ? `<p><strong>Recent wins:</strong> ${esc(wins.join("; "))}</p>` : ""}
+  </section>`;
+}
+
+
 function renderBidComparisonSummary(){
   const targets = ["bidComparisonSummary", "vendorBidSummary"].map(id => document.getElementById(id)).filter(Boolean);
   const bids = activeItems("bids").filter(b => Number(b.amount) > 0 && b.status !== "rejected");
@@ -130,6 +242,7 @@ function buildReport(show=false){
   const tasks = activeItems("tasks");
   const vehicles = activeItems("vehicles");
   const files = activeItems("files");
+  const health = renderOperationalHealthSummary();
   const openTasks = tasks.filter(t=>!["complete","canceled"].includes(t.status));
   const urgentTasks = openTasks.filter(t=>["urgent","high"].includes(t.priority));
   const activeProjects = projects.filter(p=>p.status!=="complete");
@@ -138,6 +251,9 @@ function buildReport(show=false){
   const html = `
     <h2>${esc(app.settings.workspaceName || "Field Operations Report")}</h2>
     <p>${esc(app.settings.workspaceNote || "")}</p>
+    ${operationalNarrative(health)}
+    <h3>Operational Health</h3>
+    <div class="operational-health-grid">${document.getElementById("reportHealthSummary")?.innerHTML || ""}</div>
     <h3>Work Order Summary</h3>
     <p><strong>Open work orders:</strong> ${openTasks.length}</p>
     <p><strong>Urgent/high:</strong> ${urgentTasks.length}</p>
@@ -165,6 +281,7 @@ function buildReport(show=false){
     renderProjects();
     renderBids();
     renderBudget();
+    renderOperationalHealthSummary();
   }
 
   const editConfig = {
@@ -186,6 +303,8 @@ function buildReport(show=false){
     projectCardWithActions,
     bidCard,
     renderBidComparisonSummary,
+    renderOperationalHealthSummary,
+    operationalHealthData,
     buildReport,
     editConfig
   };
