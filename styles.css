@@ -638,6 +638,41 @@ body[data-auth="signed-in"] #login{display:none!important}
   margin-left:12px;
   background:var(--border);
 }
+.conversation-intake{
+  display:grid;
+  gap:18px;
+  padding:18px;
+  border:1px solid var(--border);
+  border-radius:var(--radius-card);
+  background:linear-gradient(180deg, rgba(255,253,247,.92), rgba(239,226,199,.34));
+  box-shadow:var(--soft-shadow);
+  margin-bottom:14px;
+}
+.conversation-progress{height:12px;overflow:hidden;border-radius:999px;background:rgba(79,127,130,.15)}
+.conversation-progress span{display:block;height:100%;width:0;border-radius:999px;background:var(--teal-deep);transition:width .22s ease}
+.conversation-step{display:grid;gap:14px}
+.conversation-step h3{margin:0;font-family:Fraunces, Georgia, serif;color:var(--navy);font-size:clamp(1.35rem,3vw,1.9rem)}
+.conversation-step p{margin:0;color:var(--muted);font-size:1.05rem}
+.conversation-choice-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.conversation-choice{min-height:76px;text-align:left;background:var(--paper-soft);color:var(--text);border:1px solid var(--border);display:grid;gap:4px}
+.conversation-choice.active{background:var(--navy);color:#fff;border-color:var(--navy)}
+.conversation-choice span{font-weight:850}
+.conversation-choice small{font-size:.9rem;color:inherit;opacity:.82}
+.conversation-field textarea{min-height:150px}
+.conversation-review{display:grid;gap:10px}
+.conversation-review div{border:1px solid var(--border);border-radius:12px;background:var(--paper-soft);padding:12px}
+.conversation-actions{display:flex;gap:10px;flex-wrap:wrap;justify-content:space-between}
+.conversation-actions button{min-width:140px}
+body[data-role="submitter"] #submissionForm.conversation-active > label,
+body[data-role="submitter"] #submissionForm.conversation-active > .drop-zone,
+body[data-role="submitter"] #submissionForm.conversation-active > #reviewUploadPreview{
+  position:absolute;
+  width:1px;
+  height:1px;
+  overflow:hidden;
+  clip:rect(0 0 0 0);
+}
+body[data-role="submitter"] #submissionForm.conversation-active > .actions{display:none}
 .operational-memory-note{
   margin:12px 0;
   border-left:6px solid var(--sage);
@@ -1235,6 +1270,9 @@ a.file-link{color:var(--teal-deep);font-weight:700;text-decoration:underline}
   .search-results{position:static;margin-top:8px;max-height:45vh}
   .filter-pills{display:grid;grid-template-columns:1fr 1fr}
   .filter-pill{min-height:48px}
+  .conversation-choice-grid{grid-template-columns:1fr}
+  .conversation-actions{display:grid;grid-template-columns:1fr}
+  .conversation-actions button{width:100%}
   .scheduled-work-row{grid-template-columns:1fr;align-items:start}
   .primary-add-btn{width:100%;min-height:48px}
   .sync-pill{width:100%;justify-content:flex-start}

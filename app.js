@@ -424,6 +424,7 @@ function render(){
   renderNotifications();
   window.FieldOps.Views.TodayDashboard.render(app, createViewHelpers());
   window.FieldOps.Views.ProjectsBudget.render(app, createViewHelpers());
+  window.FieldOps.Views.renderConversationIntake?.();
   VIEW_RENDERERS.forEach(rendererName => {
     const renderer = globalThis[rendererName];
     if(typeof renderer === "function") renderer();
@@ -1237,6 +1238,7 @@ function setFormCollapsed(formId, collapsed){
 function openSubmitRequest(){
   showView("importReview");
   setFormCollapsed("submissionForm", false);
+  window.FieldOps.Views.renderConversationIntake?.();
 }
 
 function openMySubmissions(){

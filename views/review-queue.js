@@ -4,6 +4,117 @@
   const Mappers = window.FieldOps.Services.mappers;
   const ImportReviewService = window.FieldOps.Services.importReview;
   const BULK_REVIEW_LIMIT = 40;
+  const CONVERSATION_KEY = "field_ops_conversation_intake_v1";
+  const conversationSteps = ["category", "location", "description", "urgency", "photos", "review"];
+  let conversationIndex = 0;
+
+function conversationDraft(){
+  try{ return JSON.parse(localStorage.getItem(CONVERSATION_KEY) || "{}"); }catch(_err){ return {}; }
+}
+
+function saveConversationDraft(patch){
+  const next = { ...conversationDraft(), ...patch };
+  try{ localStorage.setItem(CONVERSATION_KEY, JSON.stringify(next)); }catch(_err){}
+  syncConversationToForm(next);
+  renderConversationIntake();
+}
+
+function clearConversationDraft(){
+  try{ localStorage.removeItem(CONVERSATION_KEY); }catch(_err){}
+  conversationIndex = 0;
+}
+
+function syncConversationToForm(draft = conversationDraft()){
+  const set = (idValue, value) => {
+    const el = document.getElementById(idValue);
+    if(el && value !== undefined) el.value = value || "";
+  };
+  set("submissionCategory", draft.category || "Building");
+  set("submissionUrgency", draft.urgency || "Normal");
+  set("submissionLocation", draft.location || "");
+  set("submissionDescription", draft.description || "");
+  set("submissionSource", "Staff portal");
+}
+
+function choiceButton(label, detail, field, value){
+  const active = conversationDraft()[field] === value;
+  return `<button class="conversation-choice ${active ? "active" : ""}" type="button" onclick="setConversationAnswer('${field}','${esc(value)}')"><span>${esc(label)}</span>${detail ? `<small>${esc(detail)}</small>` : ""}</button>`;
+}
+
+function renderConversationIntake(){
+  const container = document.getElementById("conversationIntake");
+  const target = document.getElementById("conversationStep");
+  const bar = document.getElementById("conversationProgressBar");
+  const form = document.getElementById("submissionForm");
+  if(!container || !target || !bar || !form) return;
+  const enabled = typeof canSubmitOnly === "function" && canSubmitOnly();
+  container.classList.toggle("hidden", !enabled);
+  form.classList.toggle("conversation-active", enabled);
+  if(!enabled) return;
+  const draft = conversationDraft();
+  syncConversationToForm(draft);
+  const step = conversationSteps[conversationIndex] || "category";
+  bar.style.width = `${Math.round(((conversationIndex + 1) / conversationSteps.length) * 100)}%`;
+  if(step === "category"){
+    target.innerHTML = `<h3>What do you need help with?</h3><p>Choose the closest match. If it is odd or hard to explain, that is okay.</p><div class="conversation-choice-grid">
+      ${choiceButton("Building", "Doors, rooms, heat, leaks, or facility issues.", "category", "Building")}
+      ${choiceButton("Kitchen / Equipment", "Freezers, sinks, appliances, hood, or prep areas.", "category", "Kitchen / Equipment")}
+      ${choiceButton("Vehicle", "Vans, trucks, mileage, plates, service, or damage.", "category", "Vehicle")}
+      ${choiceButton("Cleaning", "Spills, trash, supplies, or cleanup needs.", "category", "Cleaning")}
+      ${choiceButton("Safety", "Trip hazards, blocked access, urgent concerns.", "category", "Safety")}
+      ${choiceButton("Something unusual happened", "Use this when it does not fit anywhere else.", "category", "Something unusual happened")}
+    </div>`;
+  }else if(step === "location"){
+    target.innerHTML = `<h3>Where is the issue?</h3><p>A room, building, vehicle, area, or simple clue is enough.</p><label class="conversation-field">Location<input value="${esc(draft.location || "")}" placeholder="Kitchen, Valley, Van 2, loading door..." oninput="setConversationAnswer('location', this.value, true)" /></label>`;
+  }else if(step === "description"){
+    target.innerHTML = `<h3>Can you describe what’s happening?</h3><p>Plain words are perfect. Include anything that feels important.</p><label class="conversation-field">Description<textarea placeholder="What happened? What should someone know?" oninput="setConversationAnswer('description', this.value, true)">${esc(draft.description || "")}</textarea></label>`;
+  }else if(step === "urgency"){
+    target.innerHTML = `<h3>How soon does this need attention?</h3><p>Choose what feels right. A manager will review it before it becomes active work.</p><div class="conversation-choice-grid">
+      ${choiceButton("Normal", "Needs attention, but not immediate.", "urgency", "Normal")}
+      ${choiceButton("High", "Important or time-sensitive.", "urgency", "High")}
+      ${choiceButton("Urgent", "Safety, access, breakdown, or active damage.", "urgency", "Urgent")}
+    </div>`;
+  }else if(step === "photos"){
+    target.innerHTML = `<h3>Would you like to add photos?</h3><p>Photos, receipts, PDFs, or notes help the operations team understand what happened.</p><div class="conversation-choice-grid">
+      <button class="conversation-choice" type="button" onclick="document.getElementById('submissionUpload')?.click()"><span>Add photo or file</span><small>Optional, but helpful.</small></button>
+      <button class="conversation-choice" type="button" onclick="nextConversationStep()"><span>Skip for now</span><small>You can submit without a file.</small></button>
+    </div><div id="conversationUploadEcho">${document.getElementById("reviewUploadPreview")?.innerHTML || ""}</div>`;
+  }else{
+    target.innerHTML = `<h3>Review before sending</h3><p>Make sure this looks right. Then send it to Needs Review.</p><div class="conversation-review">
+      <div><strong>Need</strong><p>${esc(draft.category || "Building")}</p></div>
+      <div><strong>Where</strong><p>${esc(draft.location || "No location added yet")}</p></div>
+      <div><strong>What is happening</strong><p>${esc(draft.description || "No description added yet")}</p></div>
+      <div><strong>Urgency</strong><p>${esc(draft.urgency || "Normal")}</p></div>
+    </div><div class="actions"><button type="button" onclick="submitConversationRequest()">Send request</button></div>`;
+  }
+}
+
+function setConversationAnswer(field, value, quiet = false){
+  if(!quiet && conversationIndex < conversationSteps.length - 1) conversationIndex += 1;
+  saveConversationDraft({ [field]:value });
+}
+
+function nextConversationStep(){
+  if(conversationIndex < conversationSteps.length - 1) conversationIndex += 1;
+  renderConversationIntake();
+}
+
+function previousConversationStep(){
+  if(conversationIndex > 0) conversationIndex -= 1;
+  renderConversationIntake();
+}
+
+function submitConversationRequest(){
+  syncConversationToForm();
+  const form = document.getElementById("submissionForm");
+  if(!document.getElementById("submissionDescription")?.value.trim()){
+    conversationIndex = 2;
+    renderConversationIntake();
+    setInlineState("submissionSaveState", "Add a short description before sending.", "failed");
+    return;
+  }
+  form?.requestSubmit?.();
+}
 
 function importReviewContext(){
   return { app, insertRecord, updateRecord, archiveRecord, id, currentUserId:() => currentSession?.user?.id || "" };
@@ -230,6 +341,8 @@ async function addSubmission(e){
     await createImportReview(submissionSource.value, "work_order", Mappers.submitterWorkOrderReviewData({ description:submissionDescription.value, urgency:submissionUrgency.value, location:submissionLocation.value, category:submissionCategory.value, name:submissionName.value, contact:submissionContact.value, documentId }), submissionDescription.value, documentId);
     if(typeof form?.reset === "function") form.reset();
     interactions?.clearDroppedReviewFile?.();
+    clearConversationDraft();
+    renderConversationIntake();
     setInlineState("submissionSaveState", "Saved - we'll take a look at it.", "saved");
     setStatus("Saved - we'll take a look at it.");
     InteractionService?.showConfirmation?.("Request sent", "Saved - we'll take a look at it.");
@@ -487,6 +600,11 @@ async function archiveSubmissionById(reviewId){
     requestMoreInfoForReview,
     archiveSubmissionById,
     filteredReviewItems,
+    renderConversationIntake,
+    setConversationAnswer,
+    nextConversationStep,
+    previousConversationStep,
+    submitConversationRequest,
     selectVisibleReviewItems,
     approveSelectedReviewItems,
     archiveSelectedReviewItems
@@ -505,6 +623,11 @@ async function archiveSubmissionById(reviewId){
     requestMoreInfoForReview,
     archiveSubmissionById,
     filteredReviewItems,
+    renderConversationIntake,
+    setConversationAnswer,
+    nextConversationStep,
+    previousConversationStep,
+    submitConversationRequest,
     selectVisibleReviewItems,
     approveSelectedReviewItems,
     archiveSelectedReviewItems
