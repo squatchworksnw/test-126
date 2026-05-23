@@ -58,6 +58,7 @@ function filteredReviewItems(){
       data.recurrence_pattern,
       data.notes
     ].join(" ").toLowerCase();
+    if(filter === "info_requested") return String(item.status || "").toLowerCase() === "info requested";
     if(filter === "calendar") return haystack.includes("master calendar") || haystack.includes("scheduled") || haystack.includes("2026") || haystack.includes("2027");
     if(filter === "fleet") return haystack.includes("fleet") || haystack.includes("vehicle");
     if(filter === "recurring") return haystack.includes("recurring");
@@ -104,7 +105,14 @@ async function approveSelectedReviewItems(){
     alert(`Approve ${BULK_REVIEW_LIMIT} or fewer at a time.`);
     return;
   }
-  if(!confirm(`Approve ${ids.length} selected item${ids.length === 1 ? "" : "s"} into work orders?`)) return;
+  const ok = await InteractionService?.showConfirmDialog?.({
+    title:`Approve ${ids.length} selected item${ids.length === 1 ? "" : "s"}?`,
+    detail:"Each selected review item will become active work.",
+    reassurance:"Items already approved will be skipped to prevent duplicates.",
+    confirmLabel:"Approve into work",
+    cancelLabel:"Review more first"
+  });
+  if(!ok) return;
   let approved = 0;
   let failed = 0;
   const failureMessages = [];
@@ -152,7 +160,15 @@ async function archiveSelectedReviewItems(){
     alert(`Close ${BULK_REVIEW_LIMIT} or fewer at a time.`);
     return;
   }
-  if(!confirm(`Don't approve ${ids.length} selected item${ids.length === 1 ? "" : "s"}? They will leave Needs Review but stay recoverable.`)) return;
+  const ok = await InteractionService?.showConfirmDialog?.({
+    title:`Don't approve ${ids.length} selected item${ids.length === 1 ? "" : "s"}?`,
+    detail:"They will leave Needs Review but stay recoverable for history.",
+    reassurance:"This does not delete the original record.",
+    confirmLabel:"Don't approve selected",
+    cancelLabel:"Keep reviewing",
+    tone:"danger"
+  });
+  if(!ok) return;
   let moved = 0;
   let failed = 0;
   for(const reviewId of ids){
@@ -311,6 +327,31 @@ function renderImportReviewDetail(){
     approveBtn.textContent = converted ? "Already Approved" : "Approve Work Order";
     approveBtn.onclick = () => approveReviewDetail();
   }
+  const actionRow = document.getElementById("reviewDetailActions");
+  if(actionRow){
+    let projectBtn = actionRow.querySelector("[data-review-project]");
+    if(!projectBtn){
+      projectBtn = document.createElement("button");
+      projectBtn.type = "button";
+      projectBtn.className = "ghost";
+      projectBtn.dataset.reviewProject = "true";
+      actionRow.insertBefore(projectBtn, rejectBtn || null);
+    }
+    projectBtn.textContent = "Convert to Project";
+    projectBtn.disabled = converted;
+    projectBtn.onclick = () => convertReviewToProject();
+    let infoBtn = actionRow.querySelector("[data-review-info]");
+    if(!infoBtn){
+      infoBtn = document.createElement("button");
+      infoBtn.type = "button";
+      infoBtn.className = "ghost";
+      infoBtn.dataset.reviewInfo = "true";
+      actionRow.insertBefore(infoBtn, rejectBtn || null);
+    }
+    infoBtn.textContent = "Need more info";
+    infoBtn.disabled = converted;
+    infoBtn.onclick = () => requestMoreInfoForReview();
+  }
   if(rejectBtn){
     rejectBtn.textContent = "Reject and return";
     rejectBtn.onclick = () => archiveSubmissionById(review.id);
@@ -362,6 +403,65 @@ async function approveReviewDetail(){
 }
 
 
+async function convertReviewToProject(){
+  const review = selectedReview();
+  if(!review || !requireOperationsPermission("convert submitted requests to projects")) return;
+  try{
+    if(review.convertedRecordId || String(review.status || "").toLowerCase() === "approved"){
+      setInlineState("reviewDetailSaveState", "This item was already approved", "saved");
+      return;
+    }
+    const payload = reviewWorkOrderPayload();
+    const projectData = {
+      title:payload.title,
+      name:payload.title,
+      status:"planning",
+      priority:payload.priority || "normal",
+      target_date:payload.due_date || null,
+      location:payload.description || "",
+      summary:payload.description || "",
+      notes:payload.notes || ""
+    };
+    setInlineState("reviewDetailSaveState", "Converting into project...", "pending");
+    const created = await ImportReviewService.approveReview({ reviewId:review.id, review, type:"project", data:projectData, documentId:review.documentId, reviewerId:currentSession.user.id }, importReviewContext());
+    setInlineState("reviewDetailSaveState", "Approved into project", "saved");
+    InteractionService?.showConfirmation?.("Project created", "The review item is now a project, with attached files preserved.");
+    addOperationalNotification?.({ type:"request_approved", title:"Request approved as project", detail:projectData.title || "A review item became a project.", view:"projects", recordId:created.id, role:"operations" });
+    await refreshAfterWrite?.("Approved into project");
+    showView("projects");
+  }catch(err){
+    setInlineState("reviewDetailSaveState", `Project conversion failed: ${err.message}`, "failed");
+    handleWriteError(err);
+  }
+}
+
+
+async function requestMoreInfoForReview(){
+  const review = selectedReview();
+  if(!review || !requireOperationsPermission("request more information")) return;
+  const note = prompt("What information is needed?");
+  if(note === null) return;
+  const existing = review.importedRecord || {};
+  const payload = {
+    status:"Info requested",
+    proposed_data:{ ...existing, info_requested_note:note.trim() },
+    reviewed_by:currentSession.user.id,
+    reviewed_at:new Date().toISOString()
+  };
+  try{
+    setInlineState("reviewDetailSaveState", "Saving information request...", "pending");
+    await updateRecord("field_ops_import_reviews", review.id, payload);
+    InteractionService?.showConfirmation?.("More information requested", "This item stays out of active work until the details are clarified.");
+    addOperationalNotification?.({ type:"more_info_requested", title:"More information needed", detail:note.trim() || "A manager requested more information.", view:"importReview", recordId:review.id, role:"all" });
+    await loadWorkspaceData();
+    renderImportReviewDetail();
+  }catch(err){
+    setInlineState("reviewDetailSaveState", `Could not request more information: ${err.message}`, "failed");
+    handleWriteError(err);
+  }
+}
+
+
 
 async function archiveSubmissionById(reviewId){
   try{
@@ -383,6 +483,8 @@ async function archiveSubmissionById(reviewId){
     renderImportReviewDetail,
     reviewWorkOrderPayload,
     approveReviewDetail,
+    convertReviewToProject,
+    requestMoreInfoForReview,
     archiveSubmissionById,
     filteredReviewItems,
     selectVisibleReviewItems,
@@ -399,6 +501,8 @@ async function archiveSubmissionById(reviewId){
     renderImportReviewDetail,
     reviewWorkOrderPayload,
     approveReviewDetail,
+    convertReviewToProject,
+    requestMoreInfoForReview,
     archiveSubmissionById,
     filteredReviewItems,
     selectVisibleReviewItems,

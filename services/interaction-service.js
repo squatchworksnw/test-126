@@ -110,6 +110,59 @@
     showToast(title, "saved");
   }
 
+  function showConfirmDialog({
+    title = "Are you sure?",
+    detail = "This can be changed later if needed.",
+    confirmLabel = "Continue",
+    cancelLabel = "Cancel",
+    reassurance = "",
+    tone = "normal"
+  } = {}){
+    const body = document.body;
+    if(!body || typeof body.appendChild !== "function" || typeof document.createElement !== "function"){
+      return Promise.resolve(false);
+    }
+    return new Promise(resolve => {
+      const existing = typeof document.querySelector === "function" ? document.querySelector(".confirm-dialog-backdrop") : null;
+      if(existing && typeof existing.remove === "function") existing.remove();
+      const dialog = document.createElement("section");
+      dialog.className = "confirm-dialog-backdrop";
+      dialog.setAttribute("role", "dialog");
+      dialog.setAttribute("aria-modal", "true");
+      dialog.setAttribute("aria-labelledby", "confirmDialogTitle");
+      dialog.innerHTML = `
+        <div class="confirm-dialog" role="document">
+          <div>
+            <p class="eyebrow">Please confirm</p>
+            <h2 id="confirmDialogTitle">${esc(title)}</h2>
+            <p>${esc(detail)}</p>
+            ${reassurance ? `<p class="meta">${esc(reassurance)}</p>` : ""}
+          </div>
+          <div class="confirm-actions">
+            <button type="button" class="ghost" data-confirm-cancel>${esc(cancelLabel)}</button>
+            <button type="button" class="${tone === "danger" ? "danger" : ""}" data-confirm-accept>${esc(confirmLabel)}</button>
+          </div>
+        </div>
+      `;
+      const finish = value => {
+        dialog.remove();
+        document.removeEventListener("keydown", escapeHandler);
+        resolve(value);
+      };
+      const escapeHandler = event => {
+        if(event.key === "Escape") finish(false);
+      };
+      dialog.querySelector("[data-confirm-cancel]")?.addEventListener("click", () => finish(false));
+      dialog.querySelector("[data-confirm-accept]")?.addEventListener("click", () => finish(true));
+      dialog.addEventListener("click", event => {
+        if(event.target === dialog) finish(false);
+      });
+      document.addEventListener("keydown", escapeHandler);
+      body.appendChild(dialog);
+      dialog.querySelector("[data-confirm-cancel]")?.focus();
+    });
+  }
+
   function dismissedPromptKeys(){
     return new Set(readJson(DISMISSED_PROMPTS_KEY, []));
   }
@@ -303,6 +356,7 @@
     droppedReviewFile: null,
     showToast,
     showConfirmation,
+    showConfirmDialog,
     showWorkflowPrompt,
     dismissWorkflowPrompt,
     notifications,

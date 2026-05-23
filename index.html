@@ -5,13 +5,12 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>Field Operations Command Center</title>
 
-<link rel="stylesheet" href="styles/tokens/tokens.css?v=20260522-health1" />
-<link rel="stylesheet" href="styles.css?v=20260522-health1" />
+<link rel="stylesheet" href="styles/tokens/tokens.css?v=20260523-p0brief1" />
+<link rel="stylesheet" href="styles.css?v=20260523-p0brief1" />
 </head>
 
 <body data-auth="signed-out" data-role="signed-out">
 <a class="skip-link" href="#mainContent">Skip to workspace</a>
-<div id="pilotIndicator" class="pilot-indicator hidden">Workspace check mode</div>
 <section id="login" class="view login-screen active" aria-label="Sign in">
   <div class="login-card editorial-card">
     <div>
@@ -208,7 +207,7 @@
           <h2>Let’s make this workspace feel alive.</h2>
           <p class="meta">Three small steps. You can skip after naming the workspace.</p>
         </div>
-        <button class="ghost" type="button" onclick="completeFirstLaunchSetup()">Skip setup</button>
+        <button class="ghost" type="button" onclick="completeFirstLaunchSetup(true)">Skip setup</button>
       </div>
       <div class="setup-progress" aria-label="Setup progress"><span id="setupProgressBar"></span></div>
       <div class="setup-step-grid">
@@ -296,62 +295,6 @@
         <div id="scheduledTodayList" class="card-list"></div>
       </details>
     </section>
-
-    <details class="workspace-drawer hidden" aria-hidden="true">
-      <summary>More workspaces</summary>
-      <section class="workspace-grid" aria-label="Primary workspaces">
-        <button class="workspace-card review" type="button" onclick="showView('importReview')">
-          <span>Needs Review</span>
-          <strong id="reviewQueueCount">0 waiting</strong>
-          <em>Incoming items before active work.</em>
-        </button>
-        <button class="workspace-card maintenance" type="button" onclick="showView('workOrders')">
-          <span>Work Orders</span>
-          <strong id="workspaceMaintenanceCount">0 due today</strong>
-          <em>Tasks linked to places, assets, vehicles, vendors, and projects.</em>
-        </button>
-        <button class="workspace-card projects" type="button" onclick="showView('projects')">
-          <span>Projects</span>
-          <strong id="workspaceProjectCount">0 active</strong>
-          <em>Repairs, contracting, budgets, and timelines.</em>
-        </button>
-        <button class="workspace-card materials" type="button" onclick="showView('materials')">
-          <span>Supplies / Materials</span>
-          <strong>Review first</strong>
-          <em>Purchase and order requests.</em>
-        </button>
-        <button class="workspace-card fleet" type="button" onclick="showView('vehicles')">
-          <span>Vehicles</span>
-          <strong id="workspaceFleetCount">0 to check</strong>
-          <em>Service, VIN, plate, and documents.</em>
-        </button>
-        <button class="workspace-card fuel" type="button" onclick="showView('fuelReceipts')">
-          <span>Fuel Receipts</span>
-          <strong id="workspaceFuelCount">0 receipts</strong>
-          <em>Gas receipts and odometer notes.</em>
-        </button>
-        <button class="workspace-card vendors" type="button" onclick="showView('vendors')">
-          <span>Vendors</span>
-          <strong id="workspaceBidCount">0 open</strong>
-          <em>Contacts, bids, and follow-up.</em>
-        </button>
-        <button class="workspace-card files" type="button" onclick="showView('documents')">
-          <span>Documents</span>
-          <strong id="workspaceFileCount">0 linked</strong>
-          <em>Files, photos, estimates, and reports.</em>
-        </button>
-        <button class="workspace-card calendar" type="button" onclick="showView('budget')">
-          <span>Money / Budget</span>
-          <strong id="workspaceCalendarCount">0 dated</strong>
-          <em>Estimates, invoices, and expenses.</em>
-        </button>
-        <button class="workspace-card reports" type="button" onclick="showView('reports')">
-          <span>Reports</span>
-          <strong>Board-ready</strong>
-          <em>Summaries from live records.</em>
-        </button>
-      </section>
-    </details>
 
     <section class="quiet-metrics hidden" aria-label="Today counts" aria-hidden="true">
       <div class="stat"><span>Urgent / high</span><strong id="urgentCount">0</strong></div>
@@ -452,6 +395,7 @@
             <option value="calendar">Calendar items</option>
             <option value="fleet">Fleet</option>
             <option value="recurring">Recurring</option>
+            <option value="info_requested">Info Requested</option>
             <option value="walkthrough">Walkthrough</option>
             <option value="facility">Facility</option>
             <option value="asset">Assets / systems</option>
@@ -476,7 +420,7 @@
           <h2 id="reviewDetailTitle">Review Submission</h2>
           <p id="reviewDetailMeta" class="meta">Fix the fields before approving this into operational records.</p>
         </div>
-        <div class="actions no-print">
+        <div class="actions no-print" id="reviewDetailActions">
           <button class="ghost" type="button" onclick="showView('importReview')">Back to Needs Review</button>
           <button type="button" id="reviewApproveBtn">Approve Work Order</button>
           <button class="danger" type="button" id="reviewRejectBtn">Reject and return</button>
@@ -975,6 +919,19 @@
           </div>
 
           <p class="meta small">The master calendar opens here first. Nothing becomes a real work order until you move items to Needs Review and approve them.</p>
+          <details class="advanced-upload-details">
+            <summary>Download simple CSV templates</summary>
+            <div class="actions">
+              <button class="ghost" type="button" onclick="downloadCsvTemplate('tasks')">Maintenance tasks</button>
+              <button class="ghost" type="button" onclick="downloadCsvTemplate('projects')">Projects</button>
+              <button class="ghost" type="button" onclick="downloadCsvTemplate('bids')">Bids</button>
+              <button class="ghost" type="button" onclick="downloadCsvTemplate('vendors')">Vendors</button>
+              <button class="ghost" type="button" onclick="downloadCsvTemplate('vehicles')">Fleet</button>
+              <button class="ghost" type="button" onclick="downloadCsvTemplate('assets')">Assets</button>
+              <button class="ghost" type="button" onclick="downloadCsvTemplate('fuelReceipts')">Fuel receipts</button>
+              <button class="ghost" type="button" onclick="downloadCsvTemplate('budget_item')">Budget items</button>
+            </div>
+          </details>
         </section>
 
         <section class="panel" style="box-shadow:none;">
@@ -1104,7 +1061,7 @@
         <div class="stat"><span>Database Connection</span><strong id="diagSupabaseConnected">Not checked</strong></div>
         <div class="stat"><span>Last Load</span><strong id="diagLastLoadAt">Never</strong></div>
       </div>
-      <p class="meta small">Run <strong>sql/rls_verification.sql</strong> in the Supabase SQL Editor before pilot use.</p>
+      <p class="meta small technical-only hidden">Run <strong>sql/rls_verification.sql</strong> in the Supabase SQL Editor before live verification.</p>
     </details>
 
     <section class="panel">
@@ -1149,29 +1106,29 @@
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="state/app-state.js?v=20260522-health1"></script>
-<script src="components/cards.js?v=20260522-health1"></script>
-<script src="components/forms.js?v=20260522-health1"></script>
-<script src="auth/roles.js?v=20260522-health1"></script>
-<script src="auth/session.js?v=20260522-health1"></script>
-<script src="services/supabase-service.js?v=20260522-health1"></script>
-<script src="services/mappers.js?v=20260522-health1"></script>
-<script src="services/import-review-service.js?v=20260522-health1"></script>
-<script src="services/materials-service.js?v=20260522-health1"></script>
-<script src="services/demo-service.js?v=20260522-health1"></script>
-<script src="services/interaction-service.js?v=20260522-health1"></script>
-<script src="sync/pending-queue.js?v=20260522-health1"></script>
-<script src="services/auth-service.js?v=20260522-health1"></script>
-<script src="services/sync-service.js?v=20260522-health1"></script>
-<script src="views/registry.js?v=20260522-health1"></script>
-<script src="views/today-dashboard.js?v=20260522-health1"></script>
-<script src="views/work-orders.js?v=20260522-health1"></script>
-<script src="views/documents.js?v=20260522-health1"></script>
-<script src="views/projects-budget.js?v=20260522-health1"></script>
-<script src="views/materials.js?v=20260522-health1"></script>
-<script src="views/review-queue.js?v=20260522-health1"></script>
-<script src="views/fleet.js?v=20260522-health1"></script>
-<script src="app.js?v=20260522-health1"></script>
+<script src="state/app-state.js?v=20260523-p0brief1"></script>
+<script src="components/cards.js?v=20260523-p0brief1"></script>
+<script src="components/forms.js?v=20260523-p0brief1"></script>
+<script src="auth/roles.js?v=20260523-p0brief1"></script>
+<script src="auth/session.js?v=20260523-p0brief1"></script>
+<script src="services/supabase-service.js?v=20260523-p0brief1"></script>
+<script src="services/mappers.js?v=20260523-p0brief1"></script>
+<script src="services/import-review-service.js?v=20260523-p0brief1"></script>
+<script src="services/materials-service.js?v=20260523-p0brief1"></script>
+<script src="services/demo-service.js?v=20260523-p0brief1"></script>
+<script src="services/interaction-service.js?v=20260523-p0brief1"></script>
+<script src="sync/pending-queue.js?v=20260523-p0brief1"></script>
+<script src="services/auth-service.js?v=20260523-p0brief1"></script>
+<script src="services/sync-service.js?v=20260523-p0brief1"></script>
+<script src="views/registry.js?v=20260523-p0brief1"></script>
+<script src="views/today-dashboard.js?v=20260523-p0brief1"></script>
+<script src="views/work-orders.js?v=20260523-p0brief1"></script>
+<script src="views/documents.js?v=20260523-p0brief1"></script>
+<script src="views/projects-budget.js?v=20260523-p0brief1"></script>
+<script src="views/materials.js?v=20260523-p0brief1"></script>
+<script src="views/review-queue.js?v=20260523-p0brief1"></script>
+<script src="views/fleet.js?v=20260523-p0brief1"></script>
+<script src="app.js?v=20260523-p0brief1"></script>
 </body>
 </html>
 

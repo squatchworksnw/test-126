@@ -369,7 +369,7 @@ async function addTask(e){
     handleWriteError(err);
   }
 }
-async function addBuilding(e){ e.preventDefault(); try{ await insertRecord("field_ops_buildings", Mappers.buildingPayloadFromForm({ name:buildingName.value, code:buildingCode.value, address:buildingAddress.value, status:buildingStatus.value, notes:buildingNotes.value })); e.target.reset(); }catch(err){ handleWriteError(err); } }
+async function addBuilding(e){ e.preventDefault(); try{ await insertRecord("field_ops_buildings", Mappers.buildingPayloadFromForm({ name:buildingName.value, code:buildingCode.value, address:buildingAddress.value, status:buildingStatus.value, notes:buildingNotes.value })); e.target.reset(); InteractionService?.showConfirmation?.("Building added", "This building is now available for spaces, assets, documents, and work history."); }catch(err){ handleWriteError(err); } }
 async function addSpace(e){ e.preventDefault(); try{ await insertRecord("field_ops_spaces", Mappers.spacePayloadFromForm({ buildingId:spaceBuilding.value, name:spaceName.value, spaceType:spaceType.value, floor:spaceFloor.value, status:spaceStatus.value, notes:spaceNotes.value })); e.target.reset(); }catch(err){ handleWriteError(err); } }
 async function addAsset(e){ e.preventDefault(); try{ await insertRecord("field_ops_assets", Mappers.assetPayloadFromForm({ buildingId:assetBuilding.value, spaceId:assetSpace.value, name:assetName.value, assetTag:assetTag.value, category:assetCategory.value, status:assetStatus.value, notes:assetNotes.value })); e.target.reset(); }catch(err){ handleWriteError(err); } }
 async function addVendor(e){ e.preventDefault(); try{ await insertRecord("field_ops_vendors", Mappers.vendorPayloadFromForm({ name:vendorName.value, vendorType:vendorType.value, contactName:vendorContact.value, phone:vendorPhone.value, email:vendorEmail.value, status:vendorStatus.value, insuranceExpiresOn:vendorInsurance.value, notes:vendorNotes.value })); e.target.reset(); }catch(err){ handleWriteError(err); } }
@@ -446,7 +446,17 @@ function firstLaunchDone(){
   try{ return localStorage.getItem(firstLaunchKey()) === "1"; }catch(_err){ return true; }
 }
 
-function completeFirstLaunchSetup(){
+async function completeFirstLaunchSetup(confirmSkip = false){
+  if(confirmSkip){
+    const ok = await InteractionService?.showConfirmDialog?.({
+      title:"Skip for now?",
+      detail:"You can finish setup anytime in Settings.",
+      reassurance:"Nothing will be deleted or changed.",
+      confirmLabel:"Skip for now",
+      cancelLabel:"Keep setting up"
+    });
+    if(!ok) return;
+  }
   try{ localStorage.setItem(firstLaunchKey(), "1"); }catch(_err){}
   renderFirstLaunchSetup();
 }
@@ -948,9 +958,20 @@ function isOpenRecord(item){
   return !["complete","completed","closed","archived","canceled"].includes(String(item.status || "").toLowerCase());
 }
 
+function vendorInsuranceLabel(vendor){
+  if(!vendor.insuranceExpiresOn) return "Insurance not on file";
+  const today = new Date(todayString());
+  const expires = new Date(vendor.insuranceExpiresOn);
+  if(Number.isNaN(expires.getTime())) return `Insurance: ${vendor.insuranceExpiresOn}`;
+  const days = Math.ceil((expires - today) / 86400000);
+  if(days < 0) return `Insurance expired ${Math.abs(days)} day${Math.abs(days) === 1 ? "" : "s"} ago`;
+  if(days <= 30) return `Insurance expires in ${days} day${days === 1 ? "" : "s"}`;
+  return `Insurance current through ${vendor.insuranceExpiresOn}`;
+}
+
 function renderVendors(){
   const vendors = activeItems("vendors");
-  document.getElementById("vendorList").innerHTML = vendors.length ? vendors.map(v => card(v.name,[v.contactName, v.phone, v.email, v.notes],[v.vendorType, v.status, v.insuranceExpiresOn ? `Insurance: ${v.insuranceExpiresOn}` : ""],tone(v.status)) + rowActions("vendors", v)).join("") : empty("No vendors yet.");
+  document.getElementById("vendorList").innerHTML = vendors.length ? vendors.map(v => card(v.name,[v.contactName, v.phone, v.email, v.notes],[v.vendorType, v.status, vendorInsuranceLabel(v)],tone(v.status)) + rowActions("vendors", v)).join("") : empty("No vendors yet.");
   const options = `<option value="">No related vendor</option>` + vendors.map(v => `<option value="${v.id}">${esc(v.name)}</option>`).join("");
   ["taskVendorBid","fileBid","budgetVendor"].forEach(el => { if(document.getElementById(el)) document.getElementById(el).innerHTML = options; });
 }
@@ -1020,7 +1041,15 @@ async function deleteItem(section,index){
   const item = app[section]?.[index];
   const config = editConfig[section];
   if(!item || !config) return;
-  if(!confirm("Move this item out of active work? It will be hidden from active lists but kept for history.")) return;
+  const ok = await InteractionService?.showConfirmDialog?.({
+    title: section === "tasks" ? "Archive this task?" : "Move this item out of active work?",
+    detail: "It will leave active lists, but the record will stay in history.",
+    reassurance: "You can restore it later if needed.",
+    confirmLabel: section === "tasks" ? "Archive task" : "Move out of active work",
+    cancelLabel: "Keep active",
+    tone: "danger"
+  });
+  if(!ok) return;
   try{ await archiveRecord(config.table, item.id); }
   catch(err){ handleWriteError(err); }
 }
@@ -1272,6 +1301,26 @@ function targetFieldsForImport(type){
   return fields[normalized] || fields.work_order;
 }
 
+function downloadCsvTemplate(type){
+  const fields = targetFieldsForImport(type === "auto" ? "tasks" : type);
+  const header = fields.length ? fields : ["title","notes"];
+  const sample = header.map(field => {
+    if(field.includes("date")) return "2026-06-01";
+    if(field.includes("status")) return "open";
+    if(field.includes("priority")) return "normal";
+    if(field.includes("amount") || field.includes("cost")) return "0.00";
+    return "";
+  });
+  const csv = [header.join(","), sample.join(",")].join("\n");
+  const blob = new Blob([csv], { type:"text/csv" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `${type || "import"}-template.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
 function guessHeaderForField(headers, field){
   const aliases = {
     frequency:["frequency"],
@@ -1321,11 +1370,12 @@ function renderMappingPanel(){
     return;
   }
   const fields = targetFieldsForImport(stagedImport.suggestedType);
+  const missingFields = fields.filter(field => !guessHeaderForField(stagedImport.headers, field));
   const options = `<option value="">Do not map</option>` + stagedImport.headers.map(header => `<option value="${esc(header)}">${esc(header)}</option>`).join("");
-  target.innerHTML = `<article class="card"><h4>Suggested import: ${esc(titleize(stagedImport.suggestedType))}</h4><p>${stagedImport.rows.length} row${stagedImport.rows.length === 1 ? "" : "s"} ready to stage after review.</p><div class="form-grid">${fields.map(field => {
+  target.innerHTML = `<article class="card"><h4>Suggested import: ${esc(titleize(stagedImport.suggestedType))}</h4><p>${stagedImport.rows.length} row${stagedImport.rows.length === 1 ? "" : "s"} ready to stage after review.</p>${missingFields.length ? `<p class="meta warning-text">Check these columns before staging: ${esc(missingFields.map(titleize).join(", "))}.</p>` : `<p class="meta">Columns look ready. Preview the first rows before staging.</p>`}<div class="form-grid">${fields.map(field => {
     const guess = guessHeaderForField(stagedImport.headers, field);
     return `<label>${esc(titleize(field))}<select data-map-field="${esc(field)}">${options.replace(`value="${esc(guess)}"`, `value="${esc(guess)}" selected`)}</select></label>`;
-  }).join("")}</div></article>`;
+  }).join("")}</div><details class="advanced-upload-details"><summary>Preview first rows</summary><div class="table-wrap"><table><thead><tr>${stagedImport.headers.slice(0, 8).map(header => `<th>${esc(header)}</th>`).join("")}</tr></thead><tbody>${stagedImport.rows.slice(0, 5).map(row => `<tr>${stagedImport.headers.slice(0, 8).map(header => `<td>${esc(row[header] || "")}</td>`).join("")}</tr>`).join("")}</tbody></table></div><p class="meta">Problem rows can be skipped by leaving required fields unmapped before staging.</p></details></article>`;
 }
 
 function recurringCell(row, names){
@@ -2111,7 +2161,16 @@ function loadDemoPilotData(){
   render();
 }
 
-function clearDemoPilotData(){
+async function clearDemoPilotData(){
+  const ok = await InteractionService?.showConfirmDialog?.({
+    title:"Clear temporary demo data?",
+    detail:"This only clears the temporary demo information on this device.",
+    reassurance:"Shared workspace records will not be deleted.",
+    confirmLabel:"Clear demo data",
+    cancelLabel:"Keep demo data",
+    tone:"danger"
+  });
+  if(!ok) return;
   DemoService?.clearDemoData(app);
   setStatus("Demo data cleared");
   InteractionService?.showToast?.("Demo data cleared", "saved");

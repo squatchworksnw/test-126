@@ -132,6 +132,7 @@
     try{
       await insertRecord("field_ops_vehicles", Mappers.vehiclePayloadFromForm({ name:vehicleName.value, vehicleNumber:vehicleNumber.value, plate:vehiclePlate.value, vin:vehicleVin.value, mileage:vehicleMileage.value, status:vehicleStatus.value, lastServiceDate:vehicleLastService.value, serviceDate:vehicleService.value, registration:vehicleRegistration.value, warranty:vehicleWarranty.value, notes:vehicleNotes.value }));
       e.target.reset();
+      InteractionService?.showConfirmation?.("Vehicle added", "This vehicle is now available for service history, receipts, documents, and assigned work.");
     }catch(err){ handleWriteError(err); }
   }
 

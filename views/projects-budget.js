@@ -100,6 +100,10 @@ function projectStoryPanel(project){
     <div class="timeline compact-timeline">
       ${recentWork.length ? recentWork.map(item => `<article class="timeline-item"><strong>${esc(item.name || "Work item")}</strong><p>${esc([titleize(item.status), item.date].filter(Boolean).join(" | "))}</p></article>`).join("") : empty("Related work will appear here as this project develops.")}
     </div>
+    <div class="actions no-print">
+      <button class="ghost" type="button" onclick="showView('vendors')">Add linked bid</button>
+      <button class="ghost" type="button" onclick="showView('budget')">Add budget item</button>
+    </div>
   </details>`;
 }
 

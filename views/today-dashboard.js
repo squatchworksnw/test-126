@@ -183,17 +183,21 @@
       todayState.fleetAlerts.length ? namedPriorityLine(todayState.fleetAlerts, "", "needs a fleet check") : "No urgent fleet issues."
     ].filter(Boolean).map(line => `<p>${helpers.esc(line)}</p>`).join("");
 
-    document.getElementById("reviewQueueCount").textContent = `${todayState.reviewCount} waiting`;
-    document.getElementById("workspaceProjectCount").textContent = `${todayState.activeProjects.length} active`;
-    document.getElementById("workspaceMaintenanceCount").textContent = `${todayState.dueToday.length} due today`;
-    document.getElementById("workspaceFleetCount").textContent = `${todayState.fleetAlerts.length} to check`;
-    document.getElementById("workspaceFuelCount").textContent = `${helpers.activeItems("fuelReceipts").length} receipts`;
-    document.getElementById("workspaceBidCount").textContent = `${todayState.openBids.length} open`;
-    document.getElementById("workspaceFileCount").textContent = `${helpers.activeItems("files").length} linked`;
-    document.getElementById("workspaceCalendarCount").textContent = `${todayState.thisWeek.length} this week`;
-    document.getElementById("urgentCount").textContent = todayState.urgentTasks.length;
-    document.getElementById("projectCount").textContent = todayState.activeProjects.length;
-    document.getElementById("bidCount").textContent = todayState.openBids.length;
+    const setText = (id, value) => {
+      const el = document.getElementById(id);
+      if(el) el.textContent = value;
+    };
+    setText("reviewQueueCount", `${todayState.reviewCount} waiting`);
+    setText("workspaceProjectCount", `${todayState.activeProjects.length} active`);
+    setText("workspaceMaintenanceCount", `${todayState.dueToday.length} due today`);
+    setText("workspaceFleetCount", `${todayState.fleetAlerts.length} to check`);
+    setText("workspaceFuelCount", `${helpers.activeItems("fuelReceipts").length} receipts`);
+    setText("workspaceBidCount", `${todayState.openBids.length} open`);
+    setText("workspaceFileCount", `${helpers.activeItems("files").length} linked`);
+    setText("workspaceCalendarCount", `${todayState.thisWeek.length} this week`);
+    setText("urgentCount", todayState.urgentTasks.length);
+    setText("projectCount", todayState.activeProjects.length);
+    setText("bidCount", todayState.openBids.length);
     const attentionBuckets = [
       todayState.reviewCount,
       todayState.overdue.length,

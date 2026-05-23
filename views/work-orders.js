@@ -778,7 +778,15 @@ function recurringPatternForWorkOrder(task){
 
 async function archiveWorkOrderById(workOrderId){
   if(!requireOperationsPermission("move work orders out of active work")) return;
-  if(!confirm("Archive this task? It will leave the active list but can be restored later.")) return;
+  const ok = await InteractionService?.showConfirmDialog?.({
+    title:"Archive this task?",
+    detail:"It will leave the active work list, but the record will stay in history.",
+    reassurance:"You can restore it later from Inactive Work Orders.",
+    confirmLabel:"Archive task",
+    cancelLabel:"Keep active",
+    tone:"danger"
+  });
+  if(!ok) return;
   try{
     await archiveRecord("field_ops_work_orders", workOrderId);
     if(selectedWorkOrderId === workOrderId) selectedWorkOrderId = "";

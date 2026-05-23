@@ -130,7 +130,7 @@ header{
 .work-order-tools{display:grid;gap:14px;margin:12px 0 18px}
 .work-order-search{max-width:620px}
 .filter-pills{display:flex;flex-wrap:wrap;gap:8px}
-.filter-pill{padding:9px 12px;border-radius:999px;border:1px solid var(--border);background:#fffaf0;color:var(--text);font-size:.88rem}
+.filter-pill{padding:10px 14px;border-radius:999px;border:1px solid var(--border);background:#fffaf0;color:var(--text);font-size:1rem;min-height:48px}
 .filter-pill.active{background:var(--navy);border-color:var(--navy);color:#fff}
 .success-screen-backdrop{
   position:fixed;
@@ -177,6 +177,27 @@ header{
 .success-screen p{margin:0;color:var(--muted);font-size:1.08rem}
 .success-actions{display:flex;gap:10px;align-items:center;flex-wrap:wrap;justify-content:center;width:100%}
 .success-actions button{min-height:52px;min-width:120px}
+.confirm-dialog-backdrop{
+  position:fixed;
+  inset:0;
+  z-index:1000;
+  background:rgba(28,43,58,.38);
+  display:grid;
+  place-items:center;
+  padding:18px;
+}
+.confirm-dialog{
+  width:min(520px,100%);
+  background:var(--paper);
+  border:1px solid var(--border);
+  border-radius:var(--radius-card);
+  box-shadow:var(--deep-shadow);
+  padding:24px;
+}
+.confirm-dialog h2{margin:0 0 8px}
+.confirm-dialog p{font-size:1.05rem;line-height:1.45}
+.confirm-actions{display:flex;justify-content:flex-end;flex-wrap:wrap;gap:10px;margin-top:18px}
+.confirm-actions button{min-height:48px}
 .scheduled-work-list{display:grid;gap:10px}
 .scheduled-work-row{display:grid;grid-template-columns:120px minmax(0,1fr) 120px 110px auto;align-items:center;gap:12px;background:var(--paper-soft);border:1px solid var(--border);border-radius:14px;padding:12px}
 .scheduled-date,.scheduled-source{font-weight:800;color:var(--navy);font-size:.9rem}
@@ -741,6 +762,7 @@ body[data-auth="signed-in"] #login{display:none!important}
 .meta[data-state="pending"]{color:var(--warning);font-weight:760}
 .meta[data-state="saved"]{color:var(--ok);font-weight:760}
 .meta[data-state="failed"]{color:var(--danger);font-weight:760}
+.warning-text{color:var(--warning);font-weight:760}
 .timeline{display:grid;gap:10px;border-left:3px solid rgba(79,127,130,.24);padding-left:12px}
 .timeline-item{position:relative;background:var(--paper-soft);border:1px solid var(--border);border-radius:14px;padding:10px 12px}
 .timeline-item::before{content:"";position:absolute;left:-20px;top:16px;width:9px;height:9px;border-radius:50%;background:var(--teal-deep);box-shadow:0 0 0 4px var(--paper)}
@@ -902,7 +924,7 @@ body[data-auth="signed-in"] #login{display:none!important}
 .tags{display:flex;flex-wrap:wrap;gap:5px;margin-top:8px}
 .tag{background:#efe2c7;border-radius:999px;padding:3px 7px;font-size:.78rem;color:var(--text)}
 form,.form-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
-label{display:grid;gap:4px;font-size:.86rem;color:var(--muted)}
+label{display:grid;gap:6px;font-size:1rem;color:var(--muted)}
 input,select,textarea{width:100%;min-height:48px;border:1px solid var(--border);border-radius:12px;padding:10px;background:var(--paper-soft);font:inherit;color:var(--text)}
 input:focus,select:focus,textarea:focus{outline:2px solid rgba(79,127,130,.25);border-color:var(--teal)}
 button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible,[tabindex]:focus-visible{
@@ -912,7 +934,7 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
 textarea{min-height:90px;resize:vertical}
 .full{grid-column:1/-1}
 .actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
-button{border:none;background:var(--teal-deep);color:white;border-radius:12px;padding:10px 12px;font-weight:760;cursor:pointer;min-height:48px}
+button{border:none;background:var(--teal-deep);color:white;border-radius:12px;padding:11px 14px;font-weight:760;cursor:pointer;min-height:48px}
 button:hover{background:var(--navy)}
 button.ghost{background:var(--paper-soft);color:var(--text);border:1px solid var(--border)}
 button.danger{background:var(--danger)}
