@@ -101,6 +101,21 @@
     return items.length ? items.slice(0,5).map(formatter).join("") + (items.length > 5 ? `<p>+ ${items.length - 5} more</p>` : "") : `<p>${esc(emptyText)}</p>`;
   }
 
+  function vehicleContinuitySummary(work, docs){
+    const completed = work.filter(item => !isOpenRecord(item));
+    const recurring = work.filter(item => /service|repair|scheduled from master calendar|recurring|master import key:/i.test(`${item.notes || ""} ${item.type || ""} ${item.name || ""}`));
+    return `<section class="object-story-section"><h4>Continuity</h4>
+      <p>${esc(`${completed.length} completed vehicle record${completed.length === 1 ? "" : "s"}`)}</p>
+      <p>${esc(`${docs.length} linked upload${docs.length === 1 ? "" : "s"} or document${docs.length === 1 ? "" : "s"}`)}</p>
+      <p>${esc(recurring.length > 1 ? "Recurring service pattern visible" : "Service pattern still building")}</p>
+    </section>`;
+  }
+
+  function activityLine(action, item){
+    const date = item?.updatedAt || item?.createdAt || item?.date || "time not recorded";
+    return `<p>${esc(action)} — workspace — ${esc(date)}</p>`;
+  }
+
   function isOpenRecord(item){
     return !["complete","completed","closed","archived","canceled"].includes(String(item.status || "").toLowerCase());
   }
@@ -123,6 +138,8 @@
         <section class="object-story-section"><h4>Photos</h4>${storyRows(photos, "No photos linked yet.", doc => `<p>${esc(doc.fileName)}</p>`)}</section>
         <section class="object-story-section"><h4>Open Work</h4>${storyRows(openWork, "No open work linked.", item => `<p>${esc(compact([item.date, item.workOrderNumber, item.name]).join(" | "))}</p>`)}</section>
         <section class="object-story-section"><h4>Recurring Maintenance</h4>${storyRows(recurring, "No recurring maintenance linked yet.", item => `<p>${esc(compact([item.date, item.name]).join(" | "))}</p>`)}</section>
+        ${vehicleContinuitySummary(work, docs)}
+        <section class="object-story-section"><h4>Activity</h4>${storyRows(work.slice().sort((a,b) => String(b.updatedAt || b.date || "").localeCompare(String(a.updatedAt || a.date || ""))), "No activity recorded yet.", item => activityLine(titleize(item.status || "Updated"), item))}</section>
       </div>
     </details>`;
   }

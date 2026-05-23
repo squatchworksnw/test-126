@@ -422,6 +422,10 @@ function assignedWorkCard(task){
   </article>`;
 }
 
+function renderAssignedGroup(title, items){
+  return `<section class="assigned-group"><div class="panel-title"><div><h3>${esc(title)}</h3><p class="meta">${items.length ? `${items.length} item${items.length === 1 ? "" : "s"}` : "All clear"}</p></div></div>${items.length ? items.slice(0, 10).map(assignedWorkCard).join("") : empty(`No ${title.toLowerCase()} assigned work.`)}</section>`;
+}
+
 function renderAssignedWork(){
   const list = document.getElementById("assignedWorkList");
   if(!list) return;
@@ -443,7 +447,17 @@ function renderAssignedWork(){
     button.classList.toggle("active", active);
     button.setAttribute("aria-pressed", active ? "true" : "false");
   });
-  list.innerHTML = shown.length ? shown.map(assignedWorkCard).join("") + (items.length > shown.length ? empty(`Showing the first ${shown.length} of ${items.length}. Search to narrow this down.`) : "") : empty(assignedWorkSearchValue() ? "No assigned work matches that search." : "No tasks assigned yet.");
+  if(!assignedWorkSearchValue() && assignedWorkFilter === "attention"){
+    const grouped = [
+      renderAssignedGroup("Overdue", summary.overdue),
+      renderAssignedGroup("Due Today", summary.today),
+      renderAssignedGroup("This Week", summary.week.filter(item => !summary.today.includes(item))),
+      renderAssignedGroup("Recently Updated", summary.recent)
+    ].join("");
+    list.innerHTML = summary.all.length ? grouped : empty("No tasks assigned yet.");
+  }else{
+    list.innerHTML = shown.length ? shown.map(assignedWorkCard).join("") + (items.length > shown.length ? empty(`Showing the first ${shown.length} of ${items.length}. Search to narrow this down.`) : "") : empty(assignedWorkSearchValue() ? "No assigned work matches that search." : "No tasks assigned yet.");
+  }
   const status = document.getElementById("assignedWorkStatus");
   if(status){
     const label = assignedWorkSearchValue() ? `search for "${assignedWorkSearchValue()}"` : assignedWorkFilter.replace(/_/g, " ");

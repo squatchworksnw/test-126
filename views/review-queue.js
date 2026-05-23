@@ -5,7 +5,7 @@
   const ImportReviewService = window.FieldOps.Services.importReview;
   const BULK_REVIEW_LIMIT = 40;
   const CONVERSATION_KEY = "field_ops_conversation_intake_v1";
-  const conversationSteps = ["category", "location", "description", "urgency", "photos", "review"];
+  const conversationSteps = ["welcome", "category", "context", "description", "photos", "location", "urgency", "review"];
   let conversationIndex = 0;
 
 function conversationDraft(){
@@ -31,8 +31,8 @@ function syncConversationToForm(draft = conversationDraft()){
   };
   set("submissionCategory", draft.category || "Building");
   set("submissionUrgency", draft.urgency || "Normal");
-  set("submissionLocation", draft.location || "");
-  set("submissionDescription", draft.description || "");
+  set("submissionLocation", [draft.location, draft.object].filter(Boolean).join(" - "));
+  set("submissionDescription", [draft.description, draft.impact ? `Operations impact: ${draft.impact}` : ""].filter(Boolean).join("\n"));
   set("submissionSource", "Staff portal");
 }
 
@@ -55,17 +55,42 @@ function renderConversationIntake(){
   syncConversationToForm(draft);
   const step = conversationSteps[conversationIndex] || "category";
   bar.style.width = `${Math.round(((conversationIndex + 1) / conversationSteps.length) * 100)}%`;
-  if(step === "category"){
+  if(step === "welcome"){
+    target.innerHTML = `<h3>What needs attention?</h3><p>We’ll go one step at a time. You do not need perfect wording.</p><div class="conversation-choice-grid">
+      <button class="conversation-choice active" type="button" onclick="nextConversationStep()"><span>Start a request</span><small>Tell the operations team what you noticed.</small></button>
+    </div>`;
+  }else if(step === "category"){
     target.innerHTML = `<h3>What do you need help with?</h3><p>Choose the closest match. If it is odd or hard to explain, that is okay.</p><div class="conversation-choice-grid">
       ${choiceButton("Building", "Doors, rooms, heat, leaks, or facility issues.", "category", "Building")}
       ${choiceButton("Kitchen / Equipment", "Freezers, sinks, appliances, hood, or prep areas.", "category", "Kitchen / Equipment")}
       ${choiceButton("Vehicle", "Vans, trucks, mileage, plates, service, or damage.", "category", "Vehicle")}
       ${choiceButton("Cleaning", "Spills, trash, supplies, or cleanup needs.", "category", "Cleaning")}
       ${choiceButton("Safety", "Trip hazards, blocked access, urgent concerns.", "category", "Safety")}
+      ${choiceButton("Supplies / purchase", "Materials, event needs, gifts, office items, or supplies.", "category", "Supplies / Materials")}
       ${choiceButton("Something unusual happened", "Use this when it does not fit anywhere else.", "category", "Something unusual happened")}
     </div>`;
+  }else if(step === "context"){
+    const category = draft.category || "Building";
+    const choices = category === "Vehicle"
+      ? [
+        ["Can still be used", "It is a concern, but the vehicle can keep operating.", "Vehicle can still operate"],
+        ["May need service soon", "It should be checked before normal use continues.", "Vehicle may need service"],
+        ["Cannot be used safely", "This may stop normal operations.", "Vehicle cannot be used safely"]
+      ]
+      : category === "Supplies / Materials"
+        ? [
+          ["Need to order something", "Supplies, materials, event items, or purchases.", "Purchase or supply request"],
+          ["Need approval first", "Someone should review before anything is bought.", "Needs approval before purchase"],
+          ["Not sure", "The reviewer can help route it.", "Not sure how to route"]
+        ]
+        : [
+          ["Small issue", "Someone should know, but normal operations continue.", "Normal operations continue"],
+          ["Slowing things down", "This affects normal work.", "Affects normal operations"],
+          ["Stops normal operations", "Safety, access, equipment failure, or active damage.", "Stops normal operations"]
+        ];
+    target.innerHTML = `<h3>Does this stop normal operations?</h3><p>This helps the team understand how quickly to look.</p><div class="conversation-choice-grid">${choices.map(([label, detail, value]) => choiceButton(label, detail, "impact", value)).join("")}</div>`;
   }else if(step === "location"){
-    target.innerHTML = `<h3>Where is the issue?</h3><p>A room, building, vehicle, area, or simple clue is enough.</p><label class="conversation-field">Location<input value="${esc(draft.location || "")}" placeholder="Kitchen, Valley, Van 2, loading door..." oninput="setConversationAnswer('location', this.value, true)" /></label>`;
+    target.innerHTML = `<h3>Where is this happening?</h3><p>A room, building, vehicle, area, or simple clue is enough.</p><label class="conversation-field">Location<input value="${esc(draft.location || "")}" placeholder="Kitchen, Valley, Van 2, loading door..." oninput="setConversationAnswer('location', this.value, true)" /></label><label class="conversation-field">Connected item, if you know it<input value="${esc(draft.object || "")}" placeholder="Freezer, sink, truck, hallway, not sure..." oninput="setConversationAnswer('object', this.value, true)" /></label>`;
   }else if(step === "description"){
     target.innerHTML = `<h3>Can you describe what’s happening?</h3><p>Plain words are perfect. Include anything that feels important.</p><label class="conversation-field">Description<textarea placeholder="What happened? What should someone know?" oninput="setConversationAnswer('description', this.value, true)">${esc(draft.description || "")}</textarea></label>`;
   }else if(step === "urgency"){
@@ -82,7 +107,9 @@ function renderConversationIntake(){
   }else{
     target.innerHTML = `<h3>Review before sending</h3><p>Make sure this looks right. Then send it to Needs Review.</p><div class="conversation-review">
       <div><strong>Need</strong><p>${esc(draft.category || "Building")}</p></div>
+      <div><strong>Impact</strong><p>${esc(draft.impact || "Normal operations continue")}</p></div>
       <div><strong>Where</strong><p>${esc(draft.location || "No location added yet")}</p></div>
+      <div><strong>Connected item</strong><p>${esc(draft.object || "Not sure")}</p></div>
       <div><strong>What is happening</strong><p>${esc(draft.description || "No description added yet")}</p></div>
       <div><strong>Urgency</strong><p>${esc(draft.urgency || "Normal")}</p></div>
     </div><div class="actions"><button type="button" onclick="submitConversationRequest()">Send request</button></div>`;

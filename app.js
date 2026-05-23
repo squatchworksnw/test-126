@@ -909,6 +909,21 @@ function objectStoryRows(items, emptyText, formatter){
   return items.length ? items.slice(0,5).map(formatter).join("") + (items.length > 5 ? `<p>+ ${items.length - 5} more</p>` : "") : `<p>${esc(emptyText)}</p>`;
 }
 
+function activityLine(action, item){
+  const date = item?.updatedAt || item?.createdAt || item?.date || "time not recorded";
+  return `<p>${esc(action)} — workspace — ${esc(date)}</p>`;
+}
+
+function objectContinuitySummary(label, work, docs){
+  const completed = work.filter(item => !isOpenRecord(item));
+  const recurring = work.filter(item => /scheduled from master calendar|recurring|master import key:|walkthrough|inspection|repair/i.test(`${item.notes || ""} ${item.type || ""} ${item.name || ""}`));
+  return `<section class="object-story-section"><h4>Continuity</h4>
+    <p>${esc(`${completed.length} completed ${label} record${completed.length === 1 ? "" : "s"}`)}</p>
+    <p>${esc(`${docs.length} linked upload${docs.length === 1 ? "" : "s"} or document${docs.length === 1 ? "" : "s"}`)}</p>
+    <p>${esc(recurring.length > 1 ? "Recurring issue pattern visible" : "No strong recurring pattern yet")}</p>
+  </section>`;
+}
+
 function buildingStoryPanel(building){
   const spaces = activeItems("spaces").filter(space => space.buildingId === building.id);
   const assets = activeItems("assets").filter(asset => asset.buildingId === building.id);
@@ -929,6 +944,8 @@ function buildingStoryPanel(building){
       <section class="object-story-section"><h4>Photos</h4>${objectStoryRows(photos, "No photos linked yet.", doc => `<p>${esc(doc.fileName)}</p>`)}</section>
       <section class="object-story-section"><h4>Open Work</h4>${objectStoryRows(openWork, "No open work linked.", item => `<p>${esc(compact([item.date, item.workOrderNumber, item.name]).join(" | "))}</p>`)}</section>
       <section class="object-story-section"><h4>Recurring / Inspections</h4>${objectStoryRows(recurring, "No recurring or inspection work linked yet.", item => `<p>${esc(compact([item.date, item.name]).join(" | "))}</p>`)}</section>
+      ${objectContinuitySummary("building", work, docs)}
+      <section class="object-story-section"><h4>Activity</h4>${objectStoryRows(work.slice().sort((a,b) => String(b.updatedAt || b.date || "").localeCompare(String(a.updatedAt || a.date || ""))), "No activity recorded yet.", item => activityLine(titleize(item.status || "Updated"), item))}</section>
     </div>
   </details>`;
 }
@@ -951,6 +968,8 @@ function assetStoryPanel(asset){
       <section class="object-story-section"><h4>Photos</h4>${objectStoryRows(photos, "No photos linked yet.", doc => `<p>${esc(doc.fileName)}</p>`)}</section>
       <section class="object-story-section"><h4>Open Work</h4>${objectStoryRows(openWork, "No open work linked.", item => `<p>${esc(compact([item.date, item.workOrderNumber, item.name]).join(" | "))}</p>`)}</section>
       <section class="object-story-section"><h4>Recurring Maintenance</h4>${objectStoryRows(recurring, "No recurring maintenance linked yet.", item => `<p>${esc(compact([item.date, item.name]).join(" | "))}</p>`)}</section>
+      ${objectContinuitySummary("asset/system", work, docs)}
+      <section class="object-story-section"><h4>Activity</h4>${objectStoryRows(work.slice().sort((a,b) => String(b.updatedAt || b.date || "").localeCompare(String(a.updatedAt || a.date || ""))), "No activity recorded yet.", item => activityLine(titleize(item.status || "Updated"), item))}</section>
     </div>
   </details>`;
 }
