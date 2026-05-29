@@ -851,21 +851,11 @@ function applyRoleVisibility(){
     label.classList.toggle("hidden", !hasVisibleItems);
     label.hidden = !hasVisibleItems;
   });
-  renderPilotIndicator();
   renderDiagnostics();
 
   if(!canAccessView(activeViewId)){
     showView(defaultViewForRole(), { skipHistory:true });
   }
-}
-
-function renderPilotIndicator(){
-  const indicator = document.getElementById("pilotIndicator");
-  if(!indicator) return;
-  const configFlag = Boolean(window.APP_CONFIG?.PILOT_MODE);
-  const visible = canManageOperations() && configFlag;
-  indicator.classList.toggle("hidden", !visible);
-  indicator.hidden = !visible;
 }
 
 function applyLargeTextMode(enabled){
@@ -1173,7 +1163,7 @@ function renderDiagnostics(){
   setText("diagSessionEmail", currentSession?.user?.email || "-");
   setText("diagSyncStatus", document.getElementById("syncStatusText")?.textContent || "-");
   setText("diagPendingWrites", String(pendingWrites.length || 0));
-  setText("diagSupabaseConnected", supabaseClient ? "Connected" : "Not connected");
+  setText("diagWorkspaceConnected", supabaseClient ? "Connected" : "Not connected");
   setText("diagLastLoadAt", lastWorkspaceLoadAt || "Never");
 }
 
@@ -2175,14 +2165,14 @@ async function approveSelectedRecurringRows(){
 function copyExtractionToClipboard(){ navigator.clipboard.writeText(extractionPreview.value || ""); }
 function clearExtractionPreview(){ extractionPreview.value = ""; }
 
-function loadDemoPilotData(){
+function loadDemoData(){
   if(!DemoService?.loadDemoData(app, Mappers)) return;
   setStatus("Demo data loaded for this session only");
   InteractionService?.showToast?.("Demo data loaded for this session only", "saved");
   render();
 }
 
-async function clearDemoPilotData(){
+async function clearDemoData(){
   const ok = await InteractionService?.showConfirmDialog?.({
     title:"Clear temporary demo data?",
     detail:"This only clears the temporary demo information on this device.",
@@ -2204,7 +2194,7 @@ function startSessionDemo(){
   AppState.resetRuntimeApp(runtimeState);
   app.settings.workspaceName = "Field Operations Command Center";
   app.settings.workspaceNote = "Demo mode. Nothing saves to the shared workspace.";
-  loadDemoPilotData();
+  loadDemoData();
   renderAuthState();
   showView("dashboard", { skipHistory:true });
 }

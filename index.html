@@ -5,8 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>Field Operations Command Center</title>
 
-<link rel="stylesheet" href="styles/tokens/tokens.css?v=20260523-intake2" />
-<link rel="stylesheet" href="styles.css?v=20260523-intake2" />
+<link rel="stylesheet" href="styles/tokens/tokens.css?v=20260523-intake3" />
+<link rel="stylesheet" href="styles.css?v=20260523-intake3" />
 </head>
 
 <body data-auth="signed-out" data-role="signed-out">
@@ -23,8 +23,8 @@
       <label>Email<input id="loginEmail" type="email" placeholder="email for workspace access" autocomplete="email" /></label>
       <label>Password<input id="loginPassword" type="password" placeholder="password" autocomplete="current-password" /></label>
       <div class="actions">
-        <button id="loginSignInBtn" type="button">Email sign-in link</button>
-        <button id="loginPasswordSignInBtn" class="ghost" type="button">Sign in with password</button>
+        <button id="loginPasswordSignInBtn" type="button">Sign in with password</button>
+        <button id="loginSignInBtn" class="ghost" type="button">Email sign-in link</button>
         <button id="loginDemoBtn" class="ghost technical-only hidden" type="button">Demo mode</button>
       </div>
       <p class="meta small">Use your team email. Access is set by your workspace role.</p>
@@ -65,23 +65,27 @@
     </div>
     <div class="auth-pill" id="authPanel">
       <input id="authEmail" type="email" placeholder="email for workspace access" autocomplete="email" />
-      <input id="authPassword" type="password" placeholder="test password" autocomplete="current-password" />
-      <button id="signInBtn" type="button">Email link</button>
-      <button id="passwordSignInBtn" class="ghost" type="button">Password</button>
+      <input id="authPassword" type="password" placeholder="password" autocomplete="current-password" />
+      <button id="passwordSignInBtn" type="button">Password</button>
+      <button id="signInBtn" class="ghost" type="button">Email link</button>
       <span class="auth-email hidden" id="authUserEmail"></span>
       <button class="ghost hidden" id="signOutBtn" type="button">Sign out</button>
     </div>
   </div>
 
   <nav class="top-nav" aria-label="Primary tasks">
+    <p class="nav-section-label" data-nav-section="portal">Field</p>
     <button class="tab" data-view="fieldPortal" data-nav-group="portal">My Home</button>
     <button class="tab" data-view="assignedWork" data-nav-group="portal">My Work</button>
+    <p class="nav-section-label" data-nav-section="command">Command</p>
     <button class="tab active" data-view="dashboard" data-nav-group="command">Today</button>
-    <button class="tab" data-view="workOrders" data-nav-group="operations">Work</button>
-    <button class="tab" data-view="documents" data-nav-group="support">Upload</button>
     <button class="tab" data-view="importReview" data-nav-group="command">Needs Review</button>
     <button class="tab" data-view="inbox" data-nav-group="command">Inbox <span id="inboxBadge" class="nav-badge hidden">0</span></button>
-    <button class="tab" data-view="settings" data-nav-group="oversight">More</button>
+    <p class="nav-section-label" data-nav-section="operations">Operations</p>
+    <button class="tab" data-view="workOrders" data-nav-group="operations">Work</button>
+    <button class="tab" data-view="documents" data-nav-group="support">Upload</button>
+    <p class="nav-section-label" data-nav-section="oversight">More</p>
+    <button class="tab" data-view="settings" data-nav-group="oversight">Settings</button>
   </nav>
 </header>
 
@@ -192,7 +196,7 @@
         <h2 id="dailyGreeting">Good morning.</h2>
         <div id="dailyRhythmLines" class="rhythm-lines"></div>
       </div>
-      <div class="illustration-anchor" aria-hidden="true"></div>
+      <div class="illustration-anchor" data-companion="bird" aria-hidden="true"></div>
       <div class="quick-actions no-print" aria-label="Daily actions">
         <button type="button" onclick="showView('workOrders')">Create Work Order</button>
         <button type="button" class="ghost" onclick="showView('importReview')">Needs Review</button>
@@ -250,6 +254,62 @@
         <strong id="todayFleetCount">0</strong>
         <em>Vehicles to check</em>
       </button>
+    </section>
+
+    <section class="panel workspace-launcher" data-admin-only aria-label="Primary workspaces">
+      <div class="panel-title">
+        <div>
+          <h3>Where to work</h3>
+          <p class="meta">Pick a workspace. Each card shows what needs attention right now.</p>
+        </div>
+      </div>
+      <section class="workspace-grid">
+        <button class="workspace-card review" type="button" onclick="showView('importReview')">
+          <span>Review Queue</span>
+          <strong id="reviewQueueCount">0 waiting</strong>
+          <em>Submissions and uploads to approve.</em>
+        </button>
+        <button class="workspace-card projects" type="button" onclick="showView('projects')">
+          <span>Projects</span>
+          <strong id="workspaceProjectCount">0 active</strong>
+          <em>Remodels, repairs, and board asks.</em>
+        </button>
+        <button class="workspace-card maintenance" type="button" onclick="showView('workOrders')">
+          <span>Maintenance</span>
+          <strong id="workspaceMaintenanceCount">0 due today</strong>
+          <em>Work orders and field tasks.</em>
+        </button>
+        <button class="workspace-card fleet" type="button" onclick="showView('vehicles')">
+          <span>Fleet</span>
+          <strong id="workspaceFleetCount">0 to check</strong>
+          <em>Vehicles, service, and registration.</em>
+        </button>
+        <button class="workspace-card vendors" type="button" onclick="showView('vendors')">
+          <span>Vendors &amp; Bids</span>
+          <strong id="workspaceBidCount">0 open</strong>
+          <em>Estimates, contractors, and comparisons.</em>
+        </button>
+        <button class="workspace-card files" type="button" onclick="showView('documents')">
+          <span>Files</span>
+          <strong id="workspaceFileCount">0 linked</strong>
+          <em>Photos, receipts, PDFs, and records.</em>
+        </button>
+        <button class="workspace-card calendar" type="button" onclick="showView('calendar')">
+          <span>Calendar</span>
+          <strong id="workspaceCalendarCount">0 this week</strong>
+          <em>Dated work across the workspace.</em>
+        </button>
+        <button class="workspace-card reports" type="button" onclick="showView('reports')">
+          <span>Reports</span>
+          <strong id="workspaceReportsCount">Open</strong>
+          <em>Board-ready summaries and packets.</em>
+        </button>
+        <button class="workspace-card fuel" type="button" onclick="showView('fuelReceipts')">
+          <span>Fuel Receipts</span>
+          <strong id="workspaceFuelCount">0 receipts</strong>
+          <em>Gas receipts tied to vehicles.</em>
+        </button>
+      </section>
     </section>
 
     <section class="panel operational-health-panel" data-admin-only>
@@ -338,14 +398,16 @@
         <span>History</span>
       </div>
       <section id="conversationIntake" class="conversation-intake hidden" aria-live="polite">
+        <p id="conversationStepLabel" class="conversation-step-label"></p>
         <div class="conversation-progress" aria-label="Request progress">
           <span id="conversationProgressBar"></span>
         </div>
         <div id="conversationStep" class="conversation-step"></div>
         <div class="conversation-actions">
-          <button class="ghost" type="button" onclick="previousConversationStep()">Back</button>
-          <button type="button" onclick="nextConversationStep()">Next</button>
+          <button id="conversationBackBtn" class="ghost" type="button" onclick="previousConversationStep()">Back</button>
+          <button id="conversationNextBtn" type="button" onclick="nextConversationStep()">Next</button>
         </div>
+        <p class="conversation-trust-note">Your request stays private until the operations team reviews it.</p>
       </section>
       <form id="submissionForm" class="mobile-short-form">
         <label>Submitted by<input id="submissionName" placeholder="Staff, office, vendor, import..." /></label>
@@ -774,8 +836,8 @@
         <button onclick="buildReport(true)">Preview Report</button>
         <button onclick="printBoardReport()">Print / Save as PDF</button>
         <button class="ghost" onclick="downloadBackup()">Download Backup</button>
-        <button class="ghost technical-only hidden" onclick="loadDemoPilotData()">Load Demo Data</button>
-        <button class="ghost technical-only hidden" onclick="clearDemoPilotData()">Clear Demo</button>
+        <button class="ghost technical-only hidden" onclick="loadDemoData()">Load Demo Data</button>
+        <button class="ghost technical-only hidden" onclick="clearDemoData()">Clear Demo</button>
       </div>
     </section>
     <section class="panel">
@@ -1068,10 +1130,9 @@
         <div class="stat"><span>Session Email</span><strong id="diagSessionEmail">-</strong></div>
         <div class="stat"><span>Sync Status</span><strong id="diagSyncStatus">-</strong></div>
         <div class="stat"><span>Waiting to Sync</span><strong id="diagPendingWrites">0</strong></div>
-        <div class="stat"><span>Database Connection</span><strong id="diagSupabaseConnected">Not checked</strong></div>
+        <div class="stat"><span>Workspace Connection</span><strong id="diagWorkspaceConnected">Not checked</strong></div>
         <div class="stat"><span>Last Load</span><strong id="diagLastLoadAt">Never</strong></div>
       </div>
-      <p class="meta small technical-only hidden">Run <strong>sql/rls_verification.sql</strong> in the Supabase SQL Editor before live verification.</p>
     </details>
 
     <section class="panel">
@@ -1128,17 +1189,17 @@
 <script src="services/demo-service.js?v=20260523-intake2"></script>
 <script src="services/interaction-service.js?v=20260523-intake2"></script>
 <script src="sync/pending-queue.js?v=20260523-intake2"></script>
-<script src="services/auth-service.js?v=20260523-intake2"></script>
-<script src="services/sync-service.js?v=20260523-intake2"></script>
-<script src="views/registry.js?v=20260523-intake2"></script>
-<script src="views/today-dashboard.js?v=20260523-intake2"></script>
-<script src="views/work-orders.js?v=20260523-intake2"></script>
+<script src="services/auth-service.js?v=20260523-intake3"></script>
+<script src="services/sync-service.js?v=20260523-intake3"></script>
+<script src="views/registry.js?v=20260523-intake3"></script>
+<script src="views/today-dashboard.js?v=20260523-intake3"></script>
+<script src="views/work-orders.js?v=20260523-intake3"></script>
 <script src="views/documents.js?v=20260523-intake2"></script>
 <script src="views/projects-budget.js?v=20260523-intake2"></script>
 <script src="views/materials.js?v=20260523-intake2"></script>
-<script src="views/review-queue.js?v=20260523-intake2"></script>
+<script src="views/review-queue.js?v=20260523-intake3"></script>
 <script src="views/fleet.js?v=20260523-intake2"></script>
-<script src="app.js?v=20260523-intake2"></script>
+<script src="app.js?v=20260523-intake3"></script>
 </body>
 </html>
 

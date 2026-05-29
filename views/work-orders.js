@@ -525,7 +525,7 @@ async function updateAssignedWorkNotes(task, message, successMessage){
   try{
     setStatus("Saving assigned work...");
     const { data, error } = await updateRow("field_ops_work_orders", task.id, payload, workspaceId());
-    if(error) throw withSupabaseCallDetails(error, "field_ops_work_orders", "update assigned work", payload);
+    if(error) throw withWorkspaceCallDetails(error, "field_ops_work_orders", "update assigned work", payload);
     if(!data) throw new Error("No row was updated. This account may not be allowed to update assigned work yet.");
     setStatus(successMessage);
     await loadWorkspaceData();
@@ -545,7 +545,7 @@ async function completeAssignedWorkItem(taskId){
   try{
     setStatus("Saving completion...");
     const { data, error } = await updateRow("field_ops_work_orders", task.id, payload, workspaceId());
-    if(error) throw withSupabaseCallDetails(error, "field_ops_work_orders", "complete assigned work", payload);
+    if(error) throw withWorkspaceCallDetails(error, "field_ops_work_orders", "complete assigned work", payload);
     if(!data) throw new Error("No row was updated. This account may not be allowed to complete this assigned work yet.");
     setStatus("Assigned work marked complete");
     InteractionService?.showConfirmation?.("Work completed", "This assigned item was marked complete and kept in the work history.", [
@@ -1020,8 +1020,8 @@ async function markWorkOrderComplete(workOrderId){
   try{
     setWorkOrderDetailState("Saving completion...", "pending");
     const { data, error } = await updateRow("field_ops_work_orders", workOrderId, payload, workspaceId());
-    if(error) throw withSupabaseCallDetails(error, "field_ops_work_orders", "update completion", payload);
-    if(!data) throw withSupabaseCallDetails(new Error("No row was updated. This usually means permissions blocked the update, the record is archived, or the workspace did not match."), "field_ops_work_orders", "update completion", payload);
+    if(error) throw withWorkspaceCallDetails(error, "field_ops_work_orders", "update completion", payload);
+    if(!data) throw withWorkspaceCallDetails(new Error("No row was updated. This usually means permissions blocked the update, the record is archived, or the workspace did not match."), "field_ops_work_orders", "update completion", payload);
     setWorkOrderDetailState("Complete saved", "saved");
     InteractionService?.showConfirmation?.("Work completed", task.vehicleId ? "Vehicle work is complete. Upload a receipt, photo, or service document if you have one." : "This task was marked complete and kept in the work history.", [
       { label:"Upload proof", run:() => uploadDocumentForScheduledTask(task.id) }
@@ -1095,15 +1095,15 @@ async function saveWorkOrderDetailUpdates(){
     const workOrderPayload = { status, priority, due_date:dueDate, notes: notes || null };
     setWorkOrderDetailState("Saving work order...", "pending");
     const workOrderResult = await updateRow("field_ops_work_orders", task.id, workOrderPayload, workspaceId());
-    if(workOrderResult.error) throw withSupabaseCallDetails(workOrderResult.error, "field_ops_work_orders", "update detail", workOrderPayload);
-    if(!workOrderResult.data) throw withSupabaseCallDetails(new Error("No row was updated. This usually means permissions blocked the update, the record is archived, or the workspace did not match."), "field_ops_work_orders", "update detail", workOrderPayload);
+    if(workOrderResult.error) throw withWorkspaceCallDetails(workOrderResult.error, "field_ops_work_orders", "update detail", workOrderPayload);
+    if(!workOrderResult.data) throw withWorkspaceCallDetails(new Error("No row was updated. This usually means permissions blocked the update, the record is archived, or the workspace did not match."), "field_ops_work_orders", "update detail", workOrderPayload);
     savedWorkOrder = true;
     if(existingDocumentId){
       const documentPayload = { work_order_id: task.id };
       setWorkOrderDetailState("Linking document...", "pending");
       const documentResult = await updateRow("field_ops_documents", existingDocumentId, documentPayload, workspaceId());
-      if(documentResult.error) throw withSupabaseCallDetails(documentResult.error, "field_ops_documents", "link document", documentPayload);
-      if(!documentResult.data) throw withSupabaseCallDetails(new Error("No document row was updated. This usually means permissions blocked the update, the document is archived, or the workspace did not match."), "field_ops_documents", "link document", documentPayload);
+      if(documentResult.error) throw withWorkspaceCallDetails(documentResult.error, "field_ops_documents", "link document", documentPayload);
+      if(!documentResult.data) throw withWorkspaceCallDetails(new Error("No document row was updated. This usually means permissions blocked the update, the document is archived, or the workspace did not match."), "field_ops_documents", "link document", documentPayload);
     }
     if(upload){
       setWorkOrderDetailState("Uploading attachment...", "pending");
@@ -1140,7 +1140,7 @@ async function saveWorkOrderDetailUpdates(){
   }
 }
 
-function withSupabaseCallDetails(error, table, action, payload){
+function withWorkspaceCallDetails(error, table, action, payload){
   error.fieldOpsCall = { table, action, payload };
   return error;
 }

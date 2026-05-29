@@ -4,9 +4,73 @@
   const Mappers = window.FieldOps.Services.mappers;
   const ImportReviewService = window.FieldOps.Services.importReview;
   const BULK_REVIEW_LIMIT = 40;
-  const CONVERSATION_KEY = "field_ops_conversation_intake_v1";
-  const conversationSteps = ["welcome", "category", "context", "description", "photos", "location", "urgency", "review"];
+  const CONVERSATION_KEY = "field_ops_conversation_intake_v2";
+  const conversationSteps = ["welcome", "category", "detail", "description", "photos", "location", "urgency", "review"];
   let conversationIndex = 0;
+
+  const CATEGORY_OPTIONS = [
+    ["Building", "Doors, rooms, heat, leaks, or facility issues.", "🏠"],
+    ["Kitchen / Equipment", "Freezers, sinks, appliances, hood, or prep areas.", "🍳"],
+    ["Vehicle", "Vans, trucks, mileage, plates, service, or damage.", "🚐"],
+    ["Cleaning", "Spills, trash, supplies, or cleanup needs.", "🧹"],
+    ["Safety", "Trip hazards, blocked access, urgent concerns.", "⚠️"],
+    ["Supplies / Materials", "Materials, event needs, gifts, or purchases.", "📦"],
+    ["Something unusual happened", "Use when it does not fit anywhere else.", "❓"]
+  ];
+
+  const DETAIL_OPTIONS = {
+    "Building": [
+      ["Plumbing", "Leaks, drains, water pressure, fixtures", "💧"],
+      ["Electrical", "Outlets, lights, panels, or power", "⚡"],
+      ["HVAC", "Heat, cooling, or ventilation", "❄️"],
+      ["General maintenance", "Doors, walls, locks, or general repair", "🔧"],
+      ["Other", "Something else in the building", "➕"]
+    ],
+    "Kitchen / Equipment": [
+      ["Not cooling / heating", "Fridge, freezer, oven, or warmer trouble", "🧊"],
+      ["Leak or water issue", "Sink, drain, or standing water", "💧"],
+      ["Broken equipment", "Appliance or fixture not working", "🔧"],
+      ["Cleaning / sanitation", "Cleanup or prep-area issue", "🧽"],
+      ["Other", "Another kitchen or equipment issue", "➕"]
+    ],
+    "Vehicle": [
+      ["Won't start / drive issue", "Vehicle may not be safe to use", "🚫"],
+      ["Warning light or noise", "Needs inspection soon", "⚠️"],
+      ["Body / interior damage", "Dents, glass, or interior issue", "💥"],
+      ["Service or registration", "Maintenance, tags, or paperwork", "📅"],
+      ["Other", "Another vehicle issue", "➕"]
+    ],
+    "Cleaning": [
+      ["Spill or mess", "Needs cleanup now", "🧹"],
+      ["Trash / supplies", "Bins, bags, or stock", "🗑️"],
+      ["Scheduled cleaning help", "Extra cleanup support", "📋"],
+      ["Other", "Another cleaning need", "➕"]
+    ],
+    "Safety": [
+      ["Trip / fall hazard", "Floor, steps, or walkway", "⚠️"],
+      ["Blocked access", "Door, exit, or path blocked", "🚧"],
+      ["Fire / electrical concern", "Needs immediate review", "🔥"],
+      ["Other", "Another safety concern", "➕"]
+    ],
+    "Supplies / Materials": [
+      ["Need to order supplies", "Materials or consumables", "📦"],
+      ["Need approval first", "Review before purchasing", "✅"],
+      ["Not sure how to route", "Team can help place it", "❓"]
+    ],
+    "Something unusual happened": [
+      ["Needs a human review", "Hard to categorize", "👀"],
+      ["Might be urgent", "Could affect operations", "⚡"],
+      ["Not sure yet", "That is okay", "❓"]
+    ]
+  };
+
+  const PLUMBING_DETAILS = [
+    ["Leak", "Water dripping or pooling"],
+    ["Clog / drain issue", "Slow or blocked drain"],
+    ["Broken fixture", "Sink, toilet, or faucet"],
+    ["No water / low pressure", "Water not flowing normally"],
+    ["Other", "Another plumbing issue"]
+  ];
 
 function conversationDraft(){
   try{ return JSON.parse(localStorage.getItem(CONVERSATION_KEY) || "{}"); }catch(_err){ return {}; }
@@ -24,21 +88,83 @@ function clearConversationDraft(){
   conversationIndex = 0;
 }
 
+function urgencyForStorage(priority){
+  const map = { Low:"Normal", Medium:"Normal", High:"High", Urgent:"Urgent", Normal:"Normal" };
+  return map[priority] || "Normal";
+}
+
+function locationSummary(draft){
+  const parts = [draft.buildingName, draft.floor, draft.room, draft.location, draft.object].filter(Boolean);
+  return parts.join(" · ") || "";
+}
+
 function syncConversationToForm(draft = conversationDraft()){
   const set = (idValue, value) => {
     const el = document.getElementById(idValue);
     if(el && value !== undefined) el.value = value || "";
   };
   set("submissionCategory", draft.category || "Building");
-  set("submissionUrgency", draft.urgency || "Normal");
-  set("submissionLocation", [draft.location, draft.object].filter(Boolean).join(" - "));
-  set("submissionDescription", [draft.description, draft.impact ? `Operations impact: ${draft.impact}` : ""].filter(Boolean).join("\n"));
+  set("submissionUrgency", urgencyForStorage(draft.urgency || "Medium"));
+  set("submissionLocation", locationSummary(draft));
+  const detailLine = draft.issueDetail ? `Issue: ${draft.issueDetail}` : "";
+  const subtypeLine = draft.issueSubtype ? `Specific issue: ${draft.issueSubtype}` : "";
+  set("submissionDescription", [detailLine, subtypeLine, draft.description, draft.impact ? `Operations impact: ${draft.impact}` : ""].filter(Boolean).join("\n"));
   set("submissionSource", "Staff portal");
 }
 
-function choiceButton(label, detail, field, value){
+function choiceButton(label, detail, field, value, icon = ""){
   const active = conversationDraft()[field] === value;
-  return `<button class="conversation-choice ${active ? "active" : ""}" type="button" onclick="setConversationAnswer('${field}','${esc(value)}')"><span>${esc(label)}</span>${detail ? `<small>${esc(detail)}</small>` : ""}</button>`;
+  const iconMarkup = icon ? `<span class="conversation-choice-icon" aria-hidden="true">${icon}</span>` : "";
+  return `<button class="conversation-choice ${active ? "active" : ""}" type="button" onclick="setConversationAnswer('${field}','${esc(value)}')">${iconMarkup}<span>${esc(label)}</span>${detail ? `<small>${esc(detail)}</small>` : ""}</button>`;
+}
+
+function priorityButton(label, detail, value, tone){
+  const active = conversationDraft().urgency === value;
+  return `<button class="conversation-choice priority-choice priority-${tone} ${active ? "active" : ""}" type="button" onclick="setConversationAnswer('urgency','${esc(value)}')"><span class="priority-dot" aria-hidden="true"></span><span>${esc(label)}</span><small>${esc(detail)}</small></button>`;
+}
+
+function reviewRow(label, value, stepName){
+  return `<div class="conversation-review-row"><div><strong>${esc(label)}</strong><p>${esc(value || "Not added yet")}</p></div><button class="ghost conversation-edit" type="button" onclick="jumpToConversationStep('${stepName}')">Edit</button></div>`;
+}
+
+function conversationBuildingOptions(selected){
+  const buildings = typeof activeItems === "function" ? activeItems("buildings") : [];
+  const options = [`<option value="">Choose building</option>`].concat(buildings.map(b => `<option value="${esc(b.name)}" ${selected === b.name ? "selected" : ""}>${esc(b.name)}</option>`));
+  return options.join("");
+}
+
+function conversationSpaceOptions(buildingName, selected){
+  const spaces = typeof activeItems === "function" ? activeItems("spaces") : [];
+  const building = (typeof app !== "undefined" ? app.buildings : []).find(b => b.name === buildingName);
+  const filtered = building ? spaces.filter(s => s.buildingId === building.id) : spaces;
+  const options = [`<option value="">Room / area (optional)</option>`].concat(filtered.map(s => `<option value="${esc(s.name)}" ${selected === s.name ? "selected" : ""}>${esc(s.name)}</option>`));
+  return options.join("");
+}
+
+function updateConversationChrome(step, draft){
+  const label = document.getElementById("conversationStepLabel");
+  const backBtn = document.getElementById("conversationBackBtn");
+  const nextBtn = document.getElementById("conversationNextBtn");
+  const trustNote = document.querySelector(".conversation-trust-note");
+  if(draft.submitted){
+    if(label) label.textContent = "Submitted";
+    if(backBtn) backBtn.classList.add("hidden");
+    if(nextBtn) nextBtn.classList.add("hidden");
+    if(trustNote) trustNote.classList.add("hidden");
+    return;
+  }
+  const numberedSteps = conversationSteps.length - 1;
+  const displayIndex = Math.max(1, conversationIndex);
+  if(label) label.textContent = step === "welcome" ? "Quick & guided" : `Step ${displayIndex} of ${numberedSteps}`;
+  const needsNext = ["description", "photos", "location"].includes(step);
+  if(backBtn){
+    backBtn.classList.toggle("hidden", step === "welcome");
+  }
+  if(nextBtn){
+    nextBtn.classList.toggle("hidden", !needsNext);
+    nextBtn.textContent = step === "photos" ? "Continue" : "Next";
+  }
+  if(trustNote) trustNote.classList.toggle("hidden", step === "review" || step === "welcome");
 }
 
 function renderConversationIntake(){
@@ -52,73 +178,115 @@ function renderConversationIntake(){
   form.classList.toggle("conversation-active", enabled);
   if(!enabled) return;
   const draft = conversationDraft();
+  if(draft.submitted){
+    syncConversationToForm(draft);
+    bar.style.width = "100%";
+    updateConversationChrome("done", draft);
+    target.innerHTML = `<div class="conversation-done">
+      <div class="conversation-done-icon" aria-hidden="true">✓</div>
+      <h3>You're all set</h3>
+      <p>Your request was sent to the operations team for review.</p>
+      <div class="conversation-done-card">
+        <strong>Request saved</strong>
+        <p>${esc(draft.submittedRef || "We'll review it soon.")}</p>
+        <p class="meta">We'll notify you when there is an update.</p>
+      </div>
+      <div class="conversation-done-actions">
+        <button type="button" onclick="finishConversationRequest()">Done</button>
+        <button class="ghost" type="button" onclick="startAnotherConversationRequest()">Submit another request</button>
+      </div>
+    </div>`;
+    return;
+  }
   syncConversationToForm(draft);
   const step = conversationSteps[conversationIndex] || "category";
-  bar.style.width = `${Math.round(((conversationIndex + 1) / conversationSteps.length) * 100)}%`;
+  const progressIndex = Math.max(conversationIndex, 0);
+  bar.style.width = `${Math.round((progressIndex / (conversationSteps.length - 1)) * 100)}%`;
+  updateConversationChrome(step, draft);
   if(step === "welcome"){
-    target.innerHTML = `<h3>What needs attention?</h3><p>We’ll go one step at a time. You do not need perfect wording.</p><div class="conversation-choice-grid">
-      <button class="conversation-choice active" type="button" onclick="nextConversationStep()"><span>Start a request</span><small>Tell the operations team what you noticed.</small></button>
+    target.innerHTML = `<div class="conversation-welcome">
+      <div class="conversation-welcome-icon" aria-hidden="true">🔧</div>
+      <h3>Let's create your maintenance request</h3>
+      <p>One question at a time. It only takes a couple of minutes.</p>
+      <button class="conversation-start" type="button" onclick="nextConversationStep()">Start</button>
+      <p class="meta">We'll guide you step by step.</p>
     </div>`;
   }else if(step === "category"){
-    target.innerHTML = `<h3>What do you need help with?</h3><p>Choose the closest match. If it is odd or hard to explain, that is okay.</p><div class="conversation-choice-grid">
-      ${choiceButton("Building", "Doors, rooms, heat, leaks, or facility issues.", "category", "Building")}
-      ${choiceButton("Kitchen / Equipment", "Freezers, sinks, appliances, hood, or prep areas.", "category", "Kitchen / Equipment")}
-      ${choiceButton("Vehicle", "Vans, trucks, mileage, plates, service, or damage.", "category", "Vehicle")}
-      ${choiceButton("Cleaning", "Spills, trash, supplies, or cleanup needs.", "category", "Cleaning")}
-      ${choiceButton("Safety", "Trip hazards, blocked access, urgent concerns.", "category", "Safety")}
-      ${choiceButton("Supplies / purchase", "Materials, event needs, gifts, office items, or supplies.", "category", "Supplies / Materials")}
-      ${choiceButton("Something unusual happened", "Use this when it does not fit anywhere else.", "category", "Something unusual happened")}
-    </div>`;
-  }else if(step === "context"){
+    target.innerHTML = `<h3>What type of issue are you reporting?</h3><p>Choose the closest match.</p><div class="conversation-choice-grid category-grid">${CATEGORY_OPTIONS.map(([label, detail, icon]) => choiceButton(label, detail, "category", label, icon)).join("")}</div>`;
+  }else if(step === "detail"){
     const category = draft.category || "Building";
-    const choices = category === "Vehicle"
-      ? [
-        ["Can still be used", "It is a concern, but the vehicle can keep operating.", "Vehicle can still operate"],
-        ["May need service soon", "It should be checked before normal use continues.", "Vehicle may need service"],
-        ["Cannot be used safely", "This may stop normal operations.", "Vehicle cannot be used safely"]
-      ]
-      : category === "Supplies / Materials"
-        ? [
-          ["Need to order something", "Supplies, materials, event items, or purchases.", "Purchase or supply request"],
-          ["Need approval first", "Someone should review before anything is bought.", "Needs approval before purchase"],
-          ["Not sure", "The reviewer can help route it.", "Not sure how to route"]
-        ]
-        : [
-          ["Small issue", "Someone should know, but normal operations continue.", "Normal operations continue"],
-          ["Slowing things down", "This affects normal work.", "Affects normal operations"],
-          ["Stops normal operations", "Safety, access, equipment failure, or active damage.", "Stops normal operations"]
-        ];
-    target.innerHTML = `<h3>Does this stop normal operations?</h3><p>This helps the team understand how quickly to look.</p><div class="conversation-choice-grid">${choices.map(([label, detail, value]) => choiceButton(label, detail, "impact", value)).join("")}</div>`;
-  }else if(step === "location"){
-    target.innerHTML = `<h3>Where is this happening?</h3><p>A room, building, vehicle, area, or simple clue is enough.</p><label class="conversation-field">Location<input value="${esc(draft.location || "")}" placeholder="Kitchen, Valley, Van 2, loading door..." oninput="setConversationAnswer('location', this.value, true)" /></label><label class="conversation-field">Connected item, if you know it<input value="${esc(draft.object || "")}" placeholder="Freezer, sink, truck, hallway, not sure..." oninput="setConversationAnswer('object', this.value, true)" /></label>`;
+    const choices = DETAIL_OPTIONS[category] || DETAIL_OPTIONS["Something unusual happened"];
+    const plumbingFollowUp = category === "Building" && draft.issueDetail === "Plumbing";
+    if(plumbingFollowUp){
+      target.innerHTML = `<h3>What's the plumbing issue?</h3><p>This helps the team route it faster.</p><div class="conversation-choice-grid detail-grid">${PLUMBING_DETAILS.map(([label, detail]) => choiceButton(label, detail, "issueSubtype", label)).join("")}</div>`;
+    }else{
+      target.innerHTML = `<h3>Tell us a little more</h3><p>${esc(category)} — pick the closest issue.</p><div class="conversation-choice-grid detail-grid">${choices.map(([label, detail, icon]) => choiceButton(label, detail, "issueDetail", label, icon)).join("")}</div>`;
+    }
   }else if(step === "description"){
-    target.innerHTML = `<h3>Can you describe what’s happening?</h3><p>Plain words are perfect. Include anything that feels important.</p><label class="conversation-field">Description<textarea placeholder="What happened? What should someone know?" oninput="setConversationAnswer('description', this.value, true)">${esc(draft.description || "")}</textarea></label>`;
-  }else if(step === "urgency"){
-    target.innerHTML = `<h3>How soon does this need attention?</h3><p>Choose what feels right. A manager will review it before it becomes active work.</p><div class="conversation-choice-grid">
-      ${choiceButton("Normal", "Needs attention, but not immediate.", "urgency", "Normal")}
-      ${choiceButton("High", "Important or time-sensitive.", "urgency", "High")}
-      ${choiceButton("Urgent", "Safety, access, breakdown, or active damage.", "urgency", "Urgent")}
-    </div>`;
+    target.innerHTML = `<h3>Can you describe the issue?</h3><p>Any details you add will help us resolve it faster.</p><label class="conversation-field">Description<textarea placeholder="Example: There is a leak under the kitchen sink. It started this morning." oninput="setConversationAnswer('description', this.value, true)">${esc(draft.description || "")}</textarea></label>`;
   }else if(step === "photos"){
-    target.innerHTML = `<h3>Would you like to add photos?</h3><p>Photos, receipts, PDFs, or notes help the operations team understand what happened.</p><div class="conversation-choice-grid">
-      <button class="conversation-choice" type="button" onclick="document.getElementById('submissionUpload')?.click()"><span>Add photo or file</span><small>Optional, but helpful.</small></button>
-      <button class="conversation-choice" type="button" onclick="nextConversationStep()"><span>Skip for now</span><small>You can submit without a file.</small></button>
-    </div><div id="conversationUploadEcho">${document.getElementById("reviewUploadPreview")?.innerHTML || ""}</div>`;
-  }else{
-    target.innerHTML = `<h3>Review before sending</h3><p>Make sure this looks right. Then send it to Needs Review.</p><div class="conversation-review">
-      <div><strong>Need</strong><p>${esc(draft.category || "Building")}</p></div>
-      <div><strong>Impact</strong><p>${esc(draft.impact || "Normal operations continue")}</p></div>
-      <div><strong>Where</strong><p>${esc(draft.location || "No location added yet")}</p></div>
-      <div><strong>Connected item</strong><p>${esc(draft.object || "Not sure")}</p></div>
-      <div><strong>What is happening</strong><p>${esc(draft.description || "No description added yet")}</p></div>
-      <div><strong>Urgency</strong><p>${esc(draft.urgency || "Normal")}</p></div>
-    </div><div class="actions"><button type="button" onclick="submitConversationRequest()">Send request</button></div>`;
+    target.innerHTML = `<h3>Add photos (optional)</h3><p>Photos help the operations team understand the issue better.</p>
+      <div id="conversationDropZone" class="conversation-drop-zone" tabindex="0" role="button" onclick="document.getElementById('submissionUpload')?.click()">
+        <span class="conversation-drop-icon" aria-hidden="true">📷</span>
+        <strong>Tap to upload photos</strong>
+        <p>or drag and drop a file here</p>
+      </div>
+      <div id="conversationUploadEcho" class="conversation-upload-echo">${document.getElementById("reviewUploadPreview")?.innerHTML || ""}</div>
+      <button class="ghost conversation-skip-upload" type="button" onclick="nextConversationStep()">Skip for now</button>`;
+  }else if(step === "location"){
+    target.innerHTML = `<h3>Where is the issue located?</h3><p>Pick from the workspace when you can. Free text still works.</p>
+      <label class="conversation-field">Building<select onchange="setConversationAnswer('buildingName', this.value, true); renderConversationIntake();">${conversationBuildingOptions(draft.buildingName)}</select></label>
+      <label class="conversation-field">Floor (optional)<input value="${esc(draft.floor || "")}" placeholder="1st floor, basement, loading..." oninput="setConversationAnswer('floor', this.value, true)" /></label>
+      <label class="conversation-field">Room / area<select onchange="setConversationAnswer('room', this.value, true)">${conversationSpaceOptions(draft.buildingName, draft.room)}</select></label>
+      <label class="conversation-field">Extra detail (optional)<input value="${esc(draft.object || "")}" placeholder="Van 2, hallway, loading door..." oninput="setConversationAnswer('object', this.value, true)" /></label>`;
+  }else if(step === "urgency"){
+    target.innerHTML = `<h3>What's the priority?</h3><p>How urgent is this issue?</p><div class="conversation-choice-grid priority-grid">
+      ${priorityButton("Low", "Not urgent", "Low", "low")}
+      ${priorityButton("Medium", "Important but not urgent", "Medium", "medium")}
+      ${priorityButton("High", "Needs attention soon", "High", "high")}
+      ${priorityButton("Urgent", "Critical issue", "Urgent", "urgent")}
+    </div>`;
+  }else if(step === "review"){
+    const photoNote = document.getElementById("reviewUploadPreview")?.textContent?.trim() ? "Photo or file attached" : "No photos added";
+    target.innerHTML = `<h3>Review your request</h3><p>Make sure this looks right, then send it for review.</p><div class="conversation-review">
+      ${reviewRow("Issue type", draft.category, "category")}
+      ${reviewRow("Issue", [draft.issueDetail, draft.issueSubtype].filter(Boolean).join(" — "), "detail")}
+      ${reviewRow("Description", draft.description, "description")}
+      ${reviewRow("Location", locationSummary(draft), "location")}
+      ${reviewRow("Priority", draft.urgency || "Medium", "urgency")}
+      ${reviewRow("Photos", photoNote, "photos")}
+    </div><button class="conversation-submit" type="button" onclick="submitConversationRequest()">Submit request</button>`;
   }
 }
 
+function jumpToConversationStep(stepName){
+  const index = conversationSteps.indexOf(stepName);
+  if(index >= 0) conversationIndex = index;
+  renderConversationIntake();
+}
+
 function setConversationAnswer(field, value, quiet = false){
-  if(!quiet && conversationIndex < conversationSteps.length - 1) conversationIndex += 1;
-  saveConversationDraft({ [field]:value });
+  const draft = conversationDraft();
+  const patch = { [field]: value };
+  if(field === "category"){
+    patch.issueDetail = "";
+    patch.issueSubtype = "";
+  }
+  if(field === "issueDetail" && value !== "Plumbing"){
+    patch.issueSubtype = "";
+  }
+  if(field === "buildingName"){
+    patch.room = "";
+  }
+  if(!quiet && conversationIndex < conversationSteps.length - 1){
+    const step = conversationSteps[conversationIndex];
+    if(step === "detail" && field === "issueDetail" && value === "Plumbing" && draft.issueDetail !== "Plumbing"){
+      saveConversationDraft(patch);
+      return;
+    }
+    conversationIndex += 1;
+  }
+  saveConversationDraft(patch);
 }
 
 function nextConversationStep(){
@@ -127,16 +295,30 @@ function nextConversationStep(){
 }
 
 function previousConversationStep(){
+  const draft = conversationDraft();
+  if(draft.submitted) return;
   if(conversationIndex > 0) conversationIndex -= 1;
   renderConversationIntake();
+}
+
+function startAnotherConversationRequest(){
+  clearConversationDraft();
+  conversationIndex = 0;
+  renderConversationIntake();
+  if(typeof openSubmitRequest === "function") openSubmitRequest();
+}
+
+function finishConversationRequest(){
+  clearConversationDraft();
+  if(typeof openMySubmissions === "function") openMySubmissions();
+  else renderConversationIntake();
 }
 
 function submitConversationRequest(){
   syncConversationToForm();
   const form = document.getElementById("submissionForm");
   if(!document.getElementById("submissionDescription")?.value.trim()){
-    conversationIndex = 2;
-    renderConversationIntake();
+    jumpToConversationStep("description");
     setInlineState("submissionSaveState", "Add a short description before sending.", "failed");
     return;
   }
@@ -365,11 +547,20 @@ async function addSubmission(e){
     }
     currentStep = "saving review request";
     setInlineState("submissionSaveState", "Saving request for review...", "pending");
+    const summary = submissionDescription.value.trim();
     await createImportReview(submissionSource.value, "work_order", Mappers.submitterWorkOrderReviewData({ description:submissionDescription.value, urgency:submissionUrgency.value, location:submissionLocation.value, category:submissionCategory.value, name:submissionName.value, contact:submissionContact.value, documentId }), submissionDescription.value, documentId);
     if(typeof form?.reset === "function") form.reset();
     interactions?.clearDroppedReviewFile?.();
-    clearConversationDraft();
-    renderConversationIntake();
+    const useConversation = typeof canSubmitOnly === "function" && canSubmitOnly();
+    if(useConversation){
+      saveConversationDraft({
+        submitted: true,
+        submittedRef: summary ? summary.slice(0, 100) : "We'll review it soon."
+      });
+    }else{
+      clearConversationDraft();
+      renderConversationIntake();
+    }
     setInlineState("submissionSaveState", "Saved - we'll take a look at it.", "saved");
     setStatus("Saved - we'll take a look at it.");
     InteractionService?.showConfirmation?.("Request sent", "Saved - we'll take a look at it.");
@@ -632,6 +823,9 @@ async function archiveSubmissionById(reviewId){
     nextConversationStep,
     previousConversationStep,
     submitConversationRequest,
+    jumpToConversationStep,
+    finishConversationRequest,
+    startAnotherConversationRequest,
     selectVisibleReviewItems,
     approveSelectedReviewItems,
     archiveSelectedReviewItems
@@ -655,6 +849,9 @@ async function archiveSubmissionById(reviewId){
     nextConversationStep,
     previousConversationStep,
     submitConversationRequest,
+    jumpToConversationStep,
+    finishConversationRequest,
+    startAnotherConversationRequest,
     selectVisibleReviewItems,
     approveSelectedReviewItems,
     archiveSelectedReviewItems

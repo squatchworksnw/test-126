@@ -55,7 +55,7 @@
     const state = ctx.getState();
     if(isAuthenticated(state) && state.currentWorkspace) return true;
     ctx.setStatus(isAuthenticated(state) ? "Loading workspace" : "Sign in to load workspace");
-    if(showAlert) alert(isAuthenticated(state) ? "Workspace is still loading." : "Sign in first so database permission rules can allow access.");
+    if(showAlert) alert(isAuthenticated(state) ? "Workspace is still loading." : "Sign in first to open this part of the workspace.");
     return false;
   }
 

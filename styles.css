@@ -284,21 +284,6 @@ main{max-width:1180px;margin:0 auto 0 258px;padding:14px 14px 60px}
 body[data-auth="signed-out"] header,body[data-auth="signed-out"] main,body[data-auth="signed-out"] .skip-link{display:none}
 body[data-auth="signed-out"] #login{display:flex}
 body[data-auth="signed-in"] #login{display:none!important}
-.pilot-indicator{
-  position:fixed;
-  right:14px;
-  bottom:14px;
-  z-index:90;
-  max-width:min(320px,calc(100vw - 28px));
-  background:#fff4dd;
-  color:var(--navy);
-  border:1px solid rgba(200,148,69,.55);
-  border-radius:999px;
-  padding:8px 12px;
-  box-shadow:var(--soft-shadow);
-  font-size:.78rem;
-  font-weight:850;
-}
 .login-screen{
   min-height:100vh;
   align-items:center;
@@ -564,6 +549,18 @@ body[data-auth="signed-in"] #login{display:none!important}
     linear-gradient(135deg, rgba(79,127,130,.16), rgba(255,253,247,.7));
   box-shadow:inset 0 0 0 10px rgba(255,248,236,.34);
 }
+.illustration-anchor[data-companion="bird"]::before{
+  content:"";
+  display:block;
+  width:34px;
+  height:34px;
+  margin:18px auto 0;
+  border-radius:42% 58% 48% 52%;
+  background:linear-gradient(135deg, rgba(31,44,58,.18), rgba(200,148,69,.22));
+  box-shadow:-10px 8px 0 -6px rgba(79,127,130,.28);
+}
+.workspace-launcher{margin-top:4px}
+.workspace-launcher .workspace-grid{margin-bottom:0}
 
 .editorial-card{
   display:grid;
@@ -663,6 +660,24 @@ body[data-auth="signed-in"] #login{display:none!important}
 .conversation-review div{border:1px solid var(--border);border-radius:12px;background:var(--paper-soft);padding:12px}
 .conversation-actions{display:flex;gap:10px;flex-wrap:wrap;justify-content:space-between}
 .conversation-actions button{min-width:140px}
+.conversation-step-label{margin:0;font-size:.9rem;font-weight:750;color:var(--teal-deep)}
+.conversation-trust-note{margin:0;font-size:.92rem;color:var(--muted)}
+.conversation-welcome{display:grid;gap:12px;justify-items:start}
+.conversation-welcome-icon{font-size:2rem}
+.conversation-start{min-width:160px}
+.conversation-choice-icon{font-size:1.35rem}
+.conversation-choice-grid.category-grid,.conversation-choice-grid.detail-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+.conversation-choice-grid.priority-grid{grid-template-columns:1fr}
+.priority-choice .priority-dot{width:10px;height:10px;border-radius:999px;background:currentColor;opacity:.7}
+.conversation-drop-zone{border:1px dashed var(--border);border-radius:14px;padding:18px;text-align:center;background:var(--paper-soft);cursor:pointer}
+.conversation-drop-icon{font-size:1.6rem}
+.conversation-review-row{display:flex;justify-content:space-between;gap:12px;align-items:flex-start;border:1px solid var(--border);border-radius:12px;background:var(--paper-soft);padding:12px}
+.conversation-review-row p{margin:4px 0 0;color:var(--muted)}
+.conversation-submit{min-width:180px}
+.conversation-done{display:grid;gap:14px}
+.conversation-done-icon{width:48px;height:48px;border-radius:999px;display:grid;place-items:center;background:rgba(79,127,130,.16);font-size:1.4rem;font-weight:900}
+.conversation-done-card{border:1px solid var(--border);border-radius:12px;background:var(--paper-soft);padding:12px}
+.conversation-done-actions{display:flex;gap:10px;flex-wrap:wrap}
 body[data-role="submitter"] #submissionForm.conversation-active > label,
 body[data-role="submitter"] #submissionForm.conversation-active > .drop-zone,
 body[data-role="submitter"] #submissionForm.conversation-active > #reviewUploadPreview{
@@ -1317,7 +1332,6 @@ a.file-link{color:var(--teal-deep);font-weight:700;text-decoration:underline}
     font-size:.8rem;
     white-space:normal;
   }
-  .pilot-indicator{left:10px;right:10px;bottom:82px;text-align:center}
   .home-hero{display:grid}
   .editorial-card{grid-template-columns:1fr}
   .editorial-card .illustration-anchor{display:none}

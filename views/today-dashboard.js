@@ -174,13 +174,13 @@
     const todayState = getNeedsAttentionToday(state, helpers);
     const greeting = new Date().getHours() < 12 ? "Good morning" : new Date().getHours() < 17 ? "Good afternoon" : "Good evening";
     document.getElementById("dailyGreeting").textContent = `${greeting}${state.settings.userDisplayName ? `, ${state.settings.userDisplayName}` : ""}.`;
-    const pressureCount = todayState.reviewCount + todayState.overdue.length + todayState.dueToday.length + todayState.fleetAlerts.length;
+    const allClear = !todayState.reviewCount && !todayState.dueToday.length && !todayState.overdue.length && !todayState.fleetAlerts.length;
     document.getElementById("dailyRhythmLines").innerHTML = [
-      pressureCount ? `${plural(pressureCount, "thing", "things")} deserve attention today.` : "All clear for the daily rhythm.",
       todayState.reviewCount ? `${plural(todayState.reviewCount, "approval", "approvals")} waiting.` : "No approvals waiting.",
-      namedPriorityLine(todayState.dueToday, "No tasks due today.", "is due today"),
+      namedPriorityLine(todayState.dueToday, "Nothing due today.", "is due today"),
       todayState.overdue.length ? namedPriorityLine(todayState.overdue, "", "is overdue") : "No overdue work.",
-      todayState.fleetAlerts.length ? namedPriorityLine(todayState.fleetAlerts, "", "needs a fleet check") : "No urgent fleet issues."
+      todayState.fleetAlerts.length ? namedPriorityLine(todayState.fleetAlerts, "", "needs a fleet check") : "No urgent fleet issues.",
+      allClear ? "Choose a workspace below when you are ready." : ""
     ].filter(Boolean).map(line => `<p>${helpers.esc(line)}</p>`).join("");
 
     const setText = (id, value) => {
