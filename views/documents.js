@@ -120,6 +120,54 @@ function applyUploadRecordLink(){
   }
 }
 
+function uploadReviewContext(fileNameValue, extractedText){
+  const projectId = fileProject.value || null;
+  const workOrderId = fileWorkOrder.value || null;
+  const vendorId = fileBid.value || null;
+  const vehicleId = fileVehicle.value || null;
+  const assetId = fileAsset.value || null;
+  const buildingId = fileBuilding.value || null;
+  const spaceId = fileSpace.value || null;
+  const budgetItemId = fileBudgetItem.value || null;
+  const fuelReceiptId = fileFuelReceipt.value || null;
+  const vendor = app.vendors.find(item => item.id === vendorId);
+  const project = app.projects.find(item => item.id === projectId);
+  const workOrder = app.tasks.find(item => item.id === workOrderId);
+  const asset = app.assets.find(item => item.id === assetId);
+  const vehicle = app.vehicles.find(item => item.id === vehicleId);
+  const building = app.buildings.find(item => item.id === buildingId);
+  const space = app.spaces.find(item => item.id === spaceId);
+  return {
+    file_name:fileNameValue,
+    file_type:fileType.value,
+    extracted_text:extractedText,
+    project_id:projectId,
+    project:project?.name || null,
+    work_order_id:workOrderId,
+    work_order_title:workOrder?.name || null,
+    vendor_id:vendorId,
+    vendor:vendor?.name || null,
+    vehicle_id:vehicleId,
+    vehicle:vehicle?.name || null,
+    asset_id:assetId,
+    asset:asset?.name || null,
+    building_id:buildingId,
+    building:building?.name || null,
+    space_id:spaceId,
+    space:space?.name || null,
+    budget_item_id:budgetItemId,
+    fuel_receipt_id:fuelReceiptId,
+    review_context:[
+      project ? `Project: ${project.name}` : "",
+      workOrder ? `Work order: ${workOrder.workOrderNumber || workOrder.name}` : "",
+      vendor ? `Vendor: ${vendor.name}` : "",
+      asset ? `Asset/system: ${asset.name}` : "",
+      vehicle ? `Vehicle: ${vehicle.name}` : "",
+      space ? `Space: ${space.name}` : building ? `Building: ${building.name}` : ""
+    ].filter(Boolean).join(" | ")
+  };
+}
+
 async function saveDocumentMetadata({ docId, fileNameValue, fileTypeValue, storagePath, extractedText = "", extractionStatus = "not_supported", links = {}, notes = "" }){
   if(!requireInsertPermission("field_ops_documents", "upload documents")) throw new Error("Role cannot upload documents");
   const wid = workspaceId();
@@ -197,7 +245,9 @@ async function addFileRecord(e){
     const selectedLinkedRecord = document.getElementById("uploadConnectionRecord")?.value || "";
     const uncertainUpload = uploadConnectionValue === "not_sure" || (uploadConnectionValue !== "not_sure" && !selectedLinkedRecord);
     if(extractedText || uncertainUpload){
-      await createImportReview("document", typeToImportTarget(fileType.value), { file_name:fileNameValue, extracted_text:extractedText }, `Review extracted ${fileType.value} from ${fileNameValue}`, docId);
+      const reviewData = uploadReviewContext(fileNameValue, extractedText);
+      const contextNote = reviewData.review_context ? ` Context: ${reviewData.review_context}.` : "";
+      await createImportReview("document", typeToImportTarget(fileType.value), reviewData, `Review extracted ${fileType.value} from ${fileNameValue}.${contextNote}`, docId);
     }
 
     e.target.reset();
@@ -208,9 +258,16 @@ async function addFileRecord(e){
       : uploadKind === "warranty" || uploadKind === "title"
         ? "The file was saved and will be easier to find from the linked vehicle, asset, or system."
         : "The file was saved and linked to the selected record.";
-    InteractionService?.showConfirmation?.("Upload submitted", uploadDetail, uncertainUpload ? [
-      { label:"Open Needs Review", run:() => showView("importReview") }
-    ] : []);
+    const returnContext = window.pendingUploadReturnContext;
+    const confirmationActions = uncertainUpload
+      ? [{ label:"Open Needs Review", run:() => showView("importReview") }]
+      : returnContext?.view === "assignedWork"
+        ? [{ label:"Return to Assigned Work", run:() => {
+          showView("assignedWork");
+          if(returnContext.taskId) setTimeout(() => openAssignedWorkItem(returnContext.taskId), 0);
+        }}]
+        : [];
+    InteractionService?.showConfirmation?.("Upload submitted", returnContext?.view === "assignedWork" ? `${uploadDetail} Returning to Assigned Work keeps the field update connected.` : uploadDetail, confirmationActions);
     addOperationalNotification?.({
       type:"upload_submitted",
       title:"Upload submitted",
@@ -219,6 +276,14 @@ async function addFileRecord(e){
       recordId:docId,
       role:"all"
     });
+    if(returnContext?.view === "assignedWork"){
+      const taskId = returnContext.taskId;
+      window.pendingUploadReturnContext = null;
+      await refreshAfterWrite?.("Document saved");
+      showView("assignedWork");
+      if(taskId) setTimeout(() => openAssignedWorkItem(taskId), 0);
+      return;
+    }
     if(uploadKind === "warranty" && uncertainUpload){
       InteractionService?.showWorkflowPrompt?.({
         key:`attach-warranty:${docId}`,
@@ -347,6 +412,7 @@ function renderLinkedDocumentPanels(){
   Object.assign(window.FieldOps.Views, {
     saveDocumentMetadata,
     uploadDocumentToStorage,
+    uploadReviewContext,
     addFileRecord,
     typeToImportTarget,
     renderFiles,
@@ -357,6 +423,7 @@ function renderLinkedDocumentPanels(){
   Object.assign(globalThis, {
     saveDocumentMetadata,
     uploadDocumentToStorage,
+    uploadReviewContext,
     addFileRecord,
     typeToImportTarget,
     renderFiles,

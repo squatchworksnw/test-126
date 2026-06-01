@@ -84,7 +84,9 @@
       return { table:"field_ops_fuel_receipts", id:row.id };
     }
     if(recordType === "budget_item"){
-      const vendor = await ensureVendor(data.vendor || data.company || "Imported vendor", context);
+      const vendor = data.vendor_id
+        ? context.app.vendors.find(v => v.id === data.vendor_id) || { id:data.vendor_id }
+        : await ensureVendor(data.vendor || data.company || "Imported vendor", context);
       const payload = Mappers.budgetItemPayloadFromImport(data, vendor.id);
       const row = await runStep("create imported budget item", "field_ops_budget_items", payload, () => context.insertRecord("field_ops_budget_items", payload));
       return { table:"field_ops_budget_items", id:row.id };

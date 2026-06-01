@@ -73,7 +73,7 @@
     </div>
   </div>
 
-  <nav class="top-nav" aria-label="Primary tasks">
+  <nav class="top-nav" aria-label="Primary navigation">
     <p class="nav-section-label" data-nav-section="portal">Field</p>
     <button class="tab" data-view="fieldPortal" data-nav-group="portal">My Home</button>
     <button class="tab" data-view="assignedWork" data-nav-group="portal">My Work</button>
@@ -100,7 +100,7 @@
       <div class="quick-actions no-print" aria-label="Field portal actions">
         <button type="button" onclick="openSubmitRequest()">Submit New Request</button>
         <button type="button" class="ghost" onclick="openUploadFile()">Upload Photo / Document</button>
-        <button type="button" class="ghost" onclick="openSubmitRequest()">Submit Estimate</button>
+        <button type="button" class="ghost" onclick="openEstimateUpload()">Upload Estimate</button>
         <button type="button" class="ghost" onclick="openSupplyRequest()">Purchase / Supply Request</button>
       </div>
     </section>
@@ -226,9 +226,9 @@
           <div class="actions"><button type="button" onclick="openSetupBuilding()">Add building</button><button class="ghost" type="button" onclick="openSetupVehicle()">Add vehicle</button></div>
         </article>
         <article class="setup-step-card" data-setup-step="task">
-          <strong>3. Create first task</strong>
+          <strong>3. Create first work order</strong>
           <p class="meta">Add one real thing that needs attention.</p>
-          <button type="button" onclick="openSetupTask()">Create task</button>
+          <button type="button" onclick="openSetupTask()">Create work order</button>
         </article>
       </div>
     </section>
@@ -240,7 +240,7 @@
         <em>Incoming items waiting</em>
       </button>
       <button class="priority-tile due" type="button" onclick="showView('workOrders')">
-        <span>Tasks Due Today</span>
+        <span>Work Orders Due Today</span>
         <strong id="todayDueCount">0</strong>
         <em>Work due now</em>
       </button>
@@ -277,7 +277,7 @@
         <button class="workspace-card maintenance" type="button" onclick="showView('workOrders')">
           <span>Maintenance</span>
           <strong id="workspaceMaintenanceCount">0 due today</strong>
-          <em>Work orders and field tasks.</em>
+          <em>Work orders and assigned field work.</em>
         </button>
         <button class="workspace-card fleet" type="button" onclick="showView('vehicles')">
           <span>Fleet</span>
@@ -330,7 +330,7 @@
       </section>
 
       <section class="panel today-panel priority-my-work" data-hide-when-empty="assigned">
-        <div class="panel-title"><div><h3>My Tasks Today</h3><p class="meta">Assigned work due now.</p></div><button class="ghost" type="button" onclick="showView('assignedWork')">View all</button></div>
+        <div class="panel-title"><div><h3>My Assigned Work Today</h3><p class="meta">Assigned work due now.</p></div><button class="ghost" type="button" onclick="showView('assignedWork')">View all</button></div>
         <div id="todayAssignedList" class="card-list"></div>
       </section>
 
@@ -664,7 +664,7 @@
       <div class="panel-title">
         <div>
           <h2>Scheduled Work</h2>
-          <p class="meta">Imported master calendar work, recurring tasks, fleet schedule items, and walkthrough checks live here so daily work stays focused.</p>
+          <p class="meta">Imported master calendar work, recurring work, fleet schedule items, and walkthrough checks live here so daily work stays focused.</p>
         </div>
         <div class="actions no-print">
           <button class="ghost" type="button" onclick="showView('workOrders')">Back to Work Orders</button>
@@ -701,7 +701,7 @@
           <button class="ghost" type="button" onclick="showView('workOrders')">Back to Work Orders</button>
           <button type="button" id="workOrderDetailEditBtn">Edit</button>
           <button class="ghost" type="button" id="workOrderDetailCompleteBtn">Mark Complete</button>
-          <button class="danger" type="button" id="workOrderDetailArchiveBtn">Archive this task</button>
+          <button class="danger" type="button" id="workOrderDetailArchiveBtn">Archive this work order</button>
         </div>
       </div>
       <div id="workOrderDetailBody"></div>
@@ -887,7 +887,7 @@
             <button type="button" class="upload-choice-card" data-upload-connection="vehicle"><strong>Vehicle</strong><span>Car, van, title, receipt</span></button>
             <button type="button" class="upload-choice-card" data-upload-connection="place"><strong>Building / space</strong><span>Room or location</span></button>
             <button type="button" class="upload-choice-card" data-upload-connection="asset"><strong>Asset / system</strong><span>Freezer, sink, HVAC</span></button>
-            <button type="button" class="upload-choice-card" data-upload-connection="work_order"><strong>Work order</strong><span>Existing task</span></button>
+            <button type="button" class="upload-choice-card" data-upload-connection="work_order"><strong>Work order</strong><span>Existing work order</span></button>
             <button type="button" class="upload-choice-card" data-upload-connection="project"><strong>Project</strong><span>Scope or estimate</span></button>
             <button type="button" class="upload-choice-card" data-upload-connection="vendor"><strong>Vendor</strong><span>Invoice or contract</span></button>
           </div>
@@ -962,14 +962,14 @@
           <div class="panel-title">
             <div>
               <h3>Spreadsheet or Calendar</h3>
-              <p class="meta">Use this for the master calendar, task lists, bid logs, project lists, and fleet records.</p>
+              <p class="meta">Use this for the master calendar, work order lists, bid logs, project lists, and fleet records.</p>
             </div>
           </div>
 
           <label>What should these rows become after review?
             <select id="spreadsheetImportType">
               <option value="auto">Auto-detect from columns</option>
-              <option value="tasks">Maintenance Tasks</option>
+              <option value="tasks">Scheduled Work</option>
               <option value="projects">Projects</option>
               <option value="bids">Contractor Bids</option>
               <option value="vehicles">Fleet Vehicles</option>
@@ -994,7 +994,7 @@
           <details class="advanced-upload-details">
             <summary>Download simple CSV templates</summary>
             <div class="actions">
-              <button class="ghost" type="button" onclick="downloadCsvTemplate('tasks')">Maintenance tasks</button>
+              <button class="ghost" type="button" onclick="downloadCsvTemplate('tasks')">Scheduled work</button>
               <button class="ghost" type="button" onclick="downloadCsvTemplate('projects')">Projects</button>
               <button class="ghost" type="button" onclick="downloadCsvTemplate('bids')">Bids</button>
               <button class="ghost" type="button" onclick="downloadCsvTemplate('vendors')">Vendors</button>
@@ -1060,7 +1060,6 @@
       <div class="actions">
         <button type="button" onclick="stageMappedRows()">Move Matched Rows to Needs Review</button>
         <button type="button" class="ghost" onclick="stageSelectedRecurringRowsToReview()">Move Selected Recurring Rows to Needs Review</button>
-        <button type="button" onclick="approveSelectedRecurringRows()">Approve Selected Recurring Rows Into Work</button>
       </div>
     </section>
   </section>

@@ -626,15 +626,18 @@ function renderImportReviewDetail(){
   const data = review.importedRecord || {};
   const doc = review.documentId ? app.files.find(file => file.id === review.documentId) : null;
   const converted = Boolean(review.convertedRecordId) || String(review.status || "").toLowerCase() === "approved";
+  const infoRequested = String(review.status || "").toLowerCase().includes("info");
   title.textContent = data.title || data.name || "Review Submission";
   meta.textContent = compact(["Intake item", review.status, review.documentId ? "Document attached" : "No document", "Review before active work"]).join(" | ");
   form.innerHTML = `
+    ${infoRequested && data.info_requested_note ? `<section class="detail-block full"><h3>More information requested</h3><p>${esc(data.info_requested_note)}</p>${canSubmitOnly() ? `<label class="full">Response<textarea name="submitter_response" placeholder="Add the missing detail for review">${esc(data.info_response || "")}</textarea></label>` : data.info_response ? `<p class="meta">Submitter response: ${esc(data.info_response)}</p>` : `<p class="meta">Waiting for submitter response.</p>`}</section>` : ""}
     <div class="form-grid">
       <label class="full">Work order title<input name="title" required value="${esc(data.title || data.name || review.description || "")}" /></label>
       <label>Type / category<select name="type"><option value="general">General</option><option value="maintenance">Maintenance</option><option value="inspection">Inspection</option><option value="safety">Safety</option><option value="vehicle">Vehicle</option></select></label>
       <label>Status<select name="status"><option value="open">Open</option><option value="scheduled">Scheduled</option><option value="in_progress">In Progress</option><option value="waiting">Waiting</option></select></label>
       <label>Priority<select name="priority"><option value="normal" ${data.priority === "normal" ? "selected" : ""}>Normal</option><option value="high" ${data.priority === "high" ? "selected" : ""}>High</option><option value="urgent" ${data.priority === "urgent" ? "selected" : ""}>Urgent</option><option value="low" ${data.priority === "low" ? "selected" : ""}>Low</option></select></label>
       <label>Due date<input name="due_date" type="date" value="${esc(data.due_date || data.date || "")}" /></label>
+      <label>Assigned person<input name="assigned_person" value="${esc(data.assigned_person || data.assignedTo || data.responsible_role || "")}" placeholder="Name, team, or vendor" /></label>
       ${fieldHtml("project_id","Project","projectSelect",data.project_id || "")}
       ${fieldHtml("building_id","Building","buildingSelect",data.building_id || "")}
       ${fieldHtml("space_id","Space / Room","spaceSelect",data.space_id || "")}
@@ -682,10 +685,49 @@ function renderImportReviewDetail(){
     infoBtn.textContent = "Need more info";
     infoBtn.disabled = converted;
     infoBtn.onclick = () => requestMoreInfoForReview();
+    let responseBtn = actionRow.querySelector("[data-review-response]");
+    if(!responseBtn){
+      responseBtn = document.createElement("button");
+      responseBtn.type = "button";
+      responseBtn.className = "ghost";
+      responseBtn.dataset.reviewResponse = "true";
+      actionRow.insertBefore(responseBtn, rejectBtn || null);
+    }
+    responseBtn.textContent = "Submit response";
+    responseBtn.hidden = !canSubmitOnly() || !infoRequested || converted;
+    responseBtn.disabled = converted;
+    responseBtn.onclick = () => submitMoreInfoResponse();
   }
   if(rejectBtn){
     rejectBtn.textContent = "Reject and return";
     rejectBtn.onclick = () => archiveSubmissionById(review.id);
+  }
+}
+
+async function submitMoreInfoResponse(){
+  const review = selectedReview();
+  if(!review) return;
+  const form = document.getElementById("reviewDetailForm");
+  const response = String(new FormData(form).get("submitter_response") || "").trim();
+  if(!response){
+    setInlineState("reviewDetailSaveState", "Add a response before sending this back to review.", "failed");
+    return;
+  }
+  const existing = review.importedRecord || {};
+  const payload = {
+    status:"needs_review",
+    proposed_data:{ ...existing, info_response:response, info_response_at:new Date().toISOString(), info_response_by:currentSession?.user?.id || null }
+  };
+  try{
+    setInlineState("reviewDetailSaveState", "Sending response...", "pending");
+    await updateRecord("field_ops_import_reviews", review.id, payload);
+    InteractionService?.showConfirmation?.("Response sent", "This request is back in Needs Review with your added information.");
+    addOperationalNotification?.({ type:"more_info_response", title:"More information received", detail:response.slice(0, 120), view:"importReview", recordId:review.id, role:"operations" });
+    await loadWorkspaceData();
+    showView("importReview");
+  }catch(err){
+    setInlineState("reviewDetailSaveState", `Response failed: ${permissionAwareErrorMessage(err)}`, "failed");
+    handleWriteError(err);
   }
 }
 
@@ -816,6 +858,7 @@ async function archiveSubmissionById(reviewId){
     approveReviewDetail,
     convertReviewToProject,
     requestMoreInfoForReview,
+    submitMoreInfoResponse,
     archiveSubmissionById,
     filteredReviewItems,
     renderConversationIntake,
@@ -842,6 +885,7 @@ async function archiveSubmissionById(reviewId){
     approveReviewDetail,
     convertReviewToProject,
     requestMoreInfoForReview,
+    submitMoreInfoResponse,
     archiveSubmissionById,
     filteredReviewItems,
     renderConversationIntake,
@@ -857,4 +901,3 @@ async function archiveSubmissionById(reviewId){
     archiveSelectedReviewItems
   });
 })();
-

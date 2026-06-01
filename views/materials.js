@@ -61,7 +61,7 @@
     try{
       if(!requireInsertPermission("field_ops_import_reviews", "submit supply or material requests")) return;
       setInlineState("materialSaveState", "Sending supply / material request...", "pending");
-      await MaterialsService.submitMaterialList({
+      const review = await MaterialsService.submitMaterialList({
         title:materialTitle.value,
         projectId:materialProject.value,
         workOrderId:materialWorkOrder.value,
@@ -73,7 +73,10 @@
       }, materialsContext());
       e.target.reset();
       setInlineState("materialSaveState", "Supply / material request sent for review", "saved");
-      addOperationalNotification?.({ type:"supply_submitted", title:"Supply request sent", detail:"It is waiting in Needs Review.", view:"materials", role:"all" });
+      InteractionService?.showConfirmation?.("Supply request sent", "The request was preserved with its project, work order, vendor, and document context. It is waiting in Needs Review before becoming official budget or work.", [
+        { label:"Open Needs Review", run:() => showView("importReview") }
+      ]);
+      addOperationalNotification?.({ type:"supply_submitted", title:"Supply request sent", detail:"It is waiting in Needs Review.", view:"importReview", recordId:review?.id || "", role:"all" });
       await refreshAfterWrite?.("Supply / material request sent for review");
     }catch(err){
       setInlineState("materialSaveState", `Could not send: ${err.message}`, "failed");

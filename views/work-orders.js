@@ -55,13 +55,43 @@ function currentAssigneeTokens(){
 }
 
 function taskAssignee(task){
-  return task.assignedTo || assignedFromNotes(task.notes);
+  return task.assignedTo || "";
 }
 
 function isAssignedToCurrentUser(task){
   const assignee = String(taskAssignee(task) || "").toLowerCase().trim();
   if(!assignee) return false;
   return currentAssigneeTokens().some(token => assignee.includes(token) || token.includes(assignee));
+}
+
+function addMonths(dateString, months){
+  const date = new Date(`${dateString || todayStringLocal()}T12:00:00`);
+  date.setMonth(date.getMonth() + months);
+  return date.toISOString().slice(0,10);
+}
+
+function scheduledFrequency(task){
+  const text = String(task.notes || "");
+  return text.match(/Frequency:\s*([^\n]+)/i)?.[1]?.trim() || task.frequency || "";
+}
+
+function nextOccurrenceDate(task){
+  const base = task.date || todayStringLocal();
+  const frequency = scheduledFrequency(task).toLowerCase();
+  if(frequency.includes("daily")) return addDays(base, 1);
+  if(frequency.includes("weekly")) return addDays(base, 7);
+  if(frequency.includes("twice monthly") || frequency.includes("biweekly")) return addDays(base, 14);
+  if(frequency.includes("quarter")) return addMonths(base, 3);
+  if(frequency.includes("year")) return addMonths(base, 12);
+  if(frequency.includes("month")) return addMonths(base, 1);
+  return addMonths(base, 1);
+}
+
+function nextVehicleServiceDate(vehicle, task){
+  const frequency = scheduledFrequency(task).toLowerCase();
+  if(frequency) return nextOccurrenceDate({ ...task, date:todayStringLocal() });
+  if(vehicle?.serviceDate && vehicle.serviceDate > todayStringLocal()) return vehicle.serviceDate;
+  return addMonths(todayStringLocal(), 3);
 }
 
 function workOrderSearchValue(){
@@ -454,9 +484,9 @@ function renderAssignedWork(){
       renderAssignedGroup("This Week", summary.week.filter(item => !summary.today.includes(item))),
       renderAssignedGroup("Recently Updated", summary.recent)
     ].join("");
-    list.innerHTML = summary.all.length ? grouped : empty("No tasks assigned yet.");
+    list.innerHTML = summary.all.length ? grouped : empty("No work orders assigned yet.");
   }else{
-    list.innerHTML = shown.length ? shown.map(assignedWorkCard).join("") + (items.length > shown.length ? empty(`Showing the first ${shown.length} of ${items.length}. Search to narrow this down.`) : "") : empty(assignedWorkSearchValue() ? "No assigned work matches that search." : "No tasks assigned yet.");
+    list.innerHTML = shown.length ? shown.map(assignedWorkCard).join("") + (items.length > shown.length ? empty(`Showing the first ${shown.length} of ${items.length}. Search to narrow this down.`) : "") : empty(assignedWorkSearchValue() ? "No assigned work matches that search." : "No work orders assigned yet.");
   }
   const status = document.getElementById("assignedWorkStatus");
   if(status){
@@ -524,10 +554,9 @@ async function updateAssignedWorkNotes(task, message, successMessage){
   const payload = { notes:appendHistory(task.notes, message) };
   try{
     setStatus("Saving assigned work...");
-    const { data, error } = await updateRow("field_ops_work_orders", task.id, payload, workspaceId());
-    if(error) throw withWorkspaceCallDetails(error, "field_ops_work_orders", "update assigned work", payload);
-    if(!data) throw new Error("No row was updated. This account may not be allowed to update assigned work yet.");
-    setStatus(successMessage);
+    const saved = await updateRecord("field_ops_work_orders", task.id, payload);
+    setStatus(saved?._queued ? "Assigned work note queued until connection returns" : successMessage);
+    if(saved?._queued) return;
     await loadWorkspaceData();
     const refreshed = app.tasks.find(item => item.id === task.id);
     if(refreshed && selectedAssignedWorkId === task.id) renderAssignedWorkDetail(refreshed);
@@ -544,15 +573,32 @@ async function completeAssignedWorkItem(taskId){
   const payload = { status:"complete", notes:appendHistory(task.notes, "Marked complete from Assigned Work") };
   try{
     setStatus("Saving completion...");
-    const { data, error } = await updateRow("field_ops_work_orders", task.id, payload, workspaceId());
-    if(error) throw withWorkspaceCallDetails(error, "field_ops_work_orders", "complete assigned work", payload);
-    if(!data) throw new Error("No row was updated. This account may not be allowed to complete this assigned work yet.");
+    const saved = await updateRecord("field_ops_work_orders", task.id, payload);
+    if(saved && !saved._queued){
+      task.status = saved.status || "complete";
+      task.notes = saved.notes || payload.notes;
+    }
     setStatus("Assigned work marked complete");
-    InteractionService?.showConfirmation?.("Work completed", "This assigned item was marked complete and kept in the work history.", [
-      { label:"Upload proof", run:() => uploadDocumentForScheduledTask(task.id) }
+    InteractionService?.showConfirmation?.("Work completed", saved?._queued ? "This completion is waiting to sync. It will stay on this device until the connection returns." : "This assigned item was marked complete and kept in the work history.", [
+      { label:"Upload proof", run:() => uploadDocumentForScheduledTask(task.id) },
+      ...(task.vehicleId ? [{ label:"Update vehicle", run:() => updateVehicleServiceRecord(task.id) }] : []),
+      ...(isScheduledWorkOrder(task) || linkedScheduledTaskForWork(task) ? [{ label:"Stage next", run:() => stageNextRecurringOccurrence(task.id) }] : [])
     ]);
     addOperationalNotification?.({ type:"work_completed", title:"Work completed", detail:task.name || "Assigned work was completed.", view:"assignedWork", recordId:task.id, role:"all" });
-    await loadWorkspaceData();
+    if(!saved?._queued){
+      await loadWorkspaceData();
+      if(task.vehicleId){
+        InteractionService?.showWorkflowPrompt?.({
+          key:`vehicle-service:${task.id}`,
+          title:"Update vehicle service record?",
+          detail:"One confirmation can preserve the service date, mileage if available, and clear service timing once the vehicle record is current.",
+          actions:[{ label:"Update vehicle", run:() => updateVehicleServiceRecord(task.id) }]
+        });
+      }
+      if(isScheduledWorkOrder(task) || linkedScheduledTaskForWork(task)){
+        await stageNextRecurringOccurrence(task.id);
+      }
+    }
   }catch(err){
     const message = permissionAwareErrorMessage(err);
     setStatus(message);
@@ -617,6 +663,7 @@ async function createWorkOrderFromScheduledTask(taskId){
       status:"open",
       priority:task.priority || "normal",
       due_date:task.date || null,
+      assigned_person:task.assignedTo || null,
       project_id:task.projectId || null,
       building_id:task.buildingId || null,
       space_id:task.spaceId || null,
@@ -703,6 +750,9 @@ async function addNoteToScheduledTask(taskId){
 function uploadDocumentForScheduledTask(taskId){
   const task = scheduledTaskById(taskId);
   if(!task) return;
+  if(selectedAssignedWorkId === task.id || activeViewId === "assignedWork"){
+    window.pendingUploadReturnContext = { view:"assignedWork", taskId:task.id };
+  }
   openUploadFile();
   setTimeout(() => {
     const connectionField = document.getElementById("uploadConnection");
@@ -731,12 +781,110 @@ function uploadDocumentForScheduledTask(taskId){
   setStatus("Upload will link to the scheduled task context");
 }
 
+function serviceMileageFromTask(task){
+  const text = String(task.notes || "");
+  const match = text.match(/(?:mileage|odometer):\s*([\d,]+)/i);
+  return match ? Number(match[1].replace(/,/g, "")) : null;
+}
+
+async function updateVehicleServiceRecord(workOrderId){
+  if(!requireOperationsPermission("update vehicle service records")) return;
+  const task = app.tasks.find(t => t.id === workOrderId);
+  const vehicle = task?.vehicleId ? app.vehicles.find(v => v.id === task.vehicleId) : null;
+  if(!task || !vehicle){
+    setStatus("Vehicle service record was not found");
+    return;
+  }
+  const mileage = serviceMileageFromTask(task);
+  const notes = appendHistory(vehicle.notes, `Service completed from work order ${task.workOrderNumber || task.name}. Work order id: ${task.id}`);
+  const payload = {
+    last_service_date:todayStringLocal(),
+    next_service_date:nextVehicleServiceDate(vehicle, task),
+    status:"active",
+    notes
+  };
+  if(Number.isFinite(mileage)) payload.odometer = mileage;
+  try{
+    setWorkOrderDetailState("Updating vehicle service record...", "pending");
+    const savedVehicle = await updateRecord("field_ops_vehicles", vehicle.id, payload);
+    await updateRecord("field_ops_work_orders", task.id, {
+      notes:appendHistory(task.notes, `Vehicle service record updated for ${vehicle.name}. Related service alert will clear after refresh when service dates are current.`)
+    });
+    setWorkOrderDetailState(savedVehicle?._queued ? "Vehicle service update queued" : "Vehicle service record updated", savedVehicle?._queued ? "pending" : "saved");
+    InteractionService?.showConfirmation?.("Vehicle service record updated", savedVehicle?._queued ? "The vehicle update is waiting to sync and will remain on this device." : "Last service, mileage, status, and next service timing were preserved on the vehicle record.");
+    addOperationalNotification?.({ type:"vehicle_service_updated", title:"Vehicle service updated", detail:vehicle.name || "Vehicle service record updated.", view:"vehicles", recordId:vehicle.id, role:"operations" });
+    if(!savedVehicle?._queued) await loadWorkspaceData();
+  }catch(err){
+    setWorkOrderDetailState(`Vehicle update failed: ${permissionAwareErrorMessage(err)}`, "failed");
+    handleWriteError(err);
+  }
+}
+
+async function stageNextRecurringOccurrence(workOrderId){
+  if(!requireInsertPermission("field_ops_import_reviews", "stage recurring work")) return;
+  const task = app.tasks.find(t => t.id === workOrderId);
+  if(!task) return;
+  const sourceTask = isScheduledWorkOrder(task) ? task : linkedScheduledTaskForWork(task);
+  if(!sourceTask || !isScheduledWorkOrder(sourceTask)){
+    setStatus("No recurring source was found for this work order");
+    return;
+  }
+  const duplicate = activeItems("submissions").find(review => {
+    const data = review.importedRecord || {};
+    return data.recurring_source_task_id === sourceTask.id && data.previous_work_order_id === task.id;
+  });
+  if(duplicate){
+    showView("importReview");
+    setStatus("Next occurrence is already waiting in Needs Review");
+    return duplicate;
+  }
+  const nextDate = nextOccurrenceDate(sourceTask);
+  const reviewData = {
+    title:sourceTask.name || task.name || "Recurring maintenance",
+    type:sourceTask.type || "maintenance",
+    status:"open",
+    priority:sourceTask.priority || task.priority || "normal",
+    date:nextDate,
+    due_date:nextDate,
+    assigned_person:sourceTask.assignedTo || task.assignedTo || null,
+    project_id:sourceTask.projectId || task.projectId || null,
+    building_id:sourceTask.buildingId || task.buildingId || null,
+    space_id:sourceTask.spaceId || task.spaceId || null,
+    asset_id:sourceTask.assetId || task.assetId || null,
+    vehicle_id:sourceTask.vehicleId || task.vehicleId || null,
+    vendor_id:sourceTask.vendorBidId || task.vendorBidId || null,
+    location:sourceTask.location || task.location || null,
+    recurring_source_task_id:sourceTask.id,
+    previous_work_order_id:task.id,
+    notes:scheduledTaskContextNotes(sourceTask)
+  };
+  try{
+    setWorkOrderDetailState("Staging next recurring occurrence...", "pending");
+    const review = await createImportReview("recurring completion", "work_order", reviewData, `Next recurring occurrence for ${reviewData.title} on ${nextDate}`);
+    if(review?.id && !review?._queued){
+      await updateRecord("field_ops_work_orders", task.id, {
+        notes:appendHistory(task.notes, `Next recurring occurrence staged in Needs Review: ${review.id} for ${nextDate}`)
+      });
+    }
+    setWorkOrderDetailState(review?._queued ? "Next occurrence queued" : "Next occurrence staged", review?._queued ? "pending" : "saved");
+    InteractionService?.showConfirmation?.("Next occurrence staged", review?._queued ? "The next recurring item is waiting to sync." : "The next recurring item is waiting in Needs Review before becoming active work.", [
+      { label:"Open Needs Review", run:() => showView("importReview") }
+    ]);
+    addOperationalNotification?.({ type:"recurring_staged", title:"Next scheduled work staged", detail:reviewData.title, view:"importReview", recordId:review?.id || "", role:"operations" });
+    if(!review?._queued) await loadWorkspaceData();
+    return review;
+  }catch(err){
+    setWorkOrderDetailState(`Recurring staging failed: ${permissionAwareErrorMessage(err)}`, "failed");
+    handleWriteError(err);
+  }
+}
+
 
 
 function workOrderCardWithActions(t){
   if(!canManageOperations()) return workOrderCard(t);
   const index = app.tasks.indexOf(t);
-  return `${workOrderCard(t)}<div class="actions no-print"><button type="button" onclick="openWorkOrderDetail('${t.id}')">Open</button><button class="ghost" type="button" onclick="openEditModal('tasks',${index})">Edit</button><button class="ghost" type="button" onclick="deleteItem('tasks',${index})">Archive this task</button></div>`;
+  return `${workOrderCard(t)}<div class="actions no-print"><button type="button" onclick="openWorkOrderDetail('${t.id}')">Open</button><button class="ghost" type="button" onclick="openEditModal('tasks',${index})">Edit</button><button class="ghost" type="button" onclick="deleteItem('tasks',${index})">Archive this work order</button></div>`;
 }
 
 
@@ -793,10 +941,10 @@ function recurringPatternForWorkOrder(task){
 async function archiveWorkOrderById(workOrderId){
   if(!requireOperationsPermission("move work orders out of active work")) return;
   const ok = await InteractionService?.showConfirmDialog?.({
-    title:"Archive this task?",
+    title:"Archive this work order?",
     detail:"It will leave the active work list, but the record will stay in history.",
     reassurance:"You can restore it later from Inactive Work Orders.",
-    confirmLabel:"Archive task",
+    confirmLabel:"Archive work order",
     cancelLabel:"Keep active",
     tone:"danger"
   });
@@ -869,7 +1017,7 @@ function renderWorkOrderDetail(){
   const recurringPattern = recurringPatternForWorkOrder(task);
   const budgetItems = activeItems("budgetItems").filter(item => item.workOrderId === task.id);
   const budgetTotal = budgetItems.reduce((sum, item) => sum + Number(item.amount || 0), 0);
-  const assignedTo = task.assignedTo || assignedFromNotes(task.notes);
+    const assignedTo = taskAssignee(task);
   const historyLines = String(task.notes || "").split("\n").filter(line => line.trim());
   const relatedCards = [
     relatedSummaryCard("Project", project, [project?.summary, project?.notes], [titleize(project?.status || ""), titleize(project?.priority || "")]),
@@ -1019,33 +1167,35 @@ async function markWorkOrderComplete(workOrderId){
   const payload = { status:"complete", notes:appendHistory(task.notes, "Marked complete") };
   try{
     setWorkOrderDetailState("Saving completion...", "pending");
-    const { data, error } = await updateRow("field_ops_work_orders", workOrderId, payload, workspaceId());
-    if(error) throw withWorkspaceCallDetails(error, "field_ops_work_orders", "update completion", payload);
-    if(!data) throw withWorkspaceCallDetails(new Error("No row was updated. This usually means permissions blocked the update, the record is archived, or the workspace did not match."), "field_ops_work_orders", "update completion", payload);
-    setWorkOrderDetailState("Complete saved", "saved");
-    InteractionService?.showConfirmation?.("Work completed", task.vehicleId ? "Vehicle work is complete. Upload a receipt, photo, or service document if you have one." : "This task was marked complete and kept in the work history.", [
-      { label:"Upload proof", run:() => uploadDocumentForScheduledTask(task.id) }
+    const saved = await updateRecord("field_ops_work_orders", workOrderId, payload);
+    if(saved && !saved._queued){
+      task.status = saved.status || "complete";
+      task.notes = saved.notes || payload.notes;
+    }
+    setWorkOrderDetailState(saved?._queued ? "Completion queued until connection returns" : "Complete saved", saved?._queued ? "pending" : "saved");
+    InteractionService?.showConfirmation?.("Work completed", saved?._queued ? "This completion is waiting to sync. It will stay on this device until the connection returns." : task.vehicleId ? "Vehicle work is complete. Update the vehicle record or upload service proof while it is fresh." : "This work order was marked complete and kept in the work history.", [
+      { label:"Upload proof", run:() => uploadDocumentForScheduledTask(task.id) },
+      ...(task.vehicleId ? [{ label:"Update vehicle", run:() => updateVehicleServiceRecord(task.id) }] : []),
+      ...(isScheduledWorkOrder(task) || linkedScheduledTaskForWork(task) ? [{ label:"Stage next", run:() => stageNextRecurringOccurrence(task.id) }] : [])
     ]);
     addOperationalNotification?.({ type:"work_completed", title:"Work completed", detail:task.name || "A work order was completed.", view:"workOrderDetail", recordId:task.id, role:"all" });
     if(task.vehicleId){
       InteractionService?.showWorkflowPrompt?.({
         key:`vehicle-service:${task.id}`,
         title:"Update the service record?",
-        detail:"Vehicle work is complete. Check the next service date, odometer, or receipt while it is fresh.",
-        actions:[{ label:"Open vehicle", run:() => showView("vehicles") }]
-      });
-    } else if(isScheduledWorkOrder(task)){
-      InteractionService?.showWorkflowPrompt?.({
-        key:`scheduled-followup:${task.id}`,
-        title:"Schedule follow-up?",
-        detail:"If this recurring task needs another visit, keep the next step connected.",
-        actions:[{ label:"Open Scheduled Work", run:() => showView("scheduledWork") }]
+        detail:"One confirmation can preserve the service date, mileage if available, and clear service timing once the vehicle record is current.",
+        actions:[{ label:"Update vehicle", run:() => updateVehicleServiceRecord(task.id) }]
       });
     }
-    loadWorkspaceData().catch(err => {
-      console.error("Completion saved, but workspace refresh failed", err);
-      setWorkOrderDetailState(`Complete saved, but refresh failed: ${permissionAwareErrorMessage(err)}`, "saved");
-    });
+    if(isScheduledWorkOrder(task) || linkedScheduledTaskForWork(task)){
+      await stageNextRecurringOccurrence(task.id);
+    }
+    if(!saved?._queued){
+      loadWorkspaceData().catch(err => {
+        console.error("Completion saved, but workspace refresh failed", err);
+        setWorkOrderDetailState(`Complete saved, but refresh failed: ${permissionAwareErrorMessage(err)}`, "saved");
+      });
+    }
   }catch(err){
     console.error(err);
     setWorkOrderDetailState(`Completion failed: ${completionErrorMessage(err)}`, "failed");
@@ -1085,25 +1235,21 @@ async function saveWorkOrderDetailUpdates(){
     const statusChanged = status !== task.status;
     const priorityChanged = priority !== (task.priority || "normal");
     const dueChanged = dueDate !== (task.date || null);
-    const assignedChanged = assignee !== (task.assignedTo || assignedFromNotes(task.notes));
-    let notes = replaceAssignedInNotes(task.notes, assignee);
+    const assignedChanged = assignee !== taskAssignee(task);
+    let notes = task.notes || "";
     if(statusChanged) notes = appendHistory(notes, `Status changed from ${titleize(task.status)} to ${titleize(status)}`);
     if(priorityChanged) notes = appendHistory(notes, `Priority changed from ${titleize(task.priority || "normal")} to ${titleize(priority)}`);
     if(dueChanged) notes = appendHistory(notes, `Due date changed from ${task.date || "not set"} to ${dueDate || "not set"}`);
     if(assignedChanged) notes = appendHistory(notes, `Assigned to ${assignee || "not set"}`);
     if(note) notes = appendHistory(notes, note);
-    const workOrderPayload = { status, priority, due_date:dueDate, notes: notes || null };
+    const workOrderPayload = { status, priority, due_date:dueDate, assigned_person:assignee || null, notes: notes || null };
     setWorkOrderDetailState("Saving work order...", "pending");
-    const workOrderResult = await updateRow("field_ops_work_orders", task.id, workOrderPayload, workspaceId());
-    if(workOrderResult.error) throw withWorkspaceCallDetails(workOrderResult.error, "field_ops_work_orders", "update detail", workOrderPayload);
-    if(!workOrderResult.data) throw withWorkspaceCallDetails(new Error("No row was updated. This usually means permissions blocked the update, the record is archived, or the workspace did not match."), "field_ops_work_orders", "update detail", workOrderPayload);
+    const workOrderResult = await updateRecord("field_ops_work_orders", task.id, workOrderPayload);
     savedWorkOrder = true;
     if(existingDocumentId){
       const documentPayload = { work_order_id: task.id };
       setWorkOrderDetailState("Linking document...", "pending");
-      const documentResult = await updateRow("field_ops_documents", existingDocumentId, documentPayload, workspaceId());
-      if(documentResult.error) throw withWorkspaceCallDetails(documentResult.error, "field_ops_documents", "link document", documentPayload);
-      if(!documentResult.data) throw withWorkspaceCallDetails(new Error("No document row was updated. This usually means permissions blocked the update, the document is archived, or the workspace did not match."), "field_ops_documents", "link document", documentPayload);
+      await updateRecord("field_ops_documents", existingDocumentId, documentPayload);
     }
     if(upload){
       setWorkOrderDetailState("Uploading attachment...", "pending");
@@ -1122,16 +1268,18 @@ async function saveWorkOrderDetailUpdates(){
         notes:`Attached from work order ${task.workOrderNumber || task.name}`
       });
     }
-    setStatus("Work order saved");
-    setWorkOrderDetailState("Saved", "saved");
-    InteractionService?.showConfirmation?.("Work order saved", "Your update was saved to the shared workspace.");
+    setStatus(workOrderResult?._queued ? "Work order update queued" : "Work order saved");
+    setWorkOrderDetailState(workOrderResult?._queued ? "Queued until connection returns" : "Saved", workOrderResult?._queued ? "pending" : "saved");
+    InteractionService?.showConfirmation?.("Work order saved", workOrderResult?._queued ? "This update is waiting to sync. It will stay on this device until the connection returns." : "Your update was saved to the shared workspace.");
     if(assignedChanged && assignee){
       addOperationalNotification?.({ type:"work_assigned", title:"Work assigned", detail:`${task.name || "Work order"} assigned to ${assignee}.`, view:"workOrderDetail", recordId:task.id, role:"all" });
     }
-    loadWorkspaceData().catch(err => {
-      console.error("Work order saved, but workspace refresh failed", err);
-      setWorkOrderDetailState(`Saved, but refresh failed: ${permissionAwareErrorMessage(err)}`, "saved");
-    });
+    if(!workOrderResult?._queued){
+      loadWorkspaceData().catch(err => {
+        console.error("Work order saved, but workspace refresh failed", err);
+        setWorkOrderDetailState(`Saved, but refresh failed: ${permissionAwareErrorMessage(err)}`, "saved");
+      });
+    }
   }catch(err){
     console.error(err);
     const prefix = savedWorkOrder ? "Work order saved, but final step failed" : "Save failed";
@@ -1172,6 +1320,8 @@ function completionErrorMessage(err){
     createSupplyRequestFromScheduledTask,
     addNoteToScheduledTask,
     uploadDocumentForScheduledTask,
+    updateVehicleServiceRecord,
+    stageNextRecurringOccurrence,
     workOrderCardWithActions,
     workOrderCard,
     archiveWorkOrderById,
@@ -1202,6 +1352,8 @@ function completionErrorMessage(err){
     createSupplyRequestFromScheduledTask,
     addNoteToScheduledTask,
     uploadDocumentForScheduledTask,
+    updateVehicleServiceRecord,
+    stageNextRecurringOccurrence,
     workOrderCardWithActions,
     workOrderCard,
     archiveWorkOrderById,

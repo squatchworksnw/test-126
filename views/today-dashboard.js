@@ -18,7 +18,7 @@
     const blockedTasks = operationalOpenTasks.filter(t => ["waiting","blocked"].includes(String(t.status || "").toLowerCase()));
     const urgentDue = uniqueById([...blockedTasks, ...urgentTasks, ...overdue, ...dueToday]);
     const assignedWork = openTasks
-      .filter(t => t.assignedTo || assignedFromNotes(t.notes))
+      .filter(t => t.assignedTo)
       .sort((a,b) => String(a.date || "9999-99-99").localeCompare(String(b.date || "9999-99-99")));
     const assignedToday = assignedWork.filter(t => !t.date || t.date <= weekEndString);
     const scheduledUpcoming = openTasks
@@ -54,11 +54,6 @@
 
   function activityDateValue(item){
     return item.updatedAt || item.createdAt || item.submittedAt || "";
-  }
-
-  function assignedFromNotes(notes){
-    const match = String(notes || "").match(/(?:^|\n)Assigned:\s*([^\n]+)/i);
-    return match ? match[1].trim() : "";
   }
 
   function isScheduledWork(item){
@@ -301,4 +296,3 @@
     window.FieldOps.Views.TodayDashboard.renderCalendar(globalThis.app, globalThis.createViewHelpers());
   };
 })();
-

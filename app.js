@@ -91,16 +91,6 @@ function appendHistory(existingNotes, message){
   return compact([existingNotes, line]).join("\n");
 }
 
-function assignedFromNotes(notes){
-  const match = String(notes || "").match(/(?:^|\n)Assigned:\s*([^\n]+)/i);
-  return match ? match[1].trim() : "";
-}
-
-function replaceAssignedInNotes(notes, assignee){
-  const cleaned = String(notes || "").replace(/(?:^|\n)Assigned:\s*[^\n]+/i, "").trim();
-  return compact([assignee ? `Assigned: ${assignee}` : "", cleaned]).join("\n");
-}
-
 function setWorkOrderDetailState(text, state = ""){
   const el = document.getElementById("workOrderDetailSaveState");
   if(!el) return;
@@ -332,12 +322,10 @@ async function addTask(e){
   try{
     setInlineState("taskSaveState", "Saving work order...", "pending");
     const assigned = taskAssigned.value.trim();
-    const notes = compact([
-      assigned ? `Assigned: ${assigned}` : "",
-      taskNotes.value.trim()
-    ]).join("\n");
+    const notes = taskNotes.value.trim();
     const saved = await insertRecord("field_ops_work_orders", Mappers.workOrderPayloadFromForm({
       name:title,
+      assignedTo:assigned,
       frequency:taskFrequency.value,
       status:taskStatus.value,
       priority:taskPriority.value,
@@ -988,7 +976,7 @@ function renderVendors(){
 
 function rowActions(section, item){
   if(!canManageOperations()) return "";
-  const archiveLabel = section === "tasks" ? "Archive this task" : "Archive";
+  const archiveLabel = section === "tasks" ? "Archive this work order" : "Archive";
   return `<div class="actions no-print"><button class="ghost" onclick="openEditModal('${section}',${app[section].indexOf(item)})">Edit</button><button class="ghost" onclick="deleteItem('${section}',${app[section].indexOf(item)})">${archiveLabel}</button></div>`;
 }
 
@@ -998,7 +986,7 @@ const editConfig = {
   assets:{ table:"field_ops_assets", fields:[["buildingId","Building","buildingSelect"],["spaceId","Space","spaceSelect"],["name","Asset name","text"],["assetTag","Asset tag","text"],["category","Category","text"],["status","Status","select:active|needs_service|out_of_service|retired|archived"],["notes","Notes","textarea"]], toDb:Mappers.assetEditPayload },
   ...window.FieldOps.Views.ProjectsBudget.editConfig,
   vendors:{ table:"field_ops_vendors", fields:[["name","Vendor name","text"],["vendorType","Type","text"],["contactName","Contact name","text"],["phone","Phone","text"],["email","Email","text"],["status","Status","select:active|needs_review|inactive|archived"],["insuranceExpiresOn","Insurance expires","date"],["notes","Notes","textarea"]], toDb:Mappers.vendorEditPayload },
-  tasks:{ table:"field_ops_work_orders", fields:[["name","Work order","text"],["status","Status","select:open|scheduled|in_progress|waiting|complete|canceled|archived"],["priority","Priority","select:low|normal|high|urgent"],["date","Due date","date"],["projectId","Project","projectSelect"],["buildingId","Building","buildingSelect"],["spaceId","Space","spaceSelect"],["assetId","Asset","assetSelect"],["vehicleId","Vehicle","vehicleSelect"],["vendorBidId","Vendor","vendorSelect"],["location","Location/description","text"],["notes","Notes","textarea"]], toDb:Mappers.workOrderEditPayload },
+  tasks:{ table:"field_ops_work_orders", fields:[["name","Work order","text"],["status","Status","select:open|scheduled|in_progress|waiting|complete|canceled|archived"],["priority","Priority","select:low|normal|high|urgent"],["date","Due date","date"],["assignedTo","Assigned person","text"],["projectId","Project","projectSelect"],["buildingId","Building","buildingSelect"],["spaceId","Space","spaceSelect"],["assetId","Asset","assetSelect"],["vehicleId","Vehicle","vehicleSelect"],["vendorBidId","Vendor","vendorSelect"],["location","Location/description","text"],["notes","Notes","textarea"]], toDb:Mappers.workOrderEditPayload },
   vehicles:{ table:"field_ops_vehicles", fields:[["name","Vehicle name","text"],["vehicleNumber","Vehicle number","text"],["plate","License plate","text"],["vin","VIN","text"],["mileage","Odometer","number"],["status","Status","select:active|due_for_service|overdue_for_service|in_maintenance|out_of_service|retired|archived"],["lastServiceDate","Last service date","date"],["serviceDate","Next service date","date"],["registration","Registration due","date"],["notes","Notes","textarea"]], toDb:Mappers.vehicleEditPayload },
   fuelReceipts:{ table:"field_ops_fuel_receipts", fields:[["vehicleId","Vehicle","vehicleSelect"],["date","Date","date"],["vendor","Gas station / vendor","text"],["gallons","Gallons","number"],["totalAmount","Total amount","number"],["pricePerGallon","Price per gallon","number"],["odometer","Odometer","number"],["notes","Notes","textarea"]], toDb:Mappers.fuelReceiptEditPayload },
   files:{ table:"field_ops_documents", fields:[["fileName","File name","text"],["fileType","Type","text"],["relatedBuildingId","Building","buildingSelect"],["relatedSpaceId","Space","spaceSelect"],["relatedAssetId","Asset","assetSelect"],["relatedProjectId","Project","projectSelect"],["relatedWorkItemId","Work order","workOrderSelect"],["relatedVehicleId","Vehicle","vehicleSelect"],["relatedVendorId","Vendor","vendorSelect"],["relatedFuelReceiptId","Fuel receipt","fuelReceiptSelect"],["relatedBudgetItemId","Budget item","budgetItemSelect"],["notes","Notes","textarea"]], toDb:Mappers.documentEditPayload }
@@ -1052,10 +1040,10 @@ async function deleteItem(section,index){
   const config = editConfig[section];
   if(!item || !config) return;
   const ok = await InteractionService?.showConfirmDialog?.({
-    title: section === "tasks" ? "Archive this task?" : "Move this item out of active work?",
+    title: section === "tasks" ? "Archive this work order?" : "Move this item out of active work?",
     detail: "It will leave active lists, but the record will stay in history.",
     reassurance: "You can restore it later if needed.",
-    confirmLabel: section === "tasks" ? "Archive task" : "Move out of active work",
+    confirmLabel: section === "tasks" ? "Archive work order" : "Move out of active work",
     cancelLabel: "Keep active",
     tone: "danger"
   });
@@ -1258,6 +1246,29 @@ function openMySubmissions(){
 function openUploadFile(){
   showView("documents");
   setFormCollapsed("fileForm", false);
+}
+
+function openEstimateUpload(){
+  showView("documents");
+  setFormCollapsed("fileForm", false);
+  setTimeout(() => {
+    const kind = document.getElementById("uploadKind");
+    const connection = document.getElementById("uploadConnection");
+    const type = document.getElementById("fileType");
+    const notes = document.getElementById("fileNotes");
+    const upload = document.getElementById("documentUpload");
+    if(kind){
+      kind.value = "estimate";
+      kind.dispatchEvent(new Event("change"));
+    }
+    if(connection && connection.value === "not_sure"){
+      connection.value = "project";
+      connection.dispatchEvent(new Event("change"));
+    }
+    if(type) type.value = "Estimate";
+    if(notes && !notes.value) notes.value = "Estimate submitted for review. Preserve vendor, project, work order, and budget context before approval.";
+    upload?.focus?.();
+  }, 0);
 }
 
 function openSupplyRequest(){
@@ -2125,41 +2136,7 @@ async function stageSelectedRecurringRowsToReview(){
 }
 
 async function approveSelectedRecurringRows(){
-  try{
-    if(!stagedImport.rows.length || stagedImport.suggestedType !== "recurring_schedule"){
-      alert("Choose Recurring Schedule only and upload the workbook first.");
-      return;
-    }
-    if(!requireOperationsPermission("approve recurring schedule rows")) return;
-    const keys = existingRecurringKeys();
-    const selected = selectedRecurringRows();
-    if(!selected.length){
-      alert("Select at least one recurring row first.");
-      return;
-    }
-    let added = 0;
-    for(const row of selected){
-      const data = recurringReviewData(row);
-      if(keys.has(data.recurring_key)) continue;
-      await insertRecord("field_ops_work_orders", Mappers.workOrderPayloadFromImport(data));
-      keys.add(data.recurring_key);
-      added++;
-    }
-    AppState.resetStagedImport(runtimeState);
-    renderMappingPanel();
-    await loadWorkspaceData();
-    showView("dashboard");
-    alert(`${added} recurring task${added === 1 ? "" : "s"} approved into scheduled work.`);
-    if(added){
-      addOperationalNotification({ type:"recurring_approved", title:"Recurring work approved", detail:`${added} task${added === 1 ? "" : "s"} added to Scheduled Work.`, view:"scheduledWork", role:"operations" });
-      InteractionService?.showWorkflowPrompt?.({
-        key:`recurring-followup:${Date.now()}`,
-        title:"Review this week’s scheduled work?",
-        detail:"New recurring tasks are now separate from urgent work. Check the upcoming rhythm when you are ready.",
-        actions:[{ label:"Open Scheduled Work", run:() => showView("scheduledWork") }]
-      });
-    }
-  }catch(err){ handleWriteError(err); }
+  await stageSelectedRecurringRowsToReview();
 }
 
 function copyExtractionToClipboard(){ navigator.clipboard.writeText(extractionPreview.value || ""); }
@@ -2276,4 +2253,3 @@ if(window.pdfjsLib){
 InteractionService?.init?.();
 setupFormDisclosure();
 initializeAuth();
-
