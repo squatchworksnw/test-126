@@ -2176,20 +2176,7 @@ function startSessionDemo(){
   showView("dashboard", { skipHistory:true });
 }
 
-function togglePasswordVisibility(button){
-  const targetId = button?.dataset?.passwordToggle;
-  const input = targetId ? document.getElementById(targetId) : null;
-  if(!input) return;
-  const showing = input.type === "text";
-  input.type = showing ? "password" : "text";
-  const label = showing ? "Show password" : "Hide password";
-  button.setAttribute("aria-label", label);
-  button.setAttribute("title", label);
-  button.setAttribute("aria-pressed", showing ? "false" : "true");
-}
-
 document.querySelectorAll(".tab").forEach(b=>b.addEventListener("click",()=>showView(b.dataset.view)));
-document.querySelectorAll("[data-password-toggle]").forEach(button => button.addEventListener("click", () => togglePasswordVisibility(button)));
 document.getElementById("appBackBtn")?.addEventListener("click", goBackView);
 document.getElementById("globalSearchInput")?.addEventListener("input", renderGlobalSearch);
 document.getElementById("globalSearchInput")?.addEventListener("keydown", e => {

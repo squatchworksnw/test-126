@@ -21,14 +21,7 @@
     </div>
     <div class="login-panel">
       <label>Email<input id="loginEmail" type="email" placeholder="email for workspace access" autocomplete="email" /></label>
-      <label>Password
-        <span class="password-field">
-          <input id="loginPassword" type="password" placeholder="password" autocomplete="current-password" />
-          <button class="password-visibility-toggle" type="button" data-password-toggle="loginPassword" aria-label="Show password" title="Show password">
-            <svg aria-hidden="true" viewBox="0 0 24 24" focusable="false"><path d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6Z"/><circle cx="12" cy="12" r="3"/></svg>
-          </button>
-        </span>
-      </label>
+      <label>Password<input id="loginPassword" type="password" placeholder="password" autocomplete="current-password" /></label>
       <div class="actions">
         <button id="loginPasswordSignInBtn" type="button">Sign in with password</button>
         <button id="loginSignInBtn" class="ghost" type="button">Email sign-in link</button>
@@ -72,12 +65,7 @@
     </div>
     <div class="auth-pill" id="authPanel">
       <input id="authEmail" type="email" placeholder="email for workspace access" autocomplete="email" />
-      <span class="password-field auth-password-field">
-        <input id="authPassword" type="password" placeholder="password" autocomplete="current-password" />
-        <button class="password-visibility-toggle" type="button" data-password-toggle="authPassword" aria-label="Show password" title="Show password">
-          <svg aria-hidden="true" viewBox="0 0 24 24" focusable="false"><path d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6Z"/><circle cx="12" cy="12" r="3"/></svg>
-        </button>
-      </span>
+      <input id="authPassword" type="password" placeholder="password" autocomplete="current-password" />
       <button id="passwordSignInBtn" type="button">Password</button>
       <button id="signInBtn" class="ghost" type="button">Email link</button>
       <span class="auth-email hidden" id="authUserEmail"></span>

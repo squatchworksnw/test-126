@@ -222,14 +222,6 @@ header{
 .auth-pill input[type="password"]{width:160px}
 .auth-pill button{min-height:32px;border-radius:999px;padding:7px 10px}
 .auth-pill .ghost{padding-inline:10px}
-.password-field{display:flex;align-items:center;gap:6px}
-.login-panel .password-field input{flex:1;min-width:0}
-.auth-pill .password-field{background:var(--paper);border:1px solid var(--border);border-radius:999px;padding:0 4px 0 0}
-.auth-pill .password-field input{border:0;background:transparent;box-shadow:none;width:142px}
-.auth-pill .password-field input[type="text"]{width:142px}
-.password-visibility-toggle{width:34px;min-width:34px;min-height:34px;padding:0;border-radius:999px;display:inline-grid;place-items:center}
-.password-visibility-toggle svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
-.password-visibility-toggle[aria-pressed="true"]{background:var(--navy);color:white;border-color:var(--navy)}
 .auth-email{max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--muted);font-weight:760}
 .top-nav{
   position:fixed;
