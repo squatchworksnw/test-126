@@ -4,6 +4,14 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>Field Operations Command Center</title>
+<meta property="og:title" content="SquatchWorks Field Operations" />
+<meta property="og:description" content="A calm shared workspace for maintenance requests, work orders, fleet records, uploads, and review." />
+<meta property="og:image" content="https://squatchworksnw.github.io/test-126/assets/icons/apple-touch-icon.png" />
+<meta property="og:url" content="https://squatchworksnw.github.io/test-126/" />
+<meta property="og:type" content="website" />
+<link rel="icon" type="image/png" sizes="32x32" href="assets/icons/favicon-32.png" />
+<link rel="apple-touch-icon" sizes="180x180" href="assets/icons/apple-touch-icon.png" />
+<link rel="manifest" href="manifest.json" />
 
 <link rel="stylesheet" href="styles/tokens/tokens.css?v=20260523-intake3" />
 <link rel="stylesheet" href="styles.css?v=20260523-intake3" />
@@ -25,12 +33,28 @@
       <div class="actions">
         <button id="loginPasswordSignInBtn" type="button">Sign in with password</button>
         <button id="loginSignInBtn" class="ghost" type="button">Email sign-in link</button>
+        <button id="loginForgotPasswordBtn" class="ghost subtle-action" type="button">Forgot password?</button>
         <button id="loginDemoBtn" class="ghost technical-only hidden" type="button">Demo mode</button>
       </div>
       <p class="meta small">Use your team email. Access is set by your workspace role.</p>
     </div>
   </div>
 </section>
+
+<div id="passwordRecoveryModal" class="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="passwordRecoveryTitle">
+  <div class="modal welcome-modal password-recovery-modal">
+    <p class="eyebrow">Password help</p>
+    <h3 id="passwordRecoveryTitle">Set a new password</h3>
+    <p id="passwordRecoveryMessage" class="meta">Enter a new password for your account.</p>
+    <label>New password<input id="newPasswordInput" type="password" autocomplete="new-password" minlength="8" /></label>
+    <label>Confirm password<input id="confirmPasswordInput" type="password" autocomplete="new-password" minlength="8" /></label>
+    <p id="passwordRecoveryError" class="form-error" aria-live="polite"></p>
+    <div class="actions">
+      <button id="saveNewPasswordBtn" type="button">Save password</button>
+      <button id="cancelPasswordRecoveryBtn" class="ghost" type="button">Back to sign in</button>
+    </div>
+  </div>
+</div>
 
 <div id="displayNameModal" class="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="displayNameTitle">
   <div class="modal welcome-modal">
@@ -73,7 +97,7 @@
     </div>
   </div>
 
-  <nav class="top-nav" aria-label="Primary navigation">
+  <nav class="top-nav" aria-label="Main navigation">
     <p class="nav-section-label" data-nav-section="portal">Field</p>
     <button class="tab" data-view="fieldPortal" data-nav-group="portal">My Home</button>
     <button class="tab" data-view="assignedWork" data-nav-group="portal">My Work</button>
@@ -90,6 +114,7 @@
 </header>
 
 <main id="mainContent" tabindex="-1">
+  <section id="workspaceLoadNotice" class="workspace-load-notice hidden" aria-live="assertive"></section>
   <section id="fieldPortal" class="view">
     <section class="home-hero panel editorial-card">
       <div>
@@ -447,7 +472,7 @@
           <p class="meta">Files stay with this request until the operations team reviews it.</p>
         </div>
         <div id="reviewUploadPreview" class="upload-preview-list full"></div>
-        <label class="full">Attach photo/document/receipt<input id="submissionUpload" type="file" accept=".pdf,.csv,.xlsx,.xls,image/*" /></label>
+        <label class="full">Attach photo/document/receipt<input id="submissionUpload" type="file" accept=".jpg,.jpeg,.png,.pdf,.xlsx,.csv,.doc,.docx" /></label>
         <p id="submissionSaveState" class="meta full" data-state="">Ready</p>
         <div class="actions full"><button type="submit">Send for Review</button></div>
       </form>
@@ -460,6 +485,10 @@
           <p class="meta">Submitted items, uploads, receipts, estimates, and supply requests stay here until they are reviewed.</p>
         </div>
       </div>
+      <details class="how-this-works">
+        <summary>How this works</summary>
+        <p>New requests and uploads wait here first. A manager reviews the details, fixes anything unclear, then approves the item into active work or asks for more information.</p>
+      </details>
       <div class="bulk-review-toolbar" data-admin-only>
         <label>Show
           <select id="reviewBulkFilter">
@@ -554,7 +583,7 @@
         <div class="actions full"><button type="submit">Add Bid</button></div>
       </form>
     </section>
-    <section class="panel"><div class="panel-title"><h3>Bid Comparison</h3></div><div id="bidList" class="card-list"></div></section>
+    <section class="panel"><div class="panel-title"><h3>Bid Comparison</h3></div><details class="how-this-works"><summary>How this works</summary><p>Compare bids by project, amount, status, and recommendation. Keep notes short enough that a board or manager can understand the reason for the choice.</p></details><div id="bidList" class="card-list"></div></section>
     <section class="panel">
       <div class="panel-title">
         <div>
@@ -825,6 +854,7 @@
     </section>
     <section class="panel">
       <div class="panel-title"><h3>Bid Comparison</h3></div>
+      <details class="how-this-works"><summary>How this works</summary><p>This view summarizes bids already linked to projects and budget items. Use it to spot the recommended option before opening a full report.</p></details>
       <div id="bidComparisonSummary"></div>
     </section>
   </section>
@@ -903,7 +933,8 @@
         </div>
         <label id="uploadRecordLabel" class="full hidden">Choose the record<select id="uploadConnectionRecord"></select></label>
         <label>File name or link<input id="fileName" required placeholder="estimate.pdf, inspection report, photo link..." /></label>
-        <label>Upload file<input id="documentUpload" type="file" accept=".pdf,.csv,.xlsx,.xls,image/*" /></label>
+        <label>Upload file<input id="documentUpload" type="file" accept=".jpg,.jpeg,.png,.pdf,.xlsx,.csv,.doc,.docx" /></label>
+        <div id="uploadProgress" class="upload-progress hidden full" aria-live="polite"></div>
         <p id="uploadGuidance" class="meta full">Uploads go to Needs Review first when the connection is uncertain.</p>
         <p class="meta full">Uploading a receipt or proof helps route and review the expense, but does not replace any required accounting receipt process.</p>
         <details class="full advanced-upload-details">
@@ -938,6 +969,10 @@
           <p class="meta">A dated view of work already living in projects, maintenance, fleet, and bids.</p>
         </div>
       </div>
+      <details class="how-this-works">
+        <summary>How this works</summary>
+        <p>The calendar shows dated work from existing records. It does not create new work by itself; new calendar imports still go through review first.</p>
+      </details>
       <div class="grid three">
         <div class="stat"><span>Due today</span><strong id="calendarTodayCount">0</strong></div>
         <div class="stat"><span>Next 7 days</span><strong id="calendarWeekCount">0</strong></div>
@@ -956,6 +991,10 @@
           <p class="meta">Look over calendar, spreadsheet, CSV, and PDF information here before it becomes real work.</p>
         </div>
       </div>
+      <details class="how-this-works">
+        <summary>How this works</summary>
+        <p>Files and calendar rows open here for checking. Move only the right rows to Needs Review, then approve them into work from the review screen.</p>
+      </details>
 
       <div class="grid two">
         <section class="panel" style="box-shadow:none;">
@@ -984,7 +1023,7 @@
           <div class="actions">
             <label class="ghost" style="display:inline-flex;align-items:center;padding:10px 12px;border:1px solid var(--border);border-radius:12px;cursor:pointer;font-weight:700;">
               Choose Excel / CSV File
-              <input id="spreadsheetUpload" type="file" accept=".csv,.xlsx,.xls" hidden />
+              <input id="spreadsheetUpload" type="file" accept=".xlsx,.csv" hidden />
             </label>
             <button type="button" class="ghost" onclick="loadBundledRecurringSchedulePreview()">Look at Recurring Schedule</button>
             <button type="button" onclick="loadBundledMasterCalendarPreview()">Load Master Calendar</button>
@@ -1088,6 +1127,28 @@
       <p class="meta small">Secure workspace records are on: creates, edits, files, and items needing review save to the shared workspace.</p>
       <p class="meta small">Workspace: <strong id="settingsWorkspaceId">Not loaded</strong></p>
     </section>
+
+    <details class="panel" id="helpContactPanel">
+      <summary>Need help?</summary>
+      <div class="panel-title">
+        <div>
+          <h3>Need help?</h3>
+          <p class="meta">Contact your workspace administrator first.</p>
+        </div>
+      </div>
+      <div class="card-list">
+        <article class="card">
+          <h4>Workspace support</h4>
+          <p>Email: support@example.com</p>
+          <p>Phone: (555) 000-0000</p>
+          <p class="meta">Ask your administrator to replace these placeholders with the right support contact.</p>
+        </article>
+        <article class="card">
+          <h4>If something breaks</h4>
+          <p>Refresh Workspace, retry anything still saving, and note what screen you were on. If an error appears, take a screenshot and send it with the time it happened.</p>
+        </article>
+      </div>
+    </details>
 
     <section class="panel" id="peopleRolesPanel" data-owner-only>
       <div class="panel-title">

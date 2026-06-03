@@ -255,13 +255,18 @@
     const modal = document.getElementById("addNewModal");
     if(!modal) return;
     renderAddNewOptions();
-    modal.classList.remove("hidden");
     const first = document.querySelector?.(".add-new-option");
-    if(first && typeof first.focus === "function") first.focus();
+    if(typeof window.openManagedModal === "function") window.openManagedModal(modal, first);
+    else {
+      modal.classList.remove("hidden");
+      if(first && typeof first.focus === "function") first.focus();
+    }
   }
 
   function closeAddNew(){
-    document.getElementById("addNewModal")?.classList.add("hidden");
+    const modal = document.getElementById("addNewModal");
+    if(typeof window.closeManagedModal === "function") window.closeManagedModal(modal);
+    else modal?.classList.add("hidden");
   }
 
   function handleAddNewSelection(event){

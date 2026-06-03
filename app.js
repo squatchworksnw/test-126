@@ -41,8 +41,39 @@ const runtimeState = AppState.bindRuntimeGlobals(AppState.createRuntimeState({
 }));
 const app = runtimeState.app;
 let lastWorkspaceLoadAt = "";
+let workspaceLoadState = "idle";
+let workspaceLoadError = "";
+let modalReturnFocus = null;
 const LARGE_TEXT_MODE_KEY = "field_ops_large_text_mode";
 const FIRST_LAUNCH_KEY_PREFIX = "field_ops_first_launch_done";
+const VIEW_TITLES = {
+  login:"Sign In",
+  fieldPortal:"My Home",
+  assignedWork:"Assigned Work",
+  accessDenied:"Access",
+  dashboard:"Today",
+  inbox:"Inbox",
+  importReview:"Needs Review",
+  reviewDetail:"Review Detail",
+  projects:"Projects",
+  vendors:"Vendors",
+  bids:"Bids",
+  budget:"Budget",
+  workOrders:"Work Orders",
+  scheduledWork:"Scheduled Work",
+  workOrderDetail:"Work Order Detail",
+  buildings:"Buildings",
+  spaces:"Spaces",
+  assets:"Assets",
+  vehicles:"Fleet",
+  fuelReceipts:"Fuel Receipts",
+  reports:"Reports",
+  documents:"Upload",
+  calendar:"Calendar",
+  materials:"Materials",
+  importCenter:"File Review Tools",
+  settings:"Settings"
+};
 
 function id(){ return crypto.randomUUID ? crypto.randomUUID() : String(Date.now() + Math.random()); }
 function activeItems(section){ return AppState.activeItems(app, section); }
@@ -111,6 +142,90 @@ function queueWrite(operation){ return SyncService.queueWrite(operation, syncCon
 async function applyQueuedWrite(item){ return SyncService.applyQueuedWrite(item, syncContext()); }
 async function flushPendingWrites(showAlert = false){ return SyncService.flushPendingWrites(showAlert, syncContext()); }
 function setStatus(text){ return SyncService.setStatus(text, syncContext()); }
+function isWorkspaceLoading(){ return workspaceLoadState === "loading"; }
+function isWorkspaceUnavailable(){ return workspaceLoadState === "failed"; }
+function workspaceLoadingMarkup(message){
+  return `<article class="card loading-card" aria-busy="true"><span class="skeleton-line wide"></span><span class="skeleton-line"></span><p>${esc(message)}</p></article>`;
+}
+function workspaceUnavailableMarkup(){
+  return `<article class="card workspace-error-card"><h4>Can&apos;t reach the workspace right now — check your connection.</h4><p class="meta">${esc(workspaceLoadError || "Try again when the connection is steady.")}</p><div class="actions"><button type="button" onclick="retryWorkspaceLoad()">Retry</button></div></article>`;
+}
+function dataStateMarkup(message){
+  if(isWorkspaceUnavailable()) return workspaceUnavailableMarkup();
+  if(isWorkspaceLoading()) return workspaceLoadingMarkup(message);
+  return "";
+}
+function setLoadingText(idValue, text){
+  const el = document.getElementById(idValue);
+  if(el) el.textContent = text;
+}
+function setLoadingList(idValue, message){
+  const el = document.getElementById(idValue);
+  if(el) el.innerHTML = dataStateMarkup(message);
+}
+function renderWorkspaceLoadNotice(){
+  const notice = document.getElementById("workspaceLoadNotice");
+  if(!notice) return;
+  const failed = isWorkspaceUnavailable();
+  notice.classList.toggle("hidden", !failed);
+  notice.innerHTML = failed ? `<div><strong>Can&apos;t reach the workspace right now — check your connection.</strong><p>${esc(workspaceLoadError || "Workspace data could not load.")}</p></div><button type="button" onclick="retryWorkspaceLoad()">Retry</button>` : "";
+  document.body.dataset.workspaceLoad = workspaceLoadState;
+}
+function renderDataStateAffordances(){
+  renderWorkspaceLoadNotice();
+  if(!isWorkspaceLoading() && !isWorkspaceUnavailable()) return;
+  const label = isWorkspaceLoading() ? "Loading" : "--";
+  [
+    "reviewQueueCount","workspaceProjectCount","workspaceMaintenanceCount","workspaceFleetCount","workspaceBidCount","workspaceReportsCount",
+    "todayReviewCount","todayDueCount","todayOverdueCount","todayFleetCount","urgentCount","projectCount","bidCount"
+  ].forEach(idValue => setLoadingText(idValue, label));
+  [
+    ["todayReviewList","Loading workspace..."],
+    ["todayAssignedList","Loading workspace..."],
+    ["overdueList","Loading work orders..."],
+    ["dueTodayList","Loading work orders..."],
+    ["fleetAlertList","Loading fleet..."],
+    ["activeProjectList","Loading projects..."],
+    ["dashboardBidList","Loading vendors..."],
+    ["submissionList","Loading Needs Review..."],
+    ["taskList","Loading work orders..."],
+    ["archivedTaskList","Loading work orders..."],
+    ["projectList","Loading projects..."],
+    ["vehicleList","Loading fleet..."],
+    ["vendorList","Loading vendors..."],
+    ["reportPreview","Loading reports..."],
+    ["reportHealthSummary","Loading reports..."],
+    ["operationalHealthSummary","Loading workspace..."]
+  ].forEach(([idValue, message]) => setLoadingList(idValue, message));
+}
+async function retryWorkspaceLoad(){
+  await syncNow(true);
+}
+function focusableModalElement(modal){
+  return modal?.querySelector?.("button,[href],input,select,textarea,[tabindex]:not([tabindex='-1'])");
+}
+function openManagedModal(modal, preferredFocus){
+  if(!modal) return;
+  modalReturnFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+  modal.classList.remove("hidden");
+  modal.classList.add("active");
+  setTimeout(() => {
+    const target = preferredFocus || focusableModalElement(modal);
+    if(target && typeof target.focus === "function") target.focus();
+  }, 0);
+}
+function closeManagedModal(modal){
+  if(!modal) return;
+  modal.classList.remove("active");
+  if(modal.classList.contains("quick-add-backdrop")) modal.classList.add("hidden");
+  const target = modalReturnFocus;
+  modalReturnFocus = null;
+  setTimeout(() => {
+    if(target && typeof target.focus === "function" && document.contains(target)) target.focus();
+  }, 0);
+}
+globalThis.openManagedModal = openManagedModal;
+globalThis.closeManagedModal = closeManagedModal;
 function requireAuth(showAlert = false){ return AuthService.requireAuth(showAlert, authContext()); }
 function requireInsertPermission(table, actionLabel = "create records"){ return AuthService.requireInsertPermission(table, actionLabel, authContext()); }
 function requireUpdatePermission(table, actionLabel = "change records"){ return AuthService.requireUpdatePermission(table, actionLabel, authContext()); }
@@ -122,12 +237,17 @@ async function initializeAuth(){ return AuthService.initializeAuth(authContext()
 function renderAuthState(){ return AuthService.renderAuthState(authContext()); }
 async function signInForSync(){ return AuthService.signInForSync(authContext()); }
 async function signInWithPasswordForSync(){ return AuthService.signInWithPasswordForSync(authContext()); }
+async function requestPasswordReset(){ return AuthService.requestPasswordReset(authContext()); }
+async function saveRecoveredPassword(){ return AuthService.saveRecoveredPassword(authContext()); }
+function hidePasswordRecoveryPrompt(){ return AuthService.hidePasswordRecoveryPrompt(); }
 function saveDisplayName(){ return AuthService.saveDisplayName(authContext()); }
 function hideDisplayNamePrompt(){ return AuthService.hideDisplayNamePrompt(); }
 async function signOutForSync(){
   if(isDemoMode()){
     currentSession = null;
     currentWorkspace = null;
+    workspaceLoadState = "idle";
+    workspaceLoadError = "";
     AppState.resetRuntimeApp(runtimeState);
     renderAuthState();
     render();
@@ -141,49 +261,62 @@ async function bootstrapWorkspace(){ return AuthService.bootstrapWorkspace(authC
 
 async function loadWorkspaceData(){
   if(!requireAuth(false)) return;
+  workspaceLoadState = "loading";
+  workspaceLoadError = "";
   setStatus("Loading workspace data...");
-  const wid = workspaceId();
-  const queries = await Promise.all([
-    selectActive("field_ops_buildings"),
-    selectActive("field_ops_spaces"),
-    selectActive("field_ops_assets"),
-    selectActive("field_ops_projects"),
-    selectActive("field_ops_vendors"),
-    selectActive("field_ops_budget_items"),
-    selectActive("field_ops_work_orders"),
-    selectActive("field_ops_vehicles"),
-    selectActive("field_ops_fuel_receipts"),
-    selectActive("field_ops_documents"),
-    selectActive("field_ops_import_reviews"),
-    selectVehicleAlerts(wid),
-    selectArchived("field_ops_work_orders")
-  ]);
-
-  for(const result of queries){
-    if(result.error) throw result.error;
-  }
-
-  const vendors = (queries[4].data || []).map(fromVendor);
-  AppState.setLoadedCollections(app, {
-    buildings: (queries[0].data || []).map(fromBuilding),
-    spaces: (queries[1].data || []).map(fromSpace),
-    assets: (queries[2].data || []).map(fromAsset),
-    projects: (queries[3].data || []).map(fromProject),
-    vendors,
-    budgetItems: (queries[5].data || []).map(fromBudgetItem),
-    bids: (queries[5].data || []).filter(row => row.item_type === "bid").map(row => fromBudgetBid(row, vendors)),
-    tasks: (queries[6].data || []).map(fromWorkOrder),
-    vehicles: (queries[7].data || []).map(fromVehicle),
-    fuelReceipts: (queries[8].data || []).map(fromFuelReceipt),
-    files: (queries[9].data || []).map(fromDocument),
-    submissions: (queries[10].data || []).map(fromImportReview),
-    vehicleAlerts: queries[11].data || [],
-    archivedTasks: (queries[12].data || []).map(fromWorkOrder)
-  });
-
-  lastWorkspaceLoadAt = new Date().toLocaleString();
-  setStatus("Workspace loaded");
   render();
+  try{
+    const wid = workspaceId();
+    const queries = await Promise.all([
+      selectActive("field_ops_buildings"),
+      selectActive("field_ops_spaces"),
+      selectActive("field_ops_assets"),
+      selectActive("field_ops_projects"),
+      selectActive("field_ops_vendors"),
+      selectActive("field_ops_budget_items"),
+      selectActive("field_ops_work_orders"),
+      selectActive("field_ops_vehicles"),
+      selectActive("field_ops_fuel_receipts"),
+      selectActive("field_ops_documents"),
+      selectActive("field_ops_import_reviews"),
+      selectVehicleAlerts(wid),
+      selectArchived("field_ops_work_orders")
+    ]);
+
+    for(const result of queries){
+      if(result.error) throw result.error;
+    }
+
+    const vendors = (queries[4].data || []).map(fromVendor);
+    AppState.setLoadedCollections(app, {
+      buildings: (queries[0].data || []).map(fromBuilding),
+      spaces: (queries[1].data || []).map(fromSpace),
+      assets: (queries[2].data || []).map(fromAsset),
+      projects: (queries[3].data || []).map(fromProject),
+      vendors,
+      budgetItems: (queries[5].data || []).map(fromBudgetItem),
+      bids: (queries[5].data || []).filter(row => row.item_type === "bid").map(row => fromBudgetBid(row, vendors)),
+      tasks: (queries[6].data || []).map(fromWorkOrder),
+      vehicles: (queries[7].data || []).map(fromVehicle),
+      fuelReceipts: (queries[8].data || []).map(fromFuelReceipt),
+      files: (queries[9].data || []).map(fromDocument),
+      submissions: (queries[10].data || []).map(fromImportReview),
+      vehicleAlerts: queries[11].data || [],
+      archivedTasks: (queries[12].data || []).map(fromWorkOrder)
+    });
+
+    lastWorkspaceLoadAt = new Date().toLocaleString();
+    workspaceLoadState = "loaded";
+    workspaceLoadError = "";
+    setStatus("Workspace loaded");
+    render();
+  }catch(err){
+    workspaceLoadState = "failed";
+    workspaceLoadError = err?.message || "Workspace data could not load.";
+    setStatus("Can’t reach workspace");
+    render();
+    throw err;
+  }
 }
 
 function selectActive(table){
@@ -420,6 +553,7 @@ function render(){
   renderPermissionState();
   renderGlobalSearch();
   window.FieldOps.Views.ProjectsBudget.buildReport(false);
+  renderDataStateAffordances();
 }
 
 function renderFieldPortal(){
@@ -1001,7 +1135,7 @@ function openEditModal(section,index){
   editModalTitle.textContent = `Edit ${titleize(section)}`;
   editForm.innerHTML = config.fields.map(([key,label,type]) => fieldHtml(key,label,type,item[key] ?? "")).join("") +
     `<div class="actions full"><button type="submit">Save Changes</button><button class="ghost" type="button" onclick="closeEditModal()">Cancel</button></div>`;
-  editModal.classList.add("active");
+  openManagedModal(editModal, editForm.querySelector("input,select,textarea,button"));
 }
 
 function fieldHtml(key,label,type,value){
@@ -1010,7 +1144,7 @@ function fieldHtml(key,label,type,value){
 }
 
 function closeEditModal(){
-  editModal.classList.remove("active");
+  closeManagedModal(editModal);
   AppState.setCurrentEdit(runtimeState);
 }
 
@@ -1156,11 +1290,73 @@ function renderDiagnostics(){
 }
 
 function printBoardReport(){ buildReport(false); window.print(); }
-function downloadBackup(){ const blob = new Blob([JSON.stringify(app,null,2)], {type:"application/json"}); const url = URL.createObjectURL(blob); const a = document.createElement("a"); a.href = url; a.download = `field-ops-cache-${todayString()}.json`; a.click(); URL.revokeObjectURL(url); }
-function uploadBackup(){ alert("Backups are read-only here. The shared workspace remains the source of truth."); }
+const BACKUP_COLLECTION_KEYS = ["buildings", "spaces", "assets", "projects", "vendors", "bids", "budgetItems", "tasks", "archivedTasks", "vehicles", "fuelReceipts", "materials", "takeoffs", "materialLineItems", "purchaseRequests", "files", "submissions", "vehicleAlerts"];
+
+function downloadBackup(){
+  const payload = {
+    _backup:{
+      type:"field_ops_workspace_backup",
+      version:1,
+      workspaceId:workspaceId(),
+      exportedAt:new Date().toISOString()
+    },
+    app
+  };
+  const blob = new Blob([JSON.stringify(payload,null,2)], {type:"application/json"});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `field-ops-cache-${todayString()}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function validateBackupPayload(payload){
+  if(!payload || typeof payload !== "object") throw new Error("This backup file could not be read.");
+  const backupApp = payload.app;
+  const meta = payload._backup || {};
+  if(meta.type !== "field_ops_workspace_backup" || !backupApp || typeof backupApp !== "object"){
+    throw new Error("This does not look like a valid workspace backup.");
+  }
+  if(!meta.workspaceId) throw new Error("This backup is missing workspace details.");
+  if(meta.workspaceId !== workspaceId()) throw new Error("This backup belongs to a different workspace.");
+  if(!backupApp.settings || typeof backupApp.settings !== "object") throw new Error("This backup is missing workspace settings.");
+  const invalidKey = BACKUP_COLLECTION_KEYS.find(key => !Array.isArray(backupApp[key]));
+  if(invalidKey) throw new Error("This backup is missing required workspace records.");
+  return backupApp;
+}
+
+async function uploadBackup(file){
+  try{
+    if(!file) return;
+    if(!requireAuth(true)) return;
+    if(file.size > 10 * 1024 * 1024) throw new Error("This backup file is too large.");
+    const text = await file.text();
+    const backupApp = validateBackupPayload(JSON.parse(text));
+    const ok = await InteractionService?.showConfirmDialog?.({
+      title:"Restore this backup?",
+      detail:"This will overwrite current workspace data.",
+      reassurance:"The backup will replace what is shown on this device. Refresh Workspace can reload shared records.",
+      confirmLabel:"Restore backup",
+      cancelLabel:"Cancel",
+      tone:"danger"
+    });
+    if(!ok) return;
+    AppState.resetRuntimeApp(runtimeState);
+    Object.assign(app, backupApp);
+    render();
+    setStatus("Backup loaded on this device");
+    InteractionService?.showConfirmation?.("Backup loaded", "The backup is shown on this device. Refresh Workspace will reload shared records.");
+  }catch(err){
+    const message = err instanceof SyntaxError ? "This backup file could not be read." : err.message;
+    setStatus("Backup restore failed");
+    alert(message);
+  }
+}
 function resetLocalData(){ AppState.resetRuntimeApp(runtimeState); render(); setStatus("Temporary cache cleared"); }
 function setActiveView(id){
   activeViewId = id;
+  document.title = `SquatchWorks — ${VIEW_TITLES[id] || titleize(id)}`;
   document.querySelectorAll(".view").forEach(v=>v.classList.toggle("active",v.id===id));
   document.querySelectorAll(".tab").forEach(b=>{
     const active = b.dataset.view===id;
@@ -1982,6 +2178,7 @@ async function createUploadedDocumentForImport(file, fileTypeValue, extractedTex
 
 async function handleSpreadsheetFile(file){
   try{
+    validateUploadFile(file, new Set([".csv", ".xlsx"]));
     const buffer = await file.arrayBuffer();
     const workbook = XLSX.read(buffer, { type:"array" });
     const wantsRecurringSchedule = spreadsheetImportType.value === "recurring_schedule";
@@ -2015,6 +2212,7 @@ async function extractPdfText(file){
 
 async function handlePdfFile(file){
   try{
+    validateUploadFile(file, new Set([".pdf"]));
     const text = await extractPdfText(file);
     const docId = await createUploadedDocumentForImport(file, "PDF Import", text, text ? "complete" : "not_supported");
     extractionPreview.value = text || "No readable text found.";
@@ -2168,6 +2366,8 @@ async function clearDemoData(){
 function startSessionDemo(){
   currentSession = { user:{ id:"demo-session", email:"demo@session.local" } };
   currentWorkspace = { id:"demo-session", role:"owner", name:"Session Demo", isDemo:true };
+  workspaceLoadState = "loaded";
+  workspaceLoadError = "";
   AppState.resetRuntimeApp(runtimeState);
   app.settings.workspaceName = "Field Operations Command Center";
   app.settings.workspaceNote = "Demo mode. Nothing saves to the shared workspace.";
@@ -2202,6 +2402,18 @@ loginPasswordSignInBtn?.addEventListener("click", () => {
   authPassword.value = loginPassword.value;
   signInWithPasswordForSync();
 });
+
+editModal?.addEventListener("click", event => {
+  if(event.target?.id === "editModal") closeEditModal();
+});
+
+document.addEventListener("keydown", event => {
+  if(event.key === "Escape" && editModal?.classList.contains("active")) closeEditModal();
+});
+loginForgotPasswordBtn?.addEventListener("click", () => {
+  authEmail.value = loginEmail.value;
+  requestPasswordReset();
+});
 loginEmail?.addEventListener("keydown", e => {
   if(e.key === "Enter"){
     authEmail.value = loginEmail.value;
@@ -2216,6 +2428,15 @@ loginPassword?.addEventListener("keydown", e => {
   }
 });
 loginDemoBtn?.addEventListener("click", startSessionDemo);
+saveNewPasswordBtn?.addEventListener("click", saveRecoveredPassword);
+cancelPasswordRecoveryBtn?.addEventListener("click", hidePasswordRecoveryPrompt);
+newPasswordInput?.addEventListener("keydown", e => {
+  if(e.key === "Enter") saveRecoveredPassword();
+});
+confirmPasswordInput?.addEventListener("keydown", e => {
+  if(e.key === "Enter") saveRecoveredPassword();
+  if(e.key === "Escape") hidePasswordRecoveryPrompt();
+});
 saveDisplayNameBtn?.addEventListener("click", saveDisplayName);
 skipDisplayNameBtn?.addEventListener("click", hideDisplayNamePrompt);
 displayNameInput?.addEventListener("keydown", e => {
@@ -2252,4 +2473,5 @@ if(window.pdfjsLib){
 
 InteractionService?.init?.();
 setupFormDisclosure();
+document.title = "SquatchWorks — Sign In";
 initializeAuth();

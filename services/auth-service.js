@@ -4,6 +4,8 @@
 
   const { VIEW_ACCESS, SUBMITTER_INSERT_TABLES } = window.FieldOps.Auth.roles;
   const SessionApi = window.FieldOps.Auth.session;
+  const PASSWORD_RECOVERY_REDIRECT = "https://squatchworksnw.github.io/test-126/?mode=recovery";
+  const MIN_PASSWORD_LENGTH = 8;
 
   function isAuthenticated(state){ return Boolean(state.currentSession?.user); }
   function workspaceId(state){ return state.currentWorkspace?.id || ""; }
@@ -26,6 +28,52 @@
   function canAccessView(id, state){
     if(id === "accessDenied") return true;
     return allowedViewsForRole(state).has(id);
+  }
+
+  function isRecoveryUrl(){
+    return new URLSearchParams(window.location.search).get("mode") === "recovery";
+  }
+
+  function passwordRecoveryModal(){
+    return {
+      backdrop: document.getElementById("passwordRecoveryModal"),
+      message: document.getElementById("passwordRecoveryMessage"),
+      newPassword: document.getElementById("newPasswordInput"),
+      confirmPassword: document.getElementById("confirmPasswordInput"),
+      error: document.getElementById("passwordRecoveryError")
+    };
+  }
+
+  function showPasswordRecoveryPrompt(message = "Enter a new password for your account."){
+    const modal = passwordRecoveryModal();
+    if(!modal.backdrop) return;
+    if(modal.message) modal.message.textContent = message;
+    if(modal.error) modal.error.textContent = "";
+    if(modal.newPassword) modal.newPassword.value = "";
+    if(modal.confirmPassword) modal.confirmPassword.value = "";
+    if(typeof window.openManagedModal === "function") window.openManagedModal(modal.backdrop, modal.newPassword);
+    else {
+      modal.backdrop.classList.add("active");
+      setTimeout(() => modal.newPassword?.focus(), 50);
+    }
+  }
+
+  function hidePasswordRecoveryPrompt(){
+    const modal = passwordRecoveryModal();
+    if(typeof window.closeManagedModal === "function") window.closeManagedModal(modal.backdrop);
+    else modal.backdrop?.classList.remove("active");
+    if(isRecoveryUrl()){
+      const cleanUrl = `${window.location.origin}${window.location.pathname}`;
+      window.history.replaceState({}, document.title, cleanUrl);
+    }
+  }
+
+  function recoveryErrorMessage(error){
+    const text = String(error?.message || error || "").toLowerCase();
+    if(text.includes("expired") || text.includes("invalid")) return "This reset link may have expired. Ask for a new password reset email and try again.";
+    if(text.includes("weak") || text.includes("password")) return "Choose a stronger password with at least 8 characters.";
+    if(text.includes("network") || text.includes("fetch")) return "The connection dropped before the password could be saved. Try again.";
+    return "The password could not be updated. Ask for a new reset email and try again.";
   }
 
   function renderAuthState(ctx){
@@ -104,9 +152,17 @@
     ctx.setSession(data?.session || null);
     renderAuthState(ctx);
 
-    SessionApi.onAuthStateChange(ctx.supabaseClient, async (_event, session) => {
+    if(isRecoveryUrl()){
+      showPasswordRecoveryPrompt("Enter a new password to finish resetting your account.");
+    }
+
+    SessionApi.onAuthStateChange(ctx.supabaseClient, async (event, session) => {
       ctx.setSession(session);
       renderAuthState(ctx);
+      if(event === "PASSWORD_RECOVERY"){
+        showPasswordRecoveryPrompt("Enter a new password to finish resetting your account.");
+        return;
+      }
       if(session){
         await bootstrapWorkspace(ctx);
       } else {
@@ -124,6 +180,61 @@
       ctx.setStatus("Sign in to load workspace");
       ctx.render();
       ctx.showView?.("login", { skipHistory:true });
+    }
+  }
+
+  async function requestPasswordReset(ctx){
+    const email = (document.getElementById("loginEmail")?.value || document.getElementById("authEmail")?.value || "").trim();
+    if(!email){
+      alert("Enter your email first, then choose Forgot password.");
+      document.getElementById("loginEmail")?.focus();
+      return;
+    }
+    const { error } = await SessionApi.resetPasswordForEmail(ctx.supabaseClient, email, PASSWORD_RECOVERY_REDIRECT);
+    if(error){
+      const message = String(error.message || "").toLowerCase();
+      const friendly = message.includes("rate")
+        ? "Password reset emails are paused for a few minutes. Wait a bit, then try once."
+        : message.includes("network") || message.includes("fetch")
+          ? "The connection dropped before the reset email could be sent. Try again."
+          : "Password reset email could not be sent. Check the email address and try again.";
+      alert(friendly);
+      return;
+    }
+    ctx.setStatus("Password reset email sent");
+    alert("Check your email for a password reset link.");
+  }
+
+  async function saveRecoveredPassword(ctx){
+    const modal = passwordRecoveryModal();
+    const password = modal.newPassword?.value || "";
+    const confirmPassword = modal.confirmPassword?.value || "";
+    if(modal.error) modal.error.textContent = "";
+    if(!password || !confirmPassword){
+      if(modal.error) modal.error.textContent = "Enter the new password twice.";
+      return;
+    }
+    if(password.length < MIN_PASSWORD_LENGTH){
+      if(modal.error) modal.error.textContent = "Use at least 8 characters.";
+      return;
+    }
+    if(password !== confirmPassword){
+      if(modal.error) modal.error.textContent = "The two passwords do not match.";
+      return;
+    }
+    try{
+      const { error } = await SessionApi.updatePassword(ctx.supabaseClient, password);
+      if(error) throw error;
+      hidePasswordRecoveryPrompt();
+      await SessionApi.signOut(ctx.supabaseClient);
+      ctx.setWorkspace(null);
+      ctx.setSession(null);
+      ctx.setStatus("Password updated");
+      ctx.showView?.("login", { skipHistory:true });
+      alert("Password updated. You can sign in now.");
+    }catch(err){
+      console.error(err);
+      if(modal.error) modal.error.textContent = recoveryErrorMessage(err);
     }
   }
 
@@ -182,12 +293,17 @@
     if(!modal.backdrop || !modal.input) return;
     modal.input.value = "";
     if(modal.error) modal.error.textContent = "";
-    modal.backdrop.classList.add("active");
-    setTimeout(() => modal.input.focus(), 50);
+    if(typeof window.openManagedModal === "function") window.openManagedModal(modal.backdrop, modal.input);
+    else {
+      modal.backdrop.classList.add("active");
+      setTimeout(() => modal.input.focus(), 50);
+    }
   }
 
   function hideDisplayNamePrompt(){
-    displayNameModal().backdrop?.classList.remove("active");
+    const modal = displayNameModal();
+    if(typeof window.closeManagedModal === "function") window.closeManagedModal(modal.backdrop);
+    else modal.backdrop?.classList.remove("active");
   }
 
   async function saveDisplayName(ctx){
@@ -250,6 +366,20 @@
     }
   }
 
+  document.addEventListener?.("keydown", event => {
+    if(event.key !== "Escape") return;
+    if(passwordRecoveryModal().backdrop?.classList.contains("active")) hidePasswordRecoveryPrompt();
+    if(displayNameModal().backdrop?.classList.contains("active")) hideDisplayNamePrompt();
+  });
+
+  document.getElementById("passwordRecoveryModal")?.addEventListener("click", event => {
+    if(event.target?.id === "passwordRecoveryModal") hidePasswordRecoveryPrompt();
+  });
+
+  document.getElementById("displayNameModal")?.addEventListener("click", event => {
+    if(event.target?.id === "displayNameModal") hideDisplayNamePrompt();
+  });
+
   window.FieldOps.Services.auth = {
     isAuthenticated,
     workspaceId,
@@ -270,6 +400,10 @@
     initializeAuth,
     signInForSync,
     signInWithPasswordForSync,
+    requestPasswordReset,
+    saveRecoveredPassword,
+    showPasswordRecoveryPrompt,
+    hidePasswordRecoveryPrompt,
     signOutForSync,
     bootstrapWorkspace,
     saveDisplayName,
@@ -277,4 +411,3 @@
     hideDisplayNamePrompt
   };
 })();
-

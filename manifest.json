@@ -1,0 +1,22 @@
+{
+  "name": "SquatchWorks",
+  "short_name": "SquatchWorks",
+  "start_url": "/test-126/",
+  "scope": "/test-126/",
+  "display": "standalone",
+  "background_color": "#f7f3ea",
+  "theme_color": "#1f2c3a",
+  "icons": [
+    {
+      "src": "assets/icons/favicon-32.png",
+      "sizes": "32x32",
+      "type": "image/png"
+    },
+    {
+      "src": "assets/icons/apple-touch-icon.png",
+      "sizes": "180x180",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ]
+}

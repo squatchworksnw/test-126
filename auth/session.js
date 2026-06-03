@@ -21,6 +21,14 @@
     return supabaseClient.auth.signInWithPassword({ email, password });
   }
 
+  function resetPasswordForEmail(supabaseClient, email, redirectTo){
+    return supabaseClient.auth.resetPasswordForEmail(email, { redirectTo });
+  }
+
+  function updatePassword(supabaseClient, password){
+    return supabaseClient.auth.updateUser({ password });
+  }
+
   function signOut(supabaseClient){
     return supabaseClient.auth.signOut();
   }
@@ -54,6 +62,6 @@
       .single();
   }
 
-  window.FieldOps.Auth.session = { getSession, onAuthStateChange, signInWithEmail, signInWithPassword, signOut, loadFirstWorkspace, loadUserProfile, saveUserProfile };
+  window.FieldOps.Auth.session = { getSession, onAuthStateChange, signInWithEmail, signInWithPassword, resetPasswordForEmail, updatePassword, signOut, loadFirstWorkspace, loadUserProfile, saveUserProfile };
 })();
 

@@ -3,6 +3,45 @@
   window.FieldOps.Views = window.FieldOps.Views || {};
   const Mappers = window.FieldOps.Services.mappers;
   const previewUrlCache = new Map();
+  const MAX_UPLOAD_BYTES = 10 * 1024 * 1024;
+  const SUPPORTED_UPLOAD_EXTENSIONS = new Set([".jpg", ".jpeg", ".png", ".pdf", ".xlsx", ".csv", ".doc", ".docx"]);
+
+function fileExtension(file){
+  const name = String(file?.name || "").toLowerCase();
+  const dot = name.lastIndexOf(".");
+  return dot >= 0 ? name.slice(dot) : "";
+}
+
+function validateUploadFile(file, allowedExtensions = SUPPORTED_UPLOAD_EXTENSIONS){
+  if(!file) return;
+  if(file.size > MAX_UPLOAD_BYTES) throw new Error("This file is too large — maximum 10MB.");
+  if(!allowedExtensions.has(fileExtension(file))) throw new Error("This file type is not supported.");
+}
+
+function formatFileSize(bytes){
+  const size = Number(bytes || 0);
+  if(size >= 1024 * 1024) return `${(size / 1024 / 1024).toFixed(size >= 10 * 1024 * 1024 ? 0 : 1)} MB`;
+  if(size >= 1024) return `${Math.round(size / 1024)} KB`;
+  return `${size} bytes`;
+}
+
+function setUploadProgress(file, state, message){
+  const target = document.getElementById("uploadProgress");
+  if(!target) return;
+  target.classList.toggle("hidden", !file && !message);
+  target.dataset.state = state || "";
+  if(!file && !message){
+    target.innerHTML = "";
+    return;
+  }
+  const name = file?.name || "Selected file";
+  const size = file ? formatFileSize(file.size) : "";
+  target.innerHTML = `
+    <strong>${esc(name)}</strong>
+    ${size ? `<span>${esc(size)}</span>` : ""}
+    <p>${esc(message || "Ready to upload.")}</p>
+  `;
+}
 
 function uploadKindToFileType(kind){
   return {
@@ -180,6 +219,7 @@ async function saveDocumentMetadata({ docId, fileNameValue, fileTypeValue, stora
 
 async function uploadDocumentToStorage(file, docId){
   if(!requireAuth(true)) throw new Error("Upload blocked by permissions. Confirm workspace access or role.");
+  validateUploadFile(file);
   const wid = workspaceId();
   if(!wid) throw new Error("Upload blocked by permissions. Confirm workspace access or role.");
   if(!navigator.onLine){
@@ -197,13 +237,15 @@ async function uploadDocumentToStorage(file, docId){
 
 async function addFileRecord(e){
   e.preventDefault();
+  const upload = document.getElementById("documentUpload").files[0];
   try{
     if(!requireInsertPermission("field_ops_documents", "upload documents")) return;
     applyUploadKind();
     applyUploadRecordLink();
-    setInlineState("fileSaveState", "Uploading...", "pending");
+    if(upload) validateUploadFile(upload);
+    setUploadProgress(upload, "pending", upload ? "Uploading to workspace..." : "Saving file link...");
+    setInlineState("fileSaveState", upload ? "Uploading file..." : "Saving file link...", "pending");
     setStatus("Uploading document...");
-    const upload = document.getElementById("documentUpload").files[0];
     const docId = id();
     const fileNameValue = fileName.value || upload?.name || "document";
     let storagePath = `${workspaceId()}/${docId}/${fileNameValue.replace(/[^\w.\- ]+/g, "_")}`;
@@ -212,6 +254,7 @@ async function addFileRecord(e){
 
     if(upload){
       storagePath = await uploadDocumentToStorage(upload, docId);
+      setUploadProgress(upload, "pending", "Reading file details...");
       extractedText = await extractFileText(upload);
       extractionStatus = extractedText ? "complete" : "not_supported";
     } else {
@@ -239,6 +282,7 @@ async function addFileRecord(e){
       },
       notes:fileNotes.value
     });
+    setUploadProgress(upload, "saved", upload ? "Upload saved and routed." : "File link saved.");
 
     const uploadKind = document.getElementById("uploadKind")?.value || "";
     const uploadConnectionValue = document.getElementById("uploadConnection")?.value || "not_sure";
@@ -294,7 +338,9 @@ async function addFileRecord(e){
     }
     await refreshAfterWrite?.("Document saved");
   }catch(err){
-    setInlineState("fileSaveState", `Upload failed: ${permissionAwareErrorMessage(err)}`, "failed");
+    const message = permissionAwareErrorMessage(err);
+    setUploadProgress(upload, "failed", message);
+    setInlineState("fileSaveState", `Upload failed: ${message}`, "failed");
     handleWriteError(err);
   }
 }
@@ -412,6 +458,9 @@ function renderLinkedDocumentPanels(){
   Object.assign(window.FieldOps.Views, {
     saveDocumentMetadata,
     uploadDocumentToStorage,
+    validateUploadFile,
+    formatFileSize,
+    setUploadProgress,
     uploadReviewContext,
     addFileRecord,
     typeToImportTarget,
@@ -423,6 +472,9 @@ function renderLinkedDocumentPanels(){
   Object.assign(globalThis, {
     saveDocumentMetadata,
     uploadDocumentToStorage,
+    validateUploadFile,
+    formatFileSize,
+    setUploadProgress,
     uploadReviewContext,
     addFileRecord,
     typeToImportTarget,
@@ -434,6 +486,21 @@ function renderLinkedDocumentPanels(){
   document.getElementById("uploadKind")?.addEventListener("change", applyUploadKind);
   document.getElementById("uploadConnection")?.addEventListener("change", applyUploadConnection);
   document.getElementById("uploadConnectionRecord")?.addEventListener("change", applyUploadRecordLink);
+  document.getElementById("documentUpload")?.addEventListener("change", event => {
+    const file = event.target.files?.[0];
+    if(!file){
+      setUploadProgress(null, "", "");
+      return;
+    }
+    try{
+      validateUploadFile(file);
+      setUploadProgress(file, "pending", "Ready to upload.");
+      setInlineState("fileSaveState", "Ready", "");
+    }catch(err){
+      setUploadProgress(file, "failed", err.message);
+      setInlineState("fileSaveState", err.message, "failed");
+    }
+  });
   document.querySelectorAll("[data-upload-kind]").forEach(button => {
     button.addEventListener("click", () => {
       const select = document.getElementById("uploadKind");

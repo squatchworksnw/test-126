@@ -281,6 +281,57 @@ header{
 main{max-width:1180px;margin:0 auto 0 258px;padding:14px 14px 60px}
 .view{display:none}
 .view.active{display:block}
+.workspace-load-notice{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  margin:0 0 14px;
+  padding:12px 14px;
+  border:1px solid rgba(155,63,54,.34);
+  border-radius:var(--radius);
+  background:#f8e8df;
+  color:var(--navy);
+  box-shadow:var(--soft-shadow);
+}
+.workspace-load-notice p{margin:.2rem 0 0;color:var(--muted)}
+.loading-card,.workspace-error-card{min-height:112px}
+.loading-card p{margin:.75rem 0 0;color:var(--muted);font-weight:760}
+.how-this-works{
+  margin:10px 0 14px;
+  padding:10px 12px;
+  border:1px solid var(--border);
+  border-radius:var(--radius);
+  background:var(--paper-soft);
+}
+.how-this-works summary{cursor:pointer;font-weight:800;color:var(--navy)}
+.how-this-works p{margin:.55rem 0 0;color:var(--muted);max-width:var(--measure)}
+.upload-progress{
+  border:1px solid var(--border);
+  border-radius:var(--radius);
+  background:var(--paper-soft);
+  padding:10px 12px;
+}
+.upload-progress strong,.upload-progress span{display:block}
+.upload-progress span{color:var(--muted);font-size:.9rem;margin-top:2px}
+.upload-progress p{margin:.45rem 0 0;color:var(--muted);font-weight:760}
+.upload-progress[data-state="saved"]{border-color:rgba(77,121,92,.34);background:#e8f1e8}
+.upload-progress[data-state="failed"]{border-color:rgba(155,63,54,.34);background:#f8e8df}
+.skeleton-line{
+  display:block;
+  width:68%;
+  height:14px;
+  border-radius:999px;
+  background:linear-gradient(90deg, rgba(31,44,58,.08), rgba(31,44,58,.16), rgba(31,44,58,.08));
+  background-size:180% 100%;
+  animation:skeleton-pulse 1.4s ease-in-out infinite;
+}
+.skeleton-line + .skeleton-line{width:44%;margin-top:10px}
+.skeleton-line.wide{width:82%}
+@keyframes skeleton-pulse{
+  0%{background-position:0% 50%}
+  100%{background-position:180% 50%}
+}
 body[data-auth="signed-out"] header,body[data-auth="signed-out"] main,body[data-auth="signed-out"] .skip-link{display:none}
 body[data-auth="signed-out"] #login{display:flex}
 body[data-auth="signed-in"] #login{display:none!important}
@@ -314,6 +365,10 @@ body[data-auth="signed-in"] #login{display:none!important}
   padding:16px;
   box-shadow:var(--soft-shadow);
 }
+.login-panel .subtle-action{font-size:.9rem}
+.password-recovery-modal .actions button{min-height:48px}
+.password-recovery-modal input{min-height:48px}
+.password-recovery-modal .meta{line-height:1.45}
 
 .panel{
   position:relative;

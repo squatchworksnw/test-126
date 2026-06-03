@@ -1123,7 +1123,7 @@ function renderWorkOrderDetail(){
         <label>Assigned person<input id="workOrderDetailAssignee" value="${esc(assignedTo)}" placeholder="Name, team, or vendor" /></label>
         <label>Attach existing document<select id="workOrderExistingDocument"><option value="">Choose existing document</option>${attachableDocuments.map(f => `<option value="${esc(f.id)}">${esc(f.fileName)}</option>`).join("")}</select></label>
         <label class="full">Add note<textarea id="workOrderDetailNote" placeholder="Add a field note, status update, or follow-up..."></textarea></label>
-        <label>Attach document<input id="workOrderDetailUpload" type="file" accept=".pdf,.csv,.xlsx,.xls,image/*" /></label>
+        <label>Attach document<input id="workOrderDetailUpload" type="file" accept=".jpg,.jpeg,.png,.pdf,.xlsx,.csv,.doc,.docx" /></label>
       </div>
       <div class="actions"><button type="button" onclick="saveWorkOrderDetailUpdates()">Save Update</button></div>
     </section>
