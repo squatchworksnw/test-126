@@ -311,7 +311,12 @@ async function addFileRecord(e){
           if(returnContext.taskId) setTimeout(() => openAssignedWorkItem(returnContext.taskId), 0);
         }}]
         : [];
-    InteractionService?.showConfirmation?.("Upload submitted", returnContext?.view === "assignedWork" ? `${uploadDetail} Returning to Assigned Work keeps the field update connected.` : uploadDetail, confirmationActions);
+    const uploadReference = `SW-${String(docId || "").replace(/[^a-z0-9]/gi, "").slice(0, 8).toUpperCase() || "PENDING"}`;
+    InteractionService?.showConfirmation?.(
+      "Upload received",
+      `${uploadDetail} Reference: ${uploadReference}.${returnContext?.view === "assignedWork" ? " Returning to Assigned Work keeps the field update connected." : ""}`,
+      confirmationActions
+    );
     addOperationalNotification?.({
       type:"upload_submitted",
       title:"Upload submitted",

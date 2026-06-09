@@ -472,6 +472,7 @@ function renderAssignedWork(){
     const el = document.getElementById(idValue);
     if(el) el.textContent = value;
   });
+  document.querySelector(".assigned-summary")?.classList.toggle("hidden", summary.all.length === 0);
   document.querySelectorAll("[data-assigned-filter]").forEach(button => {
     const active = button.dataset.assignedFilter === assignedWorkFilter && !assignedWorkSearchValue();
     button.classList.toggle("active", active);
@@ -484,14 +485,17 @@ function renderAssignedWork(){
       renderAssignedGroup("This Week", summary.week.filter(item => !summary.today.includes(item))),
       renderAssignedGroup("Recently Updated", summary.recent)
     ].join("");
-    list.innerHTML = summary.all.length ? grouped : empty("No work orders assigned yet.");
+    list.innerHTML = summary.all.length ? grouped : empty("Nothing assigned right now. New work assigned to you will appear here.");
   }else{
-    list.innerHTML = shown.length ? shown.map(assignedWorkCard).join("") + (items.length > shown.length ? empty(`Showing the first ${shown.length} of ${items.length}. Search to narrow this down.`) : "") : empty(assignedWorkSearchValue() ? "No assigned work matches that search." : "No work orders assigned yet.");
+    list.innerHTML = shown.length ? shown.map(assignedWorkCard).join("") + (items.length > shown.length ? empty(`Showing the first ${shown.length} of ${items.length}. Search to narrow this down.`) : "") : empty(assignedWorkSearchValue() ? "No assigned work matches that search." : "Nothing assigned right now. New work assigned to you will appear here.");
   }
   const status = document.getElementById("assignedWorkStatus");
   if(status){
-    const label = assignedWorkSearchValue() ? `search for "${assignedWorkSearchValue()}"` : assignedWorkFilter.replace(/_/g, " ");
-    status.textContent = `Showing ${shown.length} of ${items.length} for ${label}.`;
+    if(!summary.all.length && !assignedWorkSearchValue()) status.textContent = "Nothing assigned right now.";
+    else {
+      const label = assignedWorkSearchValue() ? `search for "${assignedWorkSearchValue()}"` : assignedWorkFilter.replace(/_/g, " ");
+      status.textContent = `Showing ${shown.length} of ${items.length} for ${label}.`;
+    }
   }
 }
 
@@ -529,7 +533,6 @@ function renderAssignedWorkDetail(task){
   const docs = linkedDocsForTask(task);
   const supplyRequests = linkedSupplyRequestsForTask(task);
   const scheduledTask = isScheduledWorkOrder(task) ? task : linkedScheduledTaskForWork(task);
-  const historyLines = String(task.notes || "").split("\n").filter(Boolean).slice(-8);
   target.innerHTML = `<section class="detail-block assigned-inline-detail" tabindex="-1">
     <div class="panel-title"><div><h3>${esc(task.name || "Assigned work")}</h3><p class="meta">${esc(compact([titleize(task.status), titleize(task.priority), task.date ? `Due ${task.date}` : "No due date", assignedContext(task)]).join(" | "))}</p></div></div>
     <div class="object-story-grid assigned-context-strip" aria-label="Assigned work context">
@@ -545,7 +548,7 @@ function renderAssignedWorkDetail(task){
       ${scheduledTask ? `<button class="ghost" type="button" onclick="viewLinkedScheduledTask('${scheduledTask.id}')">View Scheduled Task</button>` : ""}
     </div>
     <div class="card-list">${docs.length ? docs.map(documentPreviewCard).join("") : empty("No linked documents yet.")}</div>
-    <div class="timeline">${historyLines.length ? historyLines.map(line => `<article class="timeline-item"><p>${esc(line)}</p></article>`).join("") : empty("No visible history yet.")}</div>
+    ${window.operationalTimelineSection?.("work_order", task.id, task.notes || "") || ""}
   </section>`;
   target.querySelector(".assigned-inline-detail")?.focus();
 }
@@ -579,7 +582,8 @@ async function completeAssignedWorkItem(taskId){
       task.notes = saved.notes || payload.notes;
     }
     setStatus("Assigned work marked complete");
-    InteractionService?.showConfirmation?.("Work completed", saved?._queued ? "This completion is waiting to sync. It will stay on this device until the connection returns." : "This assigned item was marked complete and kept in the work history.", [
+    const completionReference = task.workOrderNumber || `SW-${String(task.id || "").replace(/[^a-z0-9]/gi, "").slice(0, 8).toUpperCase() || "PENDING"}`;
+    InteractionService?.showConfirmation?.("Work completed", saved?._queued ? `This completion is waiting to sync and will stay on this device until the connection returns. Reference: ${completionReference}.` : `This assigned item was marked complete and kept in the work history. Reference: ${completionReference}.`, [
       { label:"Upload proof", run:() => uploadDocumentForScheduledTask(task.id) },
       ...(task.vehicleId ? [{ label:"Update vehicle", run:() => updateVehicleServiceRecord(task.id) }] : []),
       ...(isScheduledWorkOrder(task) || linkedScheduledTaskForWork(task) ? [{ label:"Stage next", run:() => stageNextRecurringOccurrence(task.id) }] : [])
@@ -1018,7 +1022,6 @@ function renderWorkOrderDetail(){
   const budgetItems = activeItems("budgetItems").filter(item => item.workOrderId === task.id);
   const budgetTotal = budgetItems.reduce((sum, item) => sum + Number(item.amount || 0), 0);
     const assignedTo = taskAssignee(task);
-  const historyLines = String(task.notes || "").split("\n").filter(line => line.trim());
   const relatedCards = [
     relatedSummaryCard("Project", project, [project?.summary, project?.notes], [titleize(project?.status || ""), titleize(project?.priority || "")]),
     relatedSummaryCard("Building", building, [building?.address, building?.notes], [titleize(building?.status || "")]),
@@ -1127,10 +1130,7 @@ function renderWorkOrderDetail(){
       </div>
       <div class="actions"><button type="button" onclick="saveWorkOrderDetailUpdates()">Save Update</button></div>
     </section>
-    <section class="detail-block">
-      <div class="panel-title"><h3>History</h3></div>
-      <div class="timeline">${historyLines.length ? historyLines.map(line => `<article class="timeline-item"><p>${esc(line)}</p></article>`).join("") : empty("No visible history yet.")}</div>
-    </section>
+    ${window.operationalTimelineSection?.("work_order", task.id, task.notes || "") || ""}
   `;
 
   const editBtn = document.getElementById("workOrderDetailEditBtn");
@@ -1173,7 +1173,8 @@ async function markWorkOrderComplete(workOrderId){
       task.notes = saved.notes || payload.notes;
     }
     setWorkOrderDetailState(saved?._queued ? "Completion queued until connection returns" : "Complete saved", saved?._queued ? "pending" : "saved");
-    InteractionService?.showConfirmation?.("Work completed", saved?._queued ? "This completion is waiting to sync. It will stay on this device until the connection returns." : task.vehicleId ? "Vehicle work is complete. Update the vehicle record or upload service proof while it is fresh." : "This work order was marked complete and kept in the work history.", [
+    const completionReference = task.workOrderNumber || `SW-${String(task.id || "").replace(/[^a-z0-9]/gi, "").slice(0, 8).toUpperCase() || "PENDING"}`;
+    InteractionService?.showConfirmation?.("Work completed", saved?._queued ? `This completion is waiting to sync and will stay on this device until the connection returns. Reference: ${completionReference}.` : task.vehicleId ? `Vehicle work is complete. Update the vehicle record or upload service proof while it is fresh. Reference: ${completionReference}.` : `This work order was marked complete and kept in the work history. Reference: ${completionReference}.`, [
       { label:"Upload proof", run:() => uploadDocumentForScheduledTask(task.id) },
       ...(task.vehicleId ? [{ label:"Update vehicle", run:() => updateVehicleServiceRecord(task.id) }] : []),
       ...(isScheduledWorkOrder(task) || linkedScheduledTaskForWork(task) ? [{ label:"Stage next", run:() => stageNextRecurringOccurrence(task.id) }] : [])

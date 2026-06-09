@@ -137,6 +137,11 @@
     return `${count} ${count === 1 ? one : many}`;
   }
 
+  function actionSummary(count, zero, one, many){
+    if(!count) return zero;
+    return count === 1 ? one : many.replace("{count}", count);
+  }
+
   function namedPriorityLine(items, fallback, suffix){
     if(!items.length) return fallback;
     const first = items[0];
@@ -203,6 +208,8 @@
       todayState.recentActivity.length
     ];
     const quietBuckets = attentionBuckets.filter(count => !count).length;
+    const assignedOverdue = todayState.assignedToday.filter(t => t.date && t.date < helpers.todayString()).length;
+    const urgentCount = todayState.urgentDue.length;
     const priorityCounts = {
       todayReviewCount: todayState.reviewCount,
       todayOverdueCount: todayState.overdue.length,
@@ -219,11 +226,26 @@
       todayClearCount: quietBuckets,
       todayVendorCount: todayState.activeProjects.length + todayState.openBids.length
     };
-    const calmCount = value => value ? String(value) : "All clear";
     Object.entries(priorityCounts).forEach(([id, value]) => {
       const el = document.getElementById(id);
-      if(el) el.textContent = ["todayReviewCount","todayOverdueCount","todayDueCount","todayFleetCount"].includes(id) ? calmCount(value) : value;
+      if(el) el.textContent = String(value);
     });
+    setText("todayReviewSummary", actionSummary(
+      todayState.reviewCount,
+      "No items waiting for review",
+      "1 item waiting for review",
+      "{count} items waiting for review"
+    ));
+    setText("todayAssignedSummary", todayState.assignedToday.length
+      ? `${plural(todayState.assignedToday.length, "item", "items")} assigned to you${assignedOverdue ? `, ${assignedOverdue} overdue` : ""}`
+      : "No work assigned to you");
+    const urgentParts = compact([
+      todayState.overdue.length ? plural(todayState.overdue.length, "overdue item", "overdue items") : "",
+      todayState.dueToday.length ? plural(todayState.dueToday.length, "item due today", "items due today") : "",
+      todayState.blockedTasks.length ? plural(todayState.blockedTasks.length, "waiting item", "waiting items") : "",
+      todayState.urgentTasks.length ? plural(todayState.urgentTasks.length, "high priority item", "high priority items") : ""
+    ]);
+    setText("todayUrgentSummary", urgentParts.length ? urgentParts.slice(0, 2).join("; ") : "Nothing urgent right now");
     const scheduledSummary = document.getElementById("todayScheduledSummary");
     if(scheduledSummary) scheduledSummary.textContent = `Recurring work this week: ${todayState.scheduledUpcoming.length}`;
     const clearLabel = document.getElementById("todayClearLabel");

@@ -21,6 +21,7 @@
       purchaseRequests: [],
       files: [],
       submissions: [],
+      timelineEvents: [],
       vehicleAlerts: [],
       settings: {
         workspaceName: "Field Operations Command Center",

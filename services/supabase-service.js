@@ -37,6 +37,20 @@
     return supabaseClient.from("field_ops_vehicle_alerts").select("*").eq("workspace_id", workspaceId);
   }
 
+  async function selectTimelineEvents(workspaceId){
+    const result = await supabaseClient
+      .from("field_ops_timeline_events")
+      .select("*")
+      .eq("workspace_id", workspaceId)
+      .order("event_timestamp", { ascending: false })
+      .limit(500);
+
+    if(result.error && /field_ops_timeline_events|schema cache|does not exist|could not find/i.test(result.error.message || "")){
+      return { data:[], error:null, missing:true };
+    }
+    return result;
+  }
+
   function updateRow(table, idValue, payload, workspaceId){
     let query = supabaseClient
       .from(table)
@@ -72,6 +86,19 @@
 
   function insertDocumentMetadata(payload){
     return supabaseClient.from("field_ops_documents").insert(payload);
+  }
+
+  async function insertTimelineEvent(payload){
+    const result = await supabaseClient
+      .from("field_ops_timeline_events")
+      .insert(payload)
+      .select()
+      .single();
+
+    if(result.error && /field_ops_timeline_events|schema cache|does not exist|could not find/i.test(result.error.message || "")){
+      return { data:null, error:null, missing:true };
+    }
+    return result;
   }
 
   function uploadDocument(storagePath, file){
@@ -110,11 +137,13 @@
     selectActive,
     selectArchived,
     selectVehicleAlerts,
+    selectTimelineEvents,
     insertRow,
     updateRow,
     archiveRow,
     restoreRow,
     insertDocumentMetadata,
+    insertTimelineEvent,
     uploadDocument,
     createDocumentPreviewUrl,
     createFuelReceiptWithBudget,

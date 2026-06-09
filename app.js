@@ -4,10 +4,12 @@
   selectActive: selectActiveFromSupabase,
   selectArchived: selectArchivedFromSupabase,
   selectVehicleAlerts,
+  selectTimelineEvents,
   insertRow,
   updateRow,
   archiveRow,
   restoreRow,
+  insertTimelineEvent,
   insertDocumentMetadata,
   uploadDocument,
   createDocumentPreviewUrl,
@@ -122,6 +124,176 @@ function appendHistory(existingNotes, message){
   return compact([existingNotes, line]).join("\n");
 }
 
+const TIMELINE_RECORD_TYPES = {
+  field_ops_work_orders:"work_order",
+  field_ops_import_reviews:"maintenance_request",
+  field_ops_vehicles:"vehicle",
+  field_ops_assets:"asset",
+  field_ops_buildings:"building",
+  field_ops_documents:"document"
+};
+
+const TIMELINE_EVENT_LABELS = {
+  created:"created",
+  reviewed:"reviewed",
+  approved:"approved",
+  rejected:"did not approve",
+  returned_more_information:"asked for more information about",
+  assigned:"assigned",
+  reassigned:"reassigned",
+  completed:"completed",
+  archived:"archived",
+  reopened:"reopened",
+  document_uploaded:"uploaded a document for",
+  comment_added:"added a note to",
+  service_updated:"updated the service record for"
+};
+
+function timelineRecordType(table){
+  return TIMELINE_RECORD_TYPES[table] || "";
+}
+
+function timelineActor(){
+  return currentWorkspace?.displayName || currentSession?.user?.email || currentRole() || "Someone";
+}
+
+function recordLabel(recordType){
+  return {
+    work_order:"this work order",
+    maintenance_request:"this request",
+    vehicle:"this vehicle",
+    asset:"this asset",
+    building:"this building",
+    scheduled_work:"this scheduled work",
+    document:"this document"
+  }[recordType] || "this record";
+}
+
+function timelineEventsFor(recordType, recordId){
+  return (app.timelineEvents || [])
+    .filter(event => event.recordType === recordType && event.recordId === recordId)
+    .sort((a,b) => String(b.timestamp || "").localeCompare(String(a.timestamp || "")));
+}
+
+function timelineEventSentence(event){
+  const actor = event.actorLabel || "Someone";
+  if(event.eventType === "document_uploaded"){
+    return `${actor} uploaded document${event.note ? `: ${event.note}` : ""}.`;
+  }
+  if(event.eventType === "assigned" || event.eventType === "reassigned"){
+    return event.note || `${actor} ${TIMELINE_EVENT_LABELS[event.eventType]} ${recordLabel(event.recordType)}.`;
+  }
+  if(event.eventType === "service_updated"){
+    return event.note || `${actor} updated the vehicle service record.`;
+  }
+  const action = TIMELINE_EVENT_LABELS[event.eventType] || "updated";
+  return event.note || `${actor} ${action} ${recordLabel(event.recordType)}.`;
+}
+
+function timelineDayLabel(timestamp){
+  if(!timestamp) return "Date not recorded";
+  const date = new Date(timestamp);
+  if(Number.isNaN(date.getTime())) return "Date not recorded";
+  const today = new Date();
+  const yesterday = new Date();
+  yesterday.setDate(today.getDate() - 1);
+  const key = date.toDateString();
+  if(key === today.toDateString()) return "Today";
+  if(key === yesterday.toDateString()) return "Yesterday";
+  return date.toLocaleDateString(undefined, { month:"short", day:"numeric", year:date.getFullYear() === today.getFullYear() ? undefined : "numeric" });
+}
+
+function operationalTimelineSection(recordType, recordId, legacyNotes = ""){
+  const events = timelineEventsFor(recordType, recordId);
+  const grouped = events.reduce((groups, event) => {
+    const label = timelineDayLabel(event.timestamp);
+    groups[label] = groups[label] || [];
+    groups[label].push(event);
+    return groups;
+  }, {});
+  const eventMarkup = events.length
+    ? Object.entries(grouped).map(([day, items]) => `<section class="timeline-day"><h4>${esc(day)}</h4>${items.map(event => `<article class="timeline-item structured-event"><p>${esc(timelineEventSentence(event))}</p><span>${esc(new Date(event.timestamp || Date.now()).toLocaleTimeString([], { hour:"numeric", minute:"2-digit" }))}</span></article>`).join("")}</section>`).join("")
+    : empty("No structured timeline events yet. New actions will appear here going forward.");
+  const legacyLines = String(legacyNotes || "").split("\n").filter(line => line.trim());
+  const legacyMarkup = legacyLines.length
+    ? `<details class="legacy-history"><summary>Older notes and history</summary><div class="timeline compact-timeline">${legacyLines.slice(-8).reverse().map(line => `<article class="timeline-item"><p>${esc(line)}</p></article>`).join("")}</div></details>`
+    : "";
+  return `<section class="detail-block operational-timeline">
+    <div class="panel-title"><h3>Timeline</h3><p class="meta">Newest first. This record keeps its story as work changes.</p></div>
+    <div class="timeline">${eventMarkup}</div>
+    ${legacyMarkup}
+  </section>`;
+}
+
+async function recordTimelineEvent({ recordType, recordId, eventType, note = "", relatedRecordType = "", relatedRecordId = "", metadata = {} }){
+  if(!recordType || !recordId || !eventType || !workspaceId() || isDemoMode()) return;
+  try{
+    const { data, error } = await insertTimelineEvent({
+      id:id(),
+      workspace_id:workspaceId(),
+      record_type:recordType,
+      record_id:recordId,
+      related_record_type:relatedRecordType || null,
+      related_record_id:relatedRecordId || null,
+      event_type:eventType,
+      actor_id:currentSession?.user?.id || null,
+      actor_label:timelineActor(),
+      note:note || null,
+      metadata:metadata || {},
+      event_timestamp:new Date().toISOString()
+    });
+    if(error) throw error;
+    if(data) app.timelineEvents = [fromTimelineEvent(data), ...(app.timelineEvents || [])];
+  }catch(err){
+    console.warn("Timeline event was not saved", err);
+  }
+}
+
+function existingRecordForTimeline(table, idValue){
+  if(table === "field_ops_work_orders") return [...(app.tasks || []), ...(app.archivedTasks || [])].find(item => item.id === idValue);
+  if(table === "field_ops_import_reviews") return (app.submissions || []).find(item => item.id === idValue);
+  if(table === "field_ops_vehicles") return (app.vehicles || []).find(item => item.id === idValue);
+  if(table === "field_ops_assets") return (app.assets || []).find(item => item.id === idValue);
+  if(table === "field_ops_buildings") return (app.buildings || []).find(item => item.id === idValue);
+  return null;
+}
+
+function inferredUpdateTimelineEvents(table, idValue, payload){
+  const recordTypeValue = timelineRecordType(table);
+  if(!recordTypeValue) return [];
+  const existing = existingRecordForTimeline(table, idValue);
+  if(table === "field_ops_work_orders"){
+    const events = [];
+    const oldAssignee = existing?.assignedTo || "";
+    const nextAssignee = payload.assigned_person || "";
+    if(Object.prototype.hasOwnProperty.call(payload, "assigned_person") && nextAssignee !== oldAssignee){
+      events.push({
+        recordType:recordTypeValue,
+        recordId:idValue,
+        eventType:oldAssignee ? "reassigned" : "assigned",
+        note: nextAssignee ? `${timelineActor()} assigned this work order to ${nextAssignee}.` : `${timelineActor()} cleared the assignment for this work order.`
+      });
+    }
+    if(payload.status === "complete" && existing?.status !== "complete"){
+      events.push({ recordType:recordTypeValue, recordId:idValue, eventType:"completed", note:`${timelineActor()} completed this work order.` });
+    }
+    if(payload.notes && Object.keys(payload).length === 1){
+      events.push({ recordType:recordTypeValue, recordId:idValue, eventType:"comment_added", note:`${timelineActor()} added a note to this work order.` });
+    }
+    return events;
+  }
+  if(table === "field_ops_import_reviews"){
+    const status = String(payload.status || "").toLowerCase();
+    if(status === "approved") return [{ recordType:recordTypeValue, recordId:idValue, eventType:"approved", note:`${timelineActor()} approved this request.` }];
+    if(status.includes("info")) return [{ recordType:recordTypeValue, recordId:idValue, eventType:"returned_more_information", note:`${timelineActor()} asked for more information about this request.` }];
+    if(status === "needs_review" && payload.proposed_data?.info_response) return [{ recordType:recordTypeValue, recordId:idValue, eventType:"comment_added", note:`${timelineActor()} responded with more information.` }];
+  }
+  if(table === "field_ops_vehicles" && (payload.last_service_date || payload.next_service_date || payload.odometer || payload.status)){
+    return [{ recordType:recordTypeValue, recordId:idValue, eventType:"service_updated", note:"Vehicle service record updated." }];
+  }
+  return [];
+}
+
 function setWorkOrderDetailState(text, state = ""){
   const el = document.getElementById("workOrderDetailSaveState");
   if(!el) return;
@@ -177,7 +349,7 @@ function renderDataStateAffordances(){
   const label = isWorkspaceLoading() ? "Loading" : "--";
   [
     "reviewQueueCount","workspaceProjectCount","workspaceMaintenanceCount","workspaceFleetCount","workspaceBidCount","workspaceReportsCount",
-    "todayReviewCount","todayDueCount","todayOverdueCount","todayFleetCount","urgentCount","projectCount","bidCount"
+    "todayReviewCount","todayAssignedCount","todayUrgentDueCount","todayDueCount","todayOverdueCount","todayFleetCount","urgentCount","projectCount","bidCount"
   ].forEach(idValue => setLoadingText(idValue, label));
   [
     ["todayReviewList","Loading workspace..."],
@@ -242,6 +414,13 @@ async function saveRecoveredPassword(){ return AuthService.saveRecoveredPassword
 function hidePasswordRecoveryPrompt(){ return AuthService.hidePasswordRecoveryPrompt(); }
 function saveDisplayName(){ return AuthService.saveDisplayName(authContext()); }
 function hideDisplayNamePrompt(){ return AuthService.hideDisplayNamePrompt(); }
+Object.assign(globalThis, {
+  operationalTimelineSection,
+  timelineEventsFor,
+  timelineEventSentence,
+  recordTimelineEvent,
+  timelineActor
+});
 async function signOutForSync(){
   if(isDemoMode()){
     currentSession = null;
@@ -280,7 +459,8 @@ async function loadWorkspaceData(){
       selectActive("field_ops_documents"),
       selectActive("field_ops_import_reviews"),
       selectVehicleAlerts(wid),
-      selectArchived("field_ops_work_orders")
+      selectArchived("field_ops_work_orders"),
+      selectTimelineEvents(wid)
     ]);
 
     for(const result of queries){
@@ -302,7 +482,8 @@ async function loadWorkspaceData(){
       files: (queries[9].data || []).map(fromDocument),
       submissions: (queries[10].data || []).map(fromImportReview),
       vehicleAlerts: queries[11].data || [],
-      archivedTasks: (queries[12].data || []).map(fromWorkOrder)
+      archivedTasks: (queries[12].data || []).map(fromWorkOrder),
+      timelineEvents: (queries[13].data || []).map(fromTimelineEvent)
     });
 
     lastWorkspaceLoadAt = new Date().toLocaleString();
@@ -384,6 +565,28 @@ async function insertRecord(table, payload){
   try{
     const { data, error } = await insertRow(table, { workspace_id: workspaceId(), ...payload });
     if(error) throw error;
+    const recordTypeValue = timelineRecordType(table);
+    if(recordTypeValue){
+      const eventType = table === "field_ops_documents" ? "document_uploaded" : "created";
+      const note = table === "field_ops_documents" ? `Document uploaded: ${data.file_name || payload.file_name || "file"}` : "";
+      await recordTimelineEvent({ recordType:recordTypeValue, recordId:data.id, eventType, note });
+      if(table === "field_ops_documents"){
+        const links = [
+          ["work_order", data.work_order_id || payload.work_order_id],
+          ["vehicle", data.vehicle_id || payload.vehicle_id],
+          ["asset", data.asset_id || payload.asset_id],
+          ["building", data.building_id || payload.building_id]
+        ].filter(([, value]) => value);
+        await Promise.all(links.map(([recordType, recordId]) => recordTimelineEvent({
+          recordType,
+          recordId,
+          eventType:"document_uploaded",
+          note:`Document uploaded: ${data.file_name || payload.file_name || "file"}`,
+          relatedRecordType:"document",
+          relatedRecordId:data.id
+        })));
+      }
+    }
     setStatus("Saved");
     await refreshAfterWrite("Saved");
     return data;
@@ -401,6 +604,8 @@ async function updateRecord(table, idValue, payload){
   try{
     const { data, error } = await updateRow(table, idValue, payload, workspaceId());
     if(error) throw error;
+    const events = inferredUpdateTimelineEvents(table, idValue, payload);
+    for(const event of events) await recordTimelineEvent(event);
     setStatus("Saved");
     await refreshAfterWrite("Saved");
     return data;
@@ -420,6 +625,15 @@ async function archiveRecord(table, idValue){
   try{
     const { error } = await archiveRow(table, idValue, workspaceId(), archivedAt, archivedBy);
     if(error) throw error;
+    const recordTypeValue = timelineRecordType(table);
+    if(recordTypeValue){
+      await recordTimelineEvent({
+        recordType:recordTypeValue,
+        recordId:idValue,
+        eventType:table === "field_ops_import_reviews" ? "rejected" : "archived",
+        note:table === "field_ops_import_reviews" ? `${timelineActor()} did not approve this request.` : `${timelineActor()} archived ${recordLabel(recordTypeValue)}.`
+      });
+    }
     setStatus("Archived");
     await refreshAfterWrite("Archived");
   }catch(err){
@@ -435,6 +649,8 @@ async function restoreRecord(table, idValue){
   try{
     const { error } = await restoreRow(table, idValue, workspaceId());
     if(error) throw error;
+    const recordTypeValue = timelineRecordType(table);
+    if(recordTypeValue) await recordTimelineEvent({ recordType:recordTypeValue, recordId:idValue, eventType:"reopened", note:`${timelineActor()} reopened ${recordLabel(recordTypeValue)}.` });
     setStatus("Restored");
     await refreshAfterWrite("Restored");
   }catch(err){
@@ -558,7 +774,10 @@ function render(){
 
 function renderFieldPortal(){
   const count = document.getElementById("portalSubmissionCount");
-  if(count) count.textContent = `${activeItems("submissions").length} sent`;
+  if(count){
+    const requestCount = activeItems("submissions").length;
+    count.textContent = requestCount ? `${requestCount} request${requestCount === 1 ? "" : "s"}` : "Check status";
+  }
 }
 
 function firstLaunchKey(){
@@ -914,8 +1133,8 @@ function renderPermissionState(){
   if(submitButton) submitButton.textContent = submitterOnly ? "Submit Request" : "Send for Review";
   const reviewListTitle = document.querySelector("#importReview .panel:nth-of-type(2) h3");
   const reviewListMeta = document.querySelector("#importReview .panel:nth-of-type(2) .meta");
-  if(reviewListTitle) reviewListTitle.textContent = submitterOnly ? "My Submissions" : "Needs Review";
-  if(reviewListMeta) reviewListMeta.textContent = submitterOnly ? "Requests and uploaded items visible to your account." : "Submitted items, uploads, receipts, estimates, and supply requests stay here until they are reviewed.";
+  if(reviewListTitle) reviewListTitle.textContent = submitterOnly ? "My Requests" : "Needs Review";
+  if(reviewListMeta) reviewListMeta.textContent = submitterOnly ? "Check the status and reference number for each request." : "Submitted items, uploads, receipts, estimates, and supply requests stay here until they are reviewed.";
   const documentsTitle = document.querySelector("#documents h2");
   const documentsMeta = document.querySelector("#documents .meta");
   const documentsListTitle = document.querySelector("#documents .panel:nth-of-type(2) h3");
@@ -983,8 +1202,10 @@ function applyRoleVisibility(){
 function applyLargeTextMode(enabled){
   document.body?.classList.toggle("large-text-mode", Boolean(enabled));
   try{ localStorage.setItem(LARGE_TEXT_MODE_KEY, enabled ? "1" : "0"); }catch(_err){}
-  const toggle = document.getElementById("largeTextModeToggle");
-  if(toggle) toggle.checked = Boolean(enabled);
+  ["largeTextModeToggle","todayLargeTextModeToggle"].forEach(idValue => {
+    const toggle = document.getElementById(idValue);
+    if(toggle) toggle.checked = Boolean(enabled);
+  });
 }
 
 function initLargeTextMode(){
@@ -992,6 +1213,9 @@ function initLargeTextMode(){
   try{ enabled = localStorage.getItem(LARGE_TEXT_MODE_KEY) === "1"; }catch(_err){}
   applyLargeTextMode(enabled);
   document.getElementById("largeTextModeToggle")?.addEventListener("change", event => {
+    applyLargeTextMode(event.target.checked);
+  });
+  document.getElementById("todayLargeTextModeToggle")?.addEventListener("change", event => {
     applyLargeTextMode(event.target.checked);
   });
 }
@@ -1057,6 +1281,7 @@ function buildingStoryPanel(building){
       <section class="object-story-section"><h4>Open Work</h4>${objectStoryRows(openWork, "No open work linked.", item => `<p>${esc(compact([item.date, item.workOrderNumber, item.name]).join(" | "))}</p>`)}</section>
       <section class="object-story-section"><h4>Recurring / Inspections</h4>${objectStoryRows(recurring, "No recurring or inspection work linked yet.", item => `<p>${esc(compact([item.date, item.name]).join(" | "))}</p>`)}</section>
       ${objectContinuitySummary("building", work, docs)}
+      <section class="object-story-section story-timeline"><h4>Timeline</h4>${timelineEventsFor("building", building.id).length ? timelineEventsFor("building", building.id).slice(0,5).map(event => `<p>${esc(timelineEventSentence(event))}</p>`).join("") : `<p>${esc("No structured timeline events yet.")}</p>`}</section>
       <section class="object-story-section"><h4>Activity</h4>${objectStoryRows(work.slice().sort((a,b) => String(b.updatedAt || b.date || "").localeCompare(String(a.updatedAt || a.date || ""))), "No activity recorded yet.", item => activityLine(titleize(item.status || "Updated"), item))}</section>
     </div>
   </details>`;
@@ -1081,6 +1306,7 @@ function assetStoryPanel(asset){
       <section class="object-story-section"><h4>Open Work</h4>${objectStoryRows(openWork, "No open work linked.", item => `<p>${esc(compact([item.date, item.workOrderNumber, item.name]).join(" | "))}</p>`)}</section>
       <section class="object-story-section"><h4>Recurring Maintenance</h4>${objectStoryRows(recurring, "No recurring maintenance linked yet.", item => `<p>${esc(compact([item.date, item.name]).join(" | "))}</p>`)}</section>
       ${objectContinuitySummary("asset/system", work, docs)}
+      <section class="object-story-section story-timeline"><h4>Timeline</h4>${timelineEventsFor("asset", asset.id).length ? timelineEventsFor("asset", asset.id).slice(0,5).map(event => `<p>${esc(timelineEventSentence(event))}</p>`).join("") : `<p>${esc("No structured timeline events yet.")}</p>`}</section>
       <section class="object-story-section"><h4>Activity</h4>${objectStoryRows(work.slice().sort((a,b) => String(b.updatedAt || b.date || "").localeCompare(String(a.updatedAt || a.date || ""))), "No activity recorded yet.", item => activityLine(titleize(item.status || "Updated"), item))}</section>
     </div>
   </details>`;
@@ -1290,7 +1516,7 @@ function renderDiagnostics(){
 }
 
 function printBoardReport(){ buildReport(false); window.print(); }
-const BACKUP_COLLECTION_KEYS = ["buildings", "spaces", "assets", "projects", "vendors", "bids", "budgetItems", "tasks", "archivedTasks", "vehicles", "fuelReceipts", "materials", "takeoffs", "materialLineItems", "purchaseRequests", "files", "submissions", "vehicleAlerts"];
+const BACKUP_COLLECTION_KEYS = ["buildings", "spaces", "assets", "projects", "vendors", "bids", "budgetItems", "tasks", "archivedTasks", "vehicles", "fuelReceipts", "materials", "takeoffs", "materialLineItems", "purchaseRequests", "files", "submissions", "timelineEvents", "vehicleAlerts"];
 
 function downloadBackup(){
   const payload = {

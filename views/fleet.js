@@ -139,6 +139,7 @@
         <section class="object-story-section"><h4>Open Work</h4>${storyRows(openWork, "No open work linked.", item => `<p>${esc(compact([item.date, item.workOrderNumber, item.name]).join(" | "))}</p>`)}</section>
         <section class="object-story-section"><h4>Recurring Maintenance</h4>${storyRows(recurring, "No recurring maintenance linked yet.", item => `<p>${esc(compact([item.date, item.name]).join(" | "))}</p>`)}</section>
         ${vehicleContinuitySummary(work, docs)}
+        <section class="object-story-section story-timeline"><h4>Timeline</h4>${window.timelineEventsFor?.("vehicle", vehicle.id).length ? window.timelineEventsFor("vehicle", vehicle.id).slice(0,5).map(event => `<p>${esc(window.timelineEventSentence?.(event) || "")}</p>`).join("") : `<p>${esc("No structured timeline events yet.")}</p>`}</section>
         <section class="object-story-section"><h4>Activity</h4>${storyRows(work.slice().sort((a,b) => String(b.updatedAt || b.date || "").localeCompare(String(a.updatedAt || a.date || ""))), "No activity recorded yet.", item => activityLine(titleize(item.status || "Updated"), item))}</section>
       </div>
     </details>`;

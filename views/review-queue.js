@@ -342,12 +342,39 @@ function renderReviewQueue(){
   }
   document.getElementById("submissionList").innerHTML = reviews.length ? visibleReviews.map(item => {
     const doc = item.documentId ? app.files.find(file => file.id === item.documentId) : null;
-    const actions = item.status === "Needs Review" && canManageOperations() ? `<div class="actions no-print"><button type="button" onclick="openReviewDetail('${item.id}')">Open Review</button><button class="ghost" type="button" onclick="archiveSubmissionById('${item.id}')">Don't approve this</button></div>` : "";
+    const actions = item.status === "Needs Review" && canManageOperations() ? `<div class="actions no-print"><button type="button" onclick="openReviewDetail('${item.id}')">Open Review</button><button class="ghost archive-action" type="button" onclick="archiveSubmissionById('${item.id}')">Reject request</button></div>` : "";
     const select = item.status === "Needs Review" && canManageOperations()
       ? `<label class="bulk-review-select"><input type="checkbox" data-review-select="${item.id}" /> Select</label>`
       : "";
-    return `<div class="bulk-review-row">${select}${card(item.description || "Review item", [item.importedRecord?.file_name, doc ? `Attached file: ${doc.fileName}` : item.documentId ? "Attached file" : "", item.convertedRecordId ? `Approved work order: ${item.convertedRecordId}` : "Waiting for a human review"], [item.category, item.status, reviewRouteLabel(item)], tone(item.status))}${actions}</div>`;
+    const requestDetails = canSubmitOnly()
+      ? [`Submitted ${requestSubmittedDate(item)}`, `Status: ${requestStatusLabel(item)}`, `Reference: ${requestReference(item.id)}`]
+      : [item.importedRecord?.file_name, doc ? `Attached file: ${doc.fileName}` : item.documentId ? "Attached file" : "", item.convertedRecordId ? `Approved work order: ${requestReference(item.convertedRecordId)}` : "Waiting for review"];
+    const requestTags = canSubmitOnly() ? [requestStatusLabel(item)] : [item.category, item.status, reviewRouteLabel(item)];
+    return `<div class="bulk-review-row">${select}${card(item.description || "Review item", requestDetails, requestTags, tone(item.status))}${actions}</div>`;
   }).join("") + (reviews.length > visibleReviews.length ? empty(`Showing the first ${visibleReviews.length}. Use the filter or finish these before loading more.`) : "") : empty(canSubmitOnly() ? "No submitted requests yet." : "Nothing needs review right now.");
+}
+
+function requestReference(idValue){
+  const compactId = String(idValue || "").replace(/[^a-z0-9]/gi, "").slice(0, 8).toUpperCase();
+  return compactId ? `SW-${compactId}` : "Pending";
+}
+
+function requestSubmittedDate(item){
+  const date = item?.createdAt ? new Date(item.createdAt) : null;
+  return date && !Number.isNaN(date.getTime()) ? date.toLocaleDateString(undefined, { month:"short", day:"numeric", year:"numeric" }) : "date unavailable";
+}
+
+function requestStatusLabel(item){
+  if(item?.convertedRecordId){
+    const linkedWork = [...(app?.tasks || []), ...(app?.archivedTasks || [])].find(work => work.id === item.convertedRecordId);
+    if(String(linkedWork?.status || "").toLowerCase() === "complete") return "Completed";
+    return "Approved";
+  }
+  if(String(item?.status || "").toLowerCase() === "approved") return "Approved";
+  const status = String(item?.status || "").toLowerCase();
+  if(status.includes("info")) return "Needs More Information";
+  if(status.includes("complete") || status.includes("closed")) return "Completed";
+  return "Pending Review";
 }
 
 function reviewRouteLabel(item){
@@ -426,21 +453,22 @@ async function approveSelectedReviewItems(){
     return;
   }
   const ok = await InteractionService?.showConfirmDialog?.({
-    title:`Approve ${ids.length} selected item${ids.length === 1 ? "" : "s"}?`,
-    detail:"Each selected review item will become active work.",
+    title:`Approve ${ids.length} selected item${ids.length === 1 ? "" : "s"} into active work?`,
+    detail:`You are about to approve ${ids.length} item${ids.length === 1 ? "" : "s"} into active work.`,
     reassurance:"Items already approved will be skipped to prevent duplicates.",
-    confirmLabel:"Approve into work",
+    confirmLabel:`Approve ${ids.length} item${ids.length === 1 ? "" : "s"}`,
     cancelLabel:"Review more first"
   });
   if(!ok) return;
   let approved = 0;
   let failed = 0;
   const failureMessages = [];
+  const createdReferences = [];
   for(const reviewId of ids){
     const review = app.submissions.find(item => item.id === reviewId);
     if(!review || review.convertedRecordId || review.status !== "Needs Review") continue;
     try{
-      await ImportReviewService.approveReview({
+      const created = await ImportReviewService.approveReview({
         reviewId:review.id,
         review,
         type:"work_order",
@@ -449,6 +477,7 @@ async function approveSelectedReviewItems(){
         reviewerId:currentSession.user.id
       }, importReviewContext());
       approved++;
+      if(created?.id) createdReferences.push(requestReference(created.id));
       if(status) status.textContent = `Approved ${approved} of ${ids.length}...`;
     }catch(err){
       failed++;
@@ -465,6 +494,11 @@ async function approveSelectedReviewItems(){
       : `Approved ${approved} item${approved === 1 ? "" : "s"} into work orders.`;
   }
   if(approved) addOperationalNotification?.({ type:"request_approved", title:"Review items approved", detail:`${approved} item${approved === 1 ? "" : "s"} became active work.`, view:"workOrders", role:"operations" });
+  if(approved) InteractionService?.showConfirmation?.(
+    `${approved} item${approved === 1 ? "" : "s"} approved`,
+    `${approved} item${approved === 1 ? " is" : "s are"} now active work.${createdReferences.length ? ` References: ${createdReferences.slice(0, 4).join(", ")}${createdReferences.length > 4 ? ", and more" : ""}.` : ""} Assignments and updates can continue from Work Orders.`,
+    [{ label:"Open Work Orders", run:() => showView("workOrders") }]
+  );
 }
 
 async function archiveSelectedReviewItems(){
@@ -481,10 +515,10 @@ async function archiveSelectedReviewItems(){
     return;
   }
   const ok = await InteractionService?.showConfirmDialog?.({
-    title:`Don't approve ${ids.length} selected item${ids.length === 1 ? "" : "s"}?`,
-    detail:"They will leave Needs Review but stay recoverable for history.",
+    title:`Reject ${ids.length} selected item${ids.length === 1 ? "" : "s"}?`,
+    detail:"They will leave Needs Review without becoming active work.",
     reassurance:"This does not delete the original record.",
-    confirmLabel:"Don't approve selected",
+    confirmLabel:"Reject selected",
     cancelLabel:"Keep reviewing",
     tone:"danger"
   });
@@ -548,7 +582,7 @@ async function addSubmission(e){
     currentStep = "saving review request";
     setInlineState("submissionSaveState", "Saving request for review...", "pending");
     const summary = submissionDescription.value.trim();
-    await createImportReview(submissionSource.value, "work_order", Mappers.submitterWorkOrderReviewData({ description:submissionDescription.value, urgency:submissionUrgency.value, location:submissionLocation.value, category:submissionCategory.value, name:submissionName.value, contact:submissionContact.value, documentId }), submissionDescription.value, documentId);
+    const createdReview = await createImportReview(submissionSource.value, "work_order", Mappers.submitterWorkOrderReviewData({ description:submissionDescription.value, urgency:submissionUrgency.value, location:submissionLocation.value, category:submissionCategory.value, name:submissionName.value, contact:submissionContact.value, documentId }), submissionDescription.value, documentId);
     if(typeof form?.reset === "function") form.reset();
     interactions?.clearDroppedReviewFile?.();
     const useConversation = typeof canSubmitOnly === "function" && canSubmitOnly();
@@ -563,7 +597,11 @@ async function addSubmission(e){
     }
     setInlineState("submissionSaveState", "Saved - we'll take a look at it.", "saved");
     setStatus("Saved - we'll take a look at it.");
-    InteractionService?.showConfirmation?.("Request sent", "Saved - we'll take a look at it.");
+    InteractionService?.showConfirmation?.(
+      "Request received",
+      `The operations team will review it next. Reference: ${requestReference(createdReview?.id)}.`,
+      [{ label:"View My Requests", run:() => openMySubmissions() }]
+    );
     addOperationalNotification?.({ type:"request_submitted", title:"Request sent", detail:submissionDescription.value.slice(0, 120), view:"importReview", role:"submitter" });
     loadWorkspaceData().catch(err => console.error("Submission saved, but refresh failed", err));
   }catch(err){
@@ -648,6 +686,7 @@ function renderImportReviewDetail(){
       <label class="full">Location / description<textarea name="description">${esc(data.description || data.location || "")}</textarea></label>
       <label class="full">Notes / history<textarea name="notes">${esc(data.notes || data.extracted_text || review.description || "")}</textarea></label>
     </div>
+    ${window.operationalTimelineSection?.("maintenance_request", review.id, data.notes || review.description || "") || ""}
   `;
   const approveBtn = document.getElementById("reviewApproveBtn");
   const rejectBtn = document.getElementById("reviewRejectBtn");
@@ -699,7 +738,7 @@ function renderImportReviewDetail(){
     responseBtn.onclick = () => submitMoreInfoResponse();
   }
   if(rejectBtn){
-    rejectBtn.textContent = "Reject and return";
+    rejectBtn.textContent = "Reject request";
     rejectBtn.onclick = () => archiveSubmissionById(review.id);
   }
 }
@@ -753,6 +792,9 @@ async function approveReviewDetail(){
     }
     setInlineState("reviewDetailSaveState", "Approving into work order...", "pending");
     const payload = reviewWorkOrderPayload();
+    if(typeof window.recordTimelineEvent === "function"){
+      await window.recordTimelineEvent({ recordType:"maintenance_request", recordId:review.id, eventType:"reviewed", note:`${window.timelineActor?.() || "Someone"} reviewed this request.` });
+    }
     const created = await ImportReviewService.approveReview({ reviewId:review.id, review, type:"work_order", data:payload, documentId:review.documentId, reviewerId:currentSession.user.id }, importReviewContext());
     selectedWorkOrderId = created.id;
     setInlineState("reviewDetailSaveState", created.alreadyConverted ? "Already approved" : "Approved into work order", "saved");
@@ -823,6 +865,9 @@ async function requestMoreInfoForReview(){
   };
   try{
     setInlineState("reviewDetailSaveState", "Saving information request...", "pending");
+    if(typeof window.recordTimelineEvent === "function"){
+      await window.recordTimelineEvent({ recordType:"maintenance_request", recordId:review.id, eventType:"reviewed", note:`${window.timelineActor?.() || "Someone"} reviewed this request.` });
+    }
     await updateRecord("field_ops_import_reviews", review.id, payload);
     InteractionService?.showConfirmation?.("More information requested", "This item stays out of active work until the details are clarified.");
     addOperationalNotification?.({ type:"more_info_requested", title:"More information needed", detail:note.trim() || "A manager requested more information.", view:"importReview", recordId:review.id, role:"all" });
@@ -837,7 +882,19 @@ async function requestMoreInfoForReview(){
 
 
 async function archiveSubmissionById(reviewId){
+  const ok = await InteractionService?.showConfirmDialog?.({
+    title:"Reject this request?",
+    detail:"It will leave Needs Review without becoming active work.",
+    reassurance:"The request stays in history and is not deleted.",
+    confirmLabel:"Reject request",
+    cancelLabel:"Keep reviewing",
+    tone:"danger"
+  });
+  if(!ok) return;
   try{
+    if(typeof window.recordTimelineEvent === "function"){
+      await window.recordTimelineEvent({ recordType:"maintenance_request", recordId:reviewId, eventType:"reviewed", note:`${window.timelineActor?.() || "Someone"} reviewed this request.` });
+    }
     await ImportReviewService.archiveReview(reviewId, importReviewContext());
     InteractionService?.showConfirmation?.("Review item closed", "It was not approved into active work and can be found in history if needed.");
     addOperationalNotification?.({ type:"request_rejected", title:"Request was not approved", detail:"It was moved out of Needs Review and kept for history.", view:"importReview", recordId:reviewId, role:"all" });

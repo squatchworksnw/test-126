@@ -118,43 +118,27 @@
   <section id="fieldPortal" class="view">
     <section class="home-hero panel editorial-card">
       <div>
-        <p class="eyebrow">Field portal</p>
-        <h2>Send the operations team what they need.</h2>
-        <p class="meta">Send the note, photo, receipt, or request. The operations team will review it before it becomes active work.</p>
-      </div>
-      <div class="quick-actions no-print" aria-label="Field portal actions">
-        <button type="button" onclick="openSubmitRequest()">Submit New Request</button>
-        <button type="button" class="ghost" onclick="openUploadFile()">Upload Photo / Document</button>
-        <button type="button" class="ghost" onclick="openEstimateUpload()">Upload Estimate</button>
-        <button type="button" class="ghost" onclick="openSupplyRequest()">Purchase / Supply Request</button>
+        <p class="eyebrow">My home</p>
+        <h2>What do you need to send or check today?</h2>
+        <p class="meta">Choose one next step. The operations team will review anything you send.</p>
       </div>
     </section>
 
-    <section class="workspace-grid" aria-label="Field portal shortcuts">
-      <button class="workspace-card review" type="button" onclick="openSubmitRequest()">
-        <span>Submit New Request</span>
-        <strong>Start here</strong>
-        <em>Send location, urgency, notes, and an optional file.</em>
+    <section class="today-priority-grid primary-action-row" aria-label="My home actions">
+      <button class="priority-tile review" type="button" onclick="openSubmitRequest()">
+        <span>Report a Need</span>
+        <strong>Start</strong>
+        <em>Tell the operations team what needs attention.</em>
       </button>
-      <button class="workspace-card files" type="button" onclick="openUploadFile()">
-        <span>Upload Photo / Document</span>
-        <strong>Attach proof</strong>
-        <em>Receipts, photos, PDFs, spreadsheets, estimates, and supporting documents.</em>
+      <button class="priority-tile due" type="button" onclick="openMySubmissions()">
+        <span>Check My Requests</span>
+        <strong id="portalSubmissionCount">Check status</strong>
+        <em>See what happened and whether a response is needed.</em>
       </button>
-      <button class="workspace-card materials" type="button" onclick="openSupplyRequest()">
-        <span>Purchase / Supply Request</span>
-        <strong>Review first</strong>
-        <em>Materials, supplies, event needs, gifts, marketing items, or other order requests.</em>
-      </button>
-      <button class="workspace-card maintenance" type="button" onclick="openMySubmissions()">
-        <span>View My Submissions</span>
-        <strong id="portalSubmissionCount">0 sent</strong>
-        <em>Track requests and uploaded items visible to your account.</em>
-      </button>
-      <button class="workspace-card calendar" type="button" onclick="showView('assignedWork')">
-        <span>Assigned Work</span>
-        <strong id="portalAssignedCount">My work</strong>
-        <em>Assigned work will appear here when a manager assigns something to you.</em>
+      <button class="priority-tile clear" type="button" onclick="openUploadFile()">
+        <span>Add a Photo or File</span>
+        <strong>Upload</strong>
+        <em>Send proof or supporting information.</em>
       </button>
     </section>
   </section>
@@ -162,20 +146,15 @@
   <section id="assignedWork" class="view">
     <section class="home-hero panel editorial-card">
       <div>
-        <p class="eyebrow">Assigned work</p>
-        <h2>My focused work list.</h2>
-        <p class="meta">Open work connected to your login, due dates, notes, documents, and scheduled context.</p>
-      </div>
-      <div class="quick-actions no-print" aria-label="Assigned work actions">
-        <button type="button" onclick="showView('documents')">Upload Photo / Receipt</button>
-        <button type="button" class="ghost" onclick="showView('importReview')">Send Request</button>
+        <p class="eyebrow">My work</p>
+        <h2>What should you work on next?</h2>
+        <p class="meta">Start with overdue work, then work due today. Add proof when the work is done.</p>
       </div>
     </section>
     <section class="today-priority-grid assigned-summary" aria-label="Assigned work summary">
-      <button class="priority-tile urgent" type="button" onclick="setAssignedWorkFilter('overdue')"><span>Overdue</span><strong id="assignedOverdueCount">0</strong><em>Past due</em></button>
-      <button class="priority-tile due" type="button" onclick="setAssignedWorkFilter('today')"><span>Due Today</span><strong id="assignedTodayCount">0</strong><em>Today only</em></button>
-      <button class="priority-tile week" type="button" onclick="setAssignedWorkFilter('week')"><span>This Week</span><strong id="assignedWeekCount">0</strong><em>Upcoming</em></button>
-      <button class="priority-tile clear" type="button" onclick="setAssignedWorkFilter('recent')"><span>Updated</span><strong id="assignedRecentCount">0</strong><em>Recently changed</em></button>
+      <button class="priority-tile urgent" type="button" onclick="setAssignedWorkFilter('overdue')"><span>Do Overdue Work</span><strong id="assignedOverdueCount">0</strong><em>Open work that is past due.</em></button>
+      <button class="priority-tile due" type="button" onclick="setAssignedWorkFilter('today')"><span>Do Today's Work</span><strong id="assignedTodayCount">0</strong><em>Open work due today.</em></button>
+      <button class="priority-tile clear" type="button" onclick="showView('documents')"><span>Add Completion Proof</span><strong>Upload</strong><em>Send a photo, receipt, or document.</em></button>
     </section>
     <section class="panel">
       <div class="panel-title">
@@ -184,19 +163,20 @@
           <p id="assignedWorkStatus" class="meta" aria-live="polite">Showing assigned work.</p>
         </div>
       </div>
-      <div class="work-order-tools no-print">
+      <details class="work-order-tools no-print quiet-details">
+        <summary>Find other assigned work</summary>
         <label class="work-order-search">Search my work
           <input id="assignedWorkSearchInput" type="search" placeholder="Search title, date, location, notes..." autocomplete="off" oninput="handleAssignedWorkSearch()" />
         </label>
         <div class="filter-pills" role="group" aria-label="Assigned work filters">
-          <button type="button" class="filter-pill active" data-assigned-filter="attention" onclick="setAssignedWorkFilter('attention')">Attention</button>
-          <button type="button" class="filter-pill" data-assigned-filter="today" onclick="setAssignedWorkFilter('today')">Today</button>
+          <button type="button" class="filter-pill active" data-assigned-filter="attention" onclick="setAssignedWorkFilter('attention')">Needs Attention</button>
+          <button type="button" class="filter-pill" data-assigned-filter="today" onclick="setAssignedWorkFilter('today')">Due Today</button>
           <button type="button" class="filter-pill" data-assigned-filter="overdue" onclick="setAssignedWorkFilter('overdue')">Overdue</button>
           <button type="button" class="filter-pill" data-assigned-filter="week" onclick="setAssignedWorkFilter('week')">This Week</button>
           <button type="button" class="filter-pill" data-assigned-filter="scheduled" onclick="setAssignedWorkFilter('scheduled')">Scheduled</button>
           <button type="button" class="filter-pill" data-assigned-filter="recent" onclick="setAssignedWorkFilter('recent')">Recently Updated</button>
         </div>
-      </div>
+      </details>
       <div id="assignedWorkList" class="assigned-work-list card-list"></div>
       <div id="assignedWorkDetail" class="assigned-work-detail"></div>
     </section>
@@ -219,13 +199,11 @@
       <div>
         <p class="eyebrow">Today</p>
         <h2 id="dailyGreeting">Good morning.</h2>
+        <p class="meta">Move the work that needs attention today.</p>
         <div id="dailyRhythmLines" class="rhythm-lines"></div>
       </div>
-      <div class="illustration-anchor" data-companion="bird" aria-hidden="true"></div>
-      <div class="quick-actions no-print" aria-label="Daily actions">
-        <button type="button" onclick="showView('workOrders')">Create Work Order</button>
-        <button type="button" class="ghost" onclick="showView('importReview')">Needs Review</button>
-        <button type="button" class="ghost" onclick="openUploadFile()">Upload</button>
+      <div class="today-header-tools no-print" aria-label="Today display tools">
+        <label class="settings-toggle compact-toggle"><input id="todayLargeTextModeToggle" type="checkbox" /> Large Text</label>
       </div>
     </section>
 
@@ -258,125 +236,48 @@
       </div>
     </section>
 
-    <section class="today-priority-grid" aria-label="Today priority board">
+    <section class="today-priority-grid primary-action-row" aria-label="Primary actions for today">
       <button class="priority-tile review" type="button" onclick="showView('importReview')">
         <span>Needs Review</span>
         <strong id="todayReviewCount">0</strong>
-        <em>Incoming items waiting</em>
+        <em id="todayReviewSummary">No items waiting for review</em>
       </button>
-      <button class="priority-tile due" type="button" onclick="showView('workOrders')">
-        <span>Work Orders Due Today</span>
-        <strong id="todayDueCount">0</strong>
-        <em>Work due now</em>
+      <button class="priority-tile due" type="button" onclick="showView('assignedWork')">
+        <span>My Work</span>
+        <strong id="todayAssignedCount">0</strong>
+        <em id="todayAssignedSummary">No work assigned to you</em>
       </button>
       <button class="priority-tile urgent" type="button" onclick="showView('workOrders')">
-        <span>Overdue</span>
-        <strong id="todayOverdueCount">0</strong>
-        <em>Past due and still open</em>
+        <span>Urgent Today</span>
+        <strong id="todayUrgentDueCount">0</strong>
+        <em id="todayUrgentSummary">Nothing urgent right now</em>
       </button>
-      <button class="priority-tile fleet" type="button" onclick="showView('vehicles')">
-        <span>Vehicles Needing Service</span>
-        <strong id="todayFleetCount">0</strong>
-        <em>Vehicles to check</em>
-      </button>
-    </section>
-
-    <section class="panel workspace-launcher" data-admin-only aria-label="Primary workspaces">
-      <div class="panel-title">
-        <div>
-          <h3>Where to work</h3>
-          <p class="meta">Pick a workspace. Each card shows what needs attention right now.</p>
-        </div>
-      </div>
-      <section class="workspace-grid">
-        <button class="workspace-card review" type="button" onclick="showView('importReview')">
-          <span>Review Queue</span>
-          <strong id="reviewQueueCount">0 waiting</strong>
-          <em>Submissions and uploads to approve.</em>
-        </button>
-        <button class="workspace-card projects" type="button" onclick="showView('projects')">
-          <span>Projects</span>
-          <strong id="workspaceProjectCount">0 active</strong>
-          <em>Remodels, repairs, and board asks.</em>
-        </button>
-        <button class="workspace-card maintenance" type="button" onclick="showView('workOrders')">
-          <span>Maintenance</span>
-          <strong id="workspaceMaintenanceCount">0 due today</strong>
-          <em>Work orders and assigned field work.</em>
-        </button>
-        <button class="workspace-card fleet" type="button" onclick="showView('vehicles')">
-          <span>Fleet</span>
-          <strong id="workspaceFleetCount">0 to check</strong>
-          <em>Vehicles, service, and registration.</em>
-        </button>
-        <button class="workspace-card vendors" type="button" onclick="showView('vendors')">
-          <span>Vendors &amp; Bids</span>
-          <strong id="workspaceBidCount">0 open</strong>
-          <em>Estimates, contractors, and comparisons.</em>
-        </button>
-        <button class="workspace-card files" type="button" onclick="showView('documents')">
-          <span>Files</span>
-          <strong id="workspaceFileCount">0 linked</strong>
-          <em>Photos, receipts, PDFs, and records.</em>
-        </button>
-        <button class="workspace-card calendar" type="button" onclick="showView('calendar')">
-          <span>Calendar</span>
-          <strong id="workspaceCalendarCount">0 this week</strong>
-          <em>Dated work across the workspace.</em>
-        </button>
-        <button class="workspace-card reports" type="button" onclick="showView('reports')">
-          <span>Reports</span>
-          <strong id="workspaceReportsCount">Open</strong>
-          <em>Board-ready summaries and packets.</em>
-        </button>
-        <button class="workspace-card fuel" type="button" onclick="showView('fuelReceipts')">
-          <span>Fuel Receipts</span>
-          <strong id="workspaceFuelCount">0 receipts</strong>
-          <em>Gas receipts tied to vehicles.</em>
-        </button>
-      </section>
-    </section>
-
-    <section class="panel operational-health-panel" data-admin-only>
-      <div class="panel-title">
-        <div>
-          <h3>Operational Health</h3>
-          <p class="meta">Calm leadership view of what deserves attention.</p>
-        </div>
-        <button class="ghost" type="button" onclick="buildReport(true)">Open report</button>
-      </div>
-      <div id="operationalHealthSummary" class="operational-health-grid"></div>
     </section>
 
     <section class="today-flow" aria-label="Today workflow">
       <section class="panel today-panel priority-review" data-hide-when-empty="review">
-        <div class="panel-title"><div><h3>Needs Review</h3><p class="meta">Incoming requests and uploads.</p></div><button class="ghost" type="button" onclick="showView('importReview')">View all</button></div>
+        <div class="panel-title"><div><h3>Needs Review</h3><p class="meta">Decide what should happen next.</p></div><button class="ghost" type="button" onclick="showView('importReview')">Review now</button></div>
         <div id="todayReviewList" class="card-list"></div>
       </section>
 
       <section class="panel today-panel priority-my-work" data-hide-when-empty="assigned">
-        <div class="panel-title"><div><h3>My Assigned Work Today</h3><p class="meta">Assigned work due now.</p></div><button class="ghost" type="button" onclick="showView('assignedWork')">View all</button></div>
+        <div class="panel-title"><div><h3>My Assigned Work Today</h3><p class="meta">Complete or update work due now.</p></div><button class="ghost" type="button" onclick="showView('assignedWork')">Open my work</button></div>
         <div id="todayAssignedList" class="card-list"></div>
       </section>
 
       <section class="panel today-panel" data-hide-when-empty="overdue">
-        <div class="panel-title"><div><h3>Overdue</h3><p class="meta">Past due and still open.</p></div><button class="ghost" type="button" onclick="setWorkOrderFilter('overdue');showView('workOrders')">View all</button></div>
+        <div class="panel-title"><div><h3>Overdue</h3><p class="meta">Move past-due work forward.</p></div><button class="ghost" type="button" onclick="setWorkOrderFilter('overdue');showView('workOrders')">Open overdue work</button></div>
         <div id="overdueList" class="card-list"></div>
       </section>
 
       <section class="panel today-panel" data-hide-when-empty="dueToday">
-        <div class="panel-title"><div><h3>Due Today</h3><p class="meta">Only work scheduled for today.</p></div><button class="ghost" type="button" onclick="setWorkOrderFilter('today');showView('workOrders')">View all</button></div>
+        <div class="panel-title"><div><h3>Due Today</h3><p class="meta">Complete or assign today's work.</p></div><button class="ghost" type="button" onclick="setWorkOrderFilter('today');showView('workOrders')">Open today's work</button></div>
         <div id="dueTodayList" class="card-list"></div>
-      </section>
-
-      <section class="panel today-panel" data-hide-when-empty="fleet">
-        <div class="panel-title"><div><h3>Fleet / Service Alerts</h3><p class="meta">Vehicles that need attention.</p></div><button class="ghost" type="button" onclick="showView('vehicles')">View all</button></div>
-        <div id="fleetAlertList" class="card-list"></div>
       </section>
 
       <details class="panel today-panel quiet-details" data-hide-when-empty="scheduled">
         <summary><span id="todayScheduledSummary">Recurring work this week: 0</span></summary>
-        <div class="panel-title"><div><h3>Recurring Work This Week</h3><p class="meta">Calendar imports stay here unless they need active attention.</p></div><button class="ghost" type="button" onclick="showView('scheduledWork')">View all</button></div>
+        <div class="panel-title"><div><h3>Recurring Work This Week</h3><p class="meta">Check what is coming next.</p></div><button class="ghost" type="button" onclick="showView('scheduledWork')">Open scheduled work</button></div>
         <div id="scheduledTodayList" class="card-list"></div>
       </details>
     </section>
@@ -457,9 +358,9 @@
           </select>
         </label>
         <label>Location<input id="submissionLocation" placeholder="Kitchen, Valley, Francis, Fleet..." /></label>
-        <label data-submitter-optional>Source
+        <label data-submitter-optional>How are you reporting this?
           <select id="submissionSource">
-            <option>Manual entry</option>
+            <option>Entered here</option>
             <option>Staff portal</option>
             <option>Office request</option>
             <option>File import</option>
@@ -506,7 +407,7 @@
           <button type="button" class="ghost" onclick="selectVisibleReviewItems(true)">Select visible</button>
           <button type="button" class="ghost" onclick="selectVisibleReviewItems(false)">Clear</button>
           <button type="button" onclick="approveSelectedReviewItems()">Approve selected</button>
-          <button type="button" class="danger" onclick="archiveSelectedReviewItems()">Don't approve selected</button>
+          <button type="button" class="ghost archive-action" onclick="archiveSelectedReviewItems()">Reject selected</button>
         </div>
         <p id="bulkReviewStatus" class="meta" aria-live="polite">Choose a filter, select items, then approve them into work.</p>
       </div>
@@ -729,8 +630,8 @@
         <div class="actions no-print">
           <button class="ghost" type="button" onclick="showView('workOrders')">Back to Work Orders</button>
           <button type="button" id="workOrderDetailEditBtn">Edit</button>
-          <button class="ghost" type="button" id="workOrderDetailCompleteBtn">Mark Complete</button>
-          <button class="danger" type="button" id="workOrderDetailArchiveBtn">Archive this work order</button>
+          <button type="button" id="workOrderDetailCompleteBtn">Mark Complete</button>
+          <button class="ghost archive-action" type="button" id="workOrderDetailArchiveBtn">Archive this work order</button>
         </div>
       </div>
       <div id="workOrderDetailBody"></div>
